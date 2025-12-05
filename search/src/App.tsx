@@ -8,7 +8,8 @@ import React, {
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
-import { Listing, mockListings } from "./data/listings";
+import type { Listing } from "./data/listings";
+import { mockListings } from "./data/listings";
 
 const ThemeContext = createContext<{
   isDark: boolean;
