@@ -1,5 +1,5 @@
 import PropertyCard from './PropertyCard'
-import { Listing } from '../types'
+import type { Listing } from '../types'
 
 export interface ResultsPanelProps {
   listings: Listing[]

@@ -1,4 +1,4 @@
-import { Listing } from '../types'
+import type { Listing } from '../types'
 
 export interface MapPanelProps {
   listings: Listing[]

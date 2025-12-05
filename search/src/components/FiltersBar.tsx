@@ -1,5 +1,5 @@
-import { FormEvent } from 'react'
-import { SearchFilters } from '../types'
+import type { FormEvent } from 'react'
+import type { SearchFilters } from '../types'
 
 export interface FiltersBarProps {
   filters: SearchFilters
