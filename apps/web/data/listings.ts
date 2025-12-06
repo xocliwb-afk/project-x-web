@@ -1,25 +1,4 @@
-export type ListingStatus = "FOR_SALE" | "PENDING" | "SOLD";
-export type PropertyType = "Single Family" | "Condo" | "Multi-Family" | "Land";
-
-export type Listing = {
-  id: string;
-  addressLine1: string;
-  city: string;
-  state: string;
-  zip: string;
-  neighborhood?: string;
-  region: string;
-  price: number;
-  beds: number;
-  baths: number;
-  sqft: number;
-  lat: number;
-  lng: number;
-  photoUrl: string;
-  status: ListingStatus;
-  propertyType: PropertyType;
-  daysOnMarket: number;
-};
+import { Listing } from "../types";
 
 export const mockListings: Listing[] = [
   {
@@ -38,7 +17,6 @@ export const mockListings: Listing[] = [
     lng: -85.6435,
     photoUrl: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=800&q=80",
     status: "FOR_SALE",
-    propertyType: "Single Family",
     daysOnMarket: 3,
   },
   {
@@ -57,7 +35,6 @@ export const mockListings: Listing[] = [
     lng: -85.6005,
     photoUrl: "https://images.unsplash.com/photo-1600596542815-e32cb0656e21?auto=format&fit=crop&w=800&q=80",
     status: "FOR_SALE",
-    propertyType: "Single Family",
     daysOnMarket: 7,
   },
   {
@@ -76,7 +53,6 @@ export const mockListings: Listing[] = [
     lng: -85.643,
     photoUrl: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
     status: "PENDING",
-    propertyType: "Single Family",
     daysOnMarket: 5,
   },
   {
@@ -95,7 +71,6 @@ export const mockListings: Listing[] = [
     lng: -85.65,
     photoUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
     status: "FOR_SALE",
-    propertyType: "Single Family",
     daysOnMarket: 1,
   },
   {
@@ -114,26 +89,6 @@ export const mockListings: Listing[] = [
     lng: -85.583,
     photoUrl: "https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?auto=format&fit=crop&w=800&q=80",
     status: "FOR_SALE",
-    propertyType: "Single Family",
     daysOnMarket: 10,
-  },
-  {
-    id: "gr-007",
-    addressLine1: "2319 Union Ave SE",
-    city: "Grand Rapids",
-    state: "MI",
-    zip: "49507",
-    neighborhood: "Alger Heights",
-    region: "West Michigan",
-    price: 295_000,
-    beds: 3,
-    baths: 2,
-    sqft: 1540,
-    lat: 42.925,
-    lng: -85.651,
-    photoUrl: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80",
-    status: "SOLD",
-    propertyType: "Single Family",
-    daysOnMarket: 4,
-  },
+  }
 ];
