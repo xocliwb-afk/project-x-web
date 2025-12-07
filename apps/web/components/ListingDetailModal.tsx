@@ -1,101 +1,109 @@
-import type { Listing } from "@/lib/mappers";
+import type { Listing as CardListing } from "@/lib/mappers";
 
 interface ListingDetailModalProps {
-  listing: Listing | null;
+  listing: CardListing | null;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function ListingDetailModal({ listing, isOpen, onClose }: ListingDetailModalProps) {
+export function ListingDetailModal({
+  listing,
+  isOpen,
+  onClose,
+}: ListingDetailModalProps) {
   if (!isOpen || !listing) return null;
 
-  const currency = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
-
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
       onClick={onClose}
     >
-      <div 
-        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-slate-900"
+      <div
+        className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
-        <button 
+        <button
+          type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 rounded-full bg-black/20 p-2 text-white hover:bg-black/40"
+          className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white hover:bg-black/80"
         >
           ✕
         </button>
 
-        {/* Hero Image */}
-        <div className="relative aspect-video w-full bg-slate-200 dark:bg-slate-800">
-          <img 
-            src={listing.photoUrl} 
-            alt={listing.addressLine1} 
-            className="h-full w-full object-cover"
-          />
-        </div>
+        {listing.photoUrl && (
+          <div className="h-64 w-full bg-black">
+            <img
+              src={listing.photoUrl}
+              alt={listing.addressLine1}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        )}
 
-        {/* Details */}
-        <div className="p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                {currency.format(listing.price)}
-              </h2>
-              <p className="text-lg font-medium text-slate-900 dark:text-slate-200">
-                {listing.addressLine1}
-              </p>
-              <p className="text-slate-500 dark:text-slate-400">
-                {listing.city}, {listing.state} {listing.zip}
-              </p>
+        <div className="p-5 sm:p-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">
+              ${listing.price.toLocaleString()}
             </div>
-            <span className="rounded bg-slate-100 px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-200">
               {listing.status.replace("_", " ")}
             </span>
           </div>
 
-          <div className="mt-6 grid grid-cols-3 divide-x divide-slate-100 border-y border-slate-100 py-4 dark:divide-slate-800 dark:border-slate-800">
-            <div className="text-center">
-              <div className="text-xl font-bold text-slate-900 dark:text-white">{listing.beds}</div>
-              <div className="text-xs uppercase tracking-wider text-slate-500">Beds</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xl font-bold text-slate-900 dark:text-white">{listing.baths}</div>
-              <div className="text-xs uppercase tracking-wider text-slate-500">Baths</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xl font-bold text-slate-900 dark:text-white">{listing.sqft.toLocaleString()}</div>
-              <div className="text-xs uppercase tracking-wider text-slate-500">Sqft</div>
+          <div className="mb-4 text-sm text-slate-700 dark:text-slate-200">
+            <div className="font-medium">{listing.addressLine1}</div>
+            <div className="text-slate-500 dark:text-slate-400">
+              {listing.city}, {listing.state} {listing.zip}
             </div>
           </div>
 
-          <div className="mt-6 space-y-3">
-            <div className="flex justify-between text-sm">
+          <div className="mb-4 flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-300">
+            <span>
+              <strong className="text-slate-900 dark:text-slate-100">
+                {listing.beds}
+              </strong>{" "}
+              Beds
+            </span>
+            <span>
+              <strong className="text-slate-900 dark:text-slate-100">
+                {listing.baths}
+              </strong>{" "}
+              Baths
+            </span>
+            <span>
+              <strong className="text-slate-900 dark:text-slate-100">
+                {listing.sqft.toLocaleString()}
+              </strong>{" "}
+              Sq Ft
+            </span>
+          </div>
+
+          <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+            <div className="flex justify-between">
               <span className="text-slate-500">Property Type</span>
-              <span className="font-medium text-slate-900 dark:text-slate-200">{listing.propertyType}</span>
+              <span className="font-medium text-slate-900 dark:text-slate-200">
+                {listing.propertyType}
+              </span>
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between">
               <span className="text-slate-500">Days on Market</span>
-              <span className="font-medium text-slate-900 dark:text-slate-200">{listing.daysOnMarket}</span>
+              <span className="font-medium text-slate-900 dark:text-slate-200">
+                {listing.daysOnMarket}
+              </span>
             </div>
-             {listing.neighborhood && (
-              <div className="flex justify-between text-sm">
+            {listing.neighborhood && (
+              <div className="flex justify-between">
                 <span className="text-slate-500">Neighborhood</span>
-                <span className="font-medium text-slate-900 dark:text-slate-200">{listing.neighborhood}</span>
+                <span className="font-medium text-slate-900 dark:text-slate-200">
+                  {listing.neighborhood}
+                </span>
               </div>
             )}
           </div>
 
-          <div className="mt-8">
-            <button className="w-full rounded-lg bg-orange-500 py-3 font-bold text-white transition-colors hover:bg-orange-600">
-              Request a Tour
-            </button>
+          <div className="mt-5 text-sm text-slate-500 dark:text-slate-400">
+            This is a demo listing detail view. Additional property remarks,
+            features, and tour scheduling will be wired in future phases.
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import type { NormalizedListing, ListingStatus, PropertyType } from "@project-x/shared-types";
+import type { Listing as NormalizedListing } from "@project-x/shared-types";
 
 export interface Listing {
   id: string;
@@ -13,33 +13,35 @@ export interface Listing {
   photoUrl: string;
   lat: number;
   lng: number;
-  status: ListingStatus;
-  propertyType: PropertyType;
+  status: NormalizedListing["status"];
+  propertyType: string;
   daysOnMarket: number;
-  neighborhood: string | null;
+  neighborhood?: string;
 }
 
 export function mapNormalizedToListing(l: NormalizedListing): Listing {
   return {
     id: l.id,
-    price: l.details.price,
+    price: l.price,
     addressLine1: l.address.street,
     city: l.address.city,
     state: l.address.state,
     zip: l.address.zip,
-    beds: l.details.beds,
-    baths: l.details.baths,
-    sqft: l.details.sqft,
-    photoUrl: l.media.photos[0] || "",
-    lat: l.coordinates.lat,
-    lng: l.coordinates.lng,
-    status: l.details.status,
-    propertyType: l.details.propertyType,
-    daysOnMarket: l.meta.daysOnMarket,
+    beds: l.specs.beds,
+    baths: l.specs.baths,
+    sqft: l.specs.sqft,
+    photoUrl: l.thumbnailUrl || l.photos[0] || "",
+    lat: l.address.lat,
+    lng: l.address.lng,
+    status: l.status,
+    propertyType: l.propertyType,
+    daysOnMarket: l.daysOnMarket,
     neighborhood: l.address.neighborhood,
   };
 }
 
-export function mapNormalizedArrayToListings(list: NormalizedListing[]): Listing[] {
+export function mapNormalizedArrayToListings(
+  list: NormalizedListing[]
+): Listing[] {
   return list.map(mapNormalizedToListing);
 }

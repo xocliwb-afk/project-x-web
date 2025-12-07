@@ -1,18 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef, useTransition } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useTransition,
+  type MutableRefObject,
+  type CSSProperties,
+} from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
-// --- Safe Debounce Hook ---
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => {
-      clearTimeout(handler);
-    };
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
   }, [value, delay]);
   return debouncedValue;
 }
@@ -29,7 +31,8 @@ type ActiveFilter =
 const chipBase =
   "flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap";
 const chipActive = "border-orange-500 bg-orange-500 text-white";
-const chipInactive = "border-slate-200 bg-white hover:bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800";
+const chipInactive =
+  "border-slate-200 bg-white hover:bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800";
 
 const STATUS_OPTIONS = [
   { label: "For Sale", value: "FOR_SALE" },
@@ -57,6 +60,35 @@ const BATHS_OPTIONS = [
   { label: "3+", value: "3" },
 ];
 
+const LOT_SIZE_OPTIONS = [
+  { label: "Any", value: "" },
+  { label: "0.25+ acres", value: "0.25" },
+  { label: "0.5+ acres", value: "0.5" },
+  { label: "1+ acres", value: "1" },
+  { label: "2+ acres", value: "2" },
+  { label: "5+ acres", value: "5" },
+];
+
+const STORIES_OPTIONS = [
+  { label: "Any", value: "" },
+  { label: "Single Story", value: "1" },
+  { label: "2+ Stories", value: "2" },
+];
+
+const BASEMENT_OPTIONS = [
+  { label: "Any", value: "" },
+  { label: "Finished", value: "Finished" },
+  { label: "Unfinished", value: "Unfinished" },
+];
+
+const DOM_OPTIONS = [
+  { label: "Any", value: "" },
+  { label: "1 day", value: "1" },
+  { label: "Less than 3", value: "3" },
+  { label: "Less than 7", value: "7" },
+  { label: "Less than 30", value: "30" },
+];
+
 export default function SearchFiltersBar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -64,19 +96,51 @@ export default function SearchFiltersBar() {
   const [isPending, startTransition] = useTransition();
 
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [dropdownLeft, setDropdownLeft] = useState<number | null>(null);
+  const chipRefs: MutableRefObject<Record<string, HTMLButtonElement | null>> =
+    useRef({});
 
-  // Search Text State
   const [text, setText] = useState(searchParams.get("q") || "");
-  const debouncedText = useDebounce(text, 500);
-
-  // Local state for dropdown inputs
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
+  const [minBeds, setMinBeds] = useState(searchParams.get("minBeds") || "");
+  const [minBaths, setMinBaths] = useState(searchParams.get("minBaths") || "");
+  const [propertyType, setPropertyType] = useState(
+    searchParams.get("propertyType") || ""
+  );
   const [minSqft, setMinSqft] = useState(searchParams.get("minSqft") || "");
-  const [maxDom, setMaxDom] = useState(searchParams.get("maxDaysOnMarket") || "");
+  const [maxSqft, setMaxSqft] = useState(searchParams.get("maxSqft") || "");
+  const [minLotSize, setMinLotSize] = useState(
+    searchParams.get("minLotSize") || ""
+  );
+  const [minYearBuilt, setMinYearBuilt] = useState(
+    searchParams.get("minYearBuilt") || ""
+  );
+  const [maxYearBuilt, setMaxYearBuilt] = useState(
+    searchParams.get("maxYearBuilt") || ""
+  );
+  const [maxDaysOnMarket, setMaxDaysOnMarket] = useState(
+    searchParams.get("maxDaysOnMarket") || ""
+  );
+  const [keywords, setKeywords] = useState(searchParams.get("keywords") || "");
+  const [minGarageSpaces, setMinGarageSpaces] = useState(
+    searchParams.get("minGarageSpaces") || ""
+  );
+  const [maxHoaFee, setMaxHoaFee] = useState(
+    searchParams.get("maxHoaFee") || ""
+  );
+  const [stories, setStories] = useState(searchParams.get("stories") || "");
+  const [basement, setBasement] = useState(searchParams.get("basement") || "");
+  const [hasCentralAir, setHasCentralAir] = useState(
+    searchParams.get("hasCentralAir") === "true"
+  );
+  const [hasForcedAir, setHasForcedAir] = useState(
+    searchParams.get("hasForcedAir") === "true"
+  );
 
-  // Sync text input if URL changes externally
+  const debouncedText = useDebounce(text, 500);
+
   useEffect(() => {
     const q = searchParams.get("q") || "";
     if (q !== text && q !== debouncedText) {
@@ -84,18 +148,15 @@ export default function SearchFiltersBar() {
     }
   }, [searchParams]);
 
-  // Execute Search (Debounced Text)
   useEffect(() => {
     const currentQ = searchParams.get("q") || "";
     if (debouncedText === currentQ) return;
-    
     updateParams({ q: debouncedText });
   }, [debouncedText]);
 
-  // Click outside to close
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    function handleClickOutside(e: MouseEvent) {
+      if (barRef.current && !barRef.current.contains(e.target as Node)) {
         setActiveFilter(null);
       }
     }
@@ -103,77 +164,484 @@ export default function SearchFiltersBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- URL Update Logic ---
   const updateParams = (updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
     Object.entries(updates).forEach(([key, value]) => {
-      if (value && value !== "0") {
+      if (value && value !== "") {
         params.set(key, value);
       } else {
         params.delete(key);
       }
     });
-    
+
     startTransition(() => {
-      router.replace(`${pathname}?${params.toString()}`);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
     });
   };
 
-  // --- Handlers ---
-  const handleStatusSelect = (statusVal: string) => {
-    const current = searchParams.get("status");
-    updateParams({ status: current === statusVal ? null : statusVal });
-    setActiveFilter(null);
+  const openFilter = (filter: ActiveFilter, chipKey: string) => {
+    if (activeFilter === filter) {
+      setActiveFilter(null);
+      return;
+    }
+    const chip = chipRefs.current[chipKey];
+    if (chip && barRef.current) {
+      const chipRect = chip.getBoundingClientRect();
+      const barRect = barRef.current.getBoundingClientRect();
+      const center = chipRect.left + chipRect.width / 2;
+      const relative = center - barRect.left;
+      setDropdownLeft(relative);
+    } else {
+      setDropdownLeft(null);
+    }
+    setActiveFilter(filter);
   };
 
-  const handleApplyPrice = () => {
-    updateParams({ minPrice, maxPrice });
-    setActiveFilter(null);
+  const clearStatus = () => updateParams({ status: null });
+  const clearPrice = () => {
+    setMinPrice("");
+    setMaxPrice("");
+    updateParams({ minPrice: null, maxPrice: null });
+  };
+  const clearBeds = () => {
+    setMinBeds("");
+    updateParams({ minBeds: null });
+  };
+  const clearBaths = () => {
+    setMinBaths("");
+    updateParams({ minBaths: null });
+  };
+  const clearPropertyType = () => {
+    setPropertyType("");
+    updateParams({ propertyType: null });
+  };
+  const clearMore = () => {
+    setMinSqft("");
+    setMaxSqft("");
+    setMinLotSize("");
+    setMinYearBuilt("");
+    setMaxYearBuilt("");
+    setMaxDaysOnMarket("");
+    setKeywords("");
+    setMinGarageSpaces("");
+    setMaxHoaFee("");
+    setStories("");
+    setBasement("");
+    setHasCentralAir(false);
+    setHasForcedAir(false);
+    updateParams({
+      minSqft: null,
+      maxSqft: null,
+      minLotSize: null,
+      minYearBuilt: null,
+      maxYearBuilt: null,
+      maxDaysOnMarket: null,
+      keywords: null,
+      minGarageSpaces: null,
+      maxHoaFee: null,
+      stories: null,
+      basement: null,
+      hasCentralAir: null,
+      hasForcedAir: null,
+    });
   };
 
-  const handleApplyMore = () => {
-    updateParams({ minSqft, maxDaysOnMarket: maxDom });
-    setActiveFilter(null);
-  };
-
-  const updateSimpleParam = (key: string, value: string) => {
-    updateParams({ [key]: value });
-    setActiveFilter(null);
-  };
-
-  // --- Labels ---
   const currentStatus = searchParams.get("status");
-  const statusLabel = STATUS_OPTIONS.find((s) => s.value === currentStatus)?.label || "Buy / Pending / Sold";
+  const statusLabel =
+    STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || "Status";
 
-  const currentMinPrice = searchParams.get("minPrice");
-  const currentMaxPrice = searchParams.get("maxPrice");
-  const priceLabel = currentMinPrice || currentMaxPrice
-    ? `$${currentMinPrice || "0"} - ${currentMaxPrice ? "$" + currentMaxPrice : "Any"}`
-    : "Price";
+  const priceLabel =
+    minPrice || maxPrice
+      ? `$${minPrice || "0"} - ${maxPrice ? `$${maxPrice}` : "Any"}`
+      : "Price";
 
-  const currentBeds = searchParams.get("minBeds");
-  const bedsLabel = currentBeds ? `${currentBeds}+ Beds` : "Beds";
+  const bedsLabel = minBeds ? `${minBeds}+ Beds` : "Beds";
+  const bathsLabel = minBaths ? `${minBaths}+ Baths` : "Baths";
+  const typeLabel = propertyType || "Home Type";
 
-  const currentBaths = searchParams.get("minBaths");
-  const bathsLabel = currentBaths ? `${currentBaths}+ Baths` : "Baths";
+  const moreActive =
+    minSqft ||
+    maxSqft ||
+    minLotSize ||
+    minYearBuilt ||
+    maxYearBuilt ||
+    maxDaysOnMarket ||
+    keywords ||
+    minGarageSpaces ||
+    maxHoaFee ||
+    stories ||
+    basement ||
+    hasCentralAir ||
+    hasForcedAir;
 
-  const currentType = searchParams.get("propertyType");
-  const typeLabel = currentType || "Home Type";
+  const dropdownStyle: CSSProperties = dropdownLeft === null
+    ? { left: "50%", transform: "translateX(-50%)" }
+    : { left: dropdownLeft, transform: "translateX(-50%)" };
 
-  const hasMoreFilters = !!searchParams.get("minSqft") || !!searchParams.get("maxDaysOnMarket");
+  const renderStatusDropdown = () => (
+    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+      <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
+        <span className="font-semibold uppercase tracking-wider">Status</span>
+        <button onClick={clearStatus} className="text-orange-500">
+          Clear
+        </button>
+      </div>
+      <div className="flex flex-col gap-1">
+        {STATUS_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => {
+              updateParams({ status: opt.value });
+              setActiveFilter(null);
+            }}
+            className={`rounded px-2 py-1 text-left transition ${
+              currentStatus === opt.value
+                ? "bg-orange-500 text-white"
+                : "hover:bg-white/10"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderPriceDropdown = () => (
+    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+      <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
+        <span className="font-semibold uppercase tracking-wider">Price</span>
+        <button onClick={clearPrice} className="text-orange-500">
+          Clear
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          placeholder="Min"
+          className="w-full rounded border border-border bg-white/5 px-2 py-1"
+          value={minPrice}
+          onChange={(e) => setMinPrice(e.target.value)}
+        />
+        <span className="text-text-main/60">-</span>
+        <input
+          type="number"
+          placeholder="Max"
+          className="w-full rounded border border-border bg-white/5 px-2 py-1"
+          value={maxPrice}
+          onChange={(e) => setMaxPrice(e.target.value)}
+        />
+      </div>
+      <button
+        className="mt-3 w-full rounded-full bg-orange-500 py-1.5 text-white"
+        onClick={() => {
+          updateParams({ minPrice, maxPrice });
+          setActiveFilter(null);
+        }}
+      >
+        Apply
+      </button>
+    </div>
+  );
+
+  const renderBedsDropdown = () => (
+    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+      <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
+        <span className="font-semibold uppercase tracking-wider">Bedrooms</span>
+        <button onClick={clearBeds} className="text-orange-500">
+          Clear
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {BEDS_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => {
+              setMinBeds(opt.value === "0" ? "" : opt.value);
+              updateParams({ minBeds: opt.value === "0" ? null : opt.value });
+              setActiveFilter(null);
+            }}
+            className={`rounded border border-border px-2 py-1 text-center text-sm ${
+              minBeds === opt.value ? "bg-orange-500 text-white" : ""
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderBathsDropdown = () => (
+    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+      <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
+        <span className="font-semibold uppercase tracking-wider">Bathrooms</span>
+        <button onClick={clearBaths} className="text-orange-500">
+          Clear
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {BATHS_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => {
+              setMinBaths(opt.value === "0" ? "" : opt.value);
+              updateParams({ minBaths: opt.value === "0" ? null : opt.value });
+              setActiveFilter(null);
+            }}
+            className={`rounded border border-border px-2 py-1 text-center text-sm ${
+              minBaths === opt.value ? "bg-orange-500 text-white" : ""
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderPropertyTypeDropdown = () => (
+    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+      <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
+        <span className="font-semibold uppercase tracking-wider">Home Type</span>
+        <button onClick={clearPropertyType} className="text-orange-500">
+          Clear
+        </button>
+      </div>
+      <div className="flex flex-col gap-1">
+        {PROPERTY_TYPE_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => {
+              setPropertyType(opt.value);
+              updateParams({ propertyType: opt.value });
+              setActiveFilter(null);
+            }}
+            className={`rounded px-2 py-1 text-left transition ${
+              propertyType === opt.value
+                ? "bg-orange-500 text-white"
+                : "hover:bg-white/10"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderMoreDropdown = () => (
+    <div className="w-[90vw] max-w-2xl rounded-2xl border border-border bg-surface p-6 text-sm shadow-2xl">
+      <div className="mb-4 flex items-center justify-between text-xs text-text-main/70">
+        <span className="font-semibold uppercase tracking-wider">Advanced Filters</span>
+        <button onClick={clearMore} className="text-orange-500">
+          Clear
+        </button>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="flex flex-col gap-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/60">
+            Size &amp; Age
+          </h4>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Square Feet
+            <div className="flex gap-2">
+              <input
+                type="number"
+                placeholder="Min"
+                className="w-1/2 rounded border border-border bg-white/5 px-2 py-1"
+                value={minSqft}
+                onChange={(e) => setMinSqft(e.target.value)}
+              />
+              <input
+                type="number"
+                placeholder="Max"
+                className="w-1/2 rounded border border-border bg-white/5 px-2 py-1"
+                value={maxSqft}
+                onChange={(e) => setMaxSqft(e.target.value)}
+              />
+            </div>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Lot Size
+            <select
+              className="rounded border border-border bg-white/5 px-2 py-1"
+              value={minLotSize}
+              onChange={(e) => setMinLotSize(e.target.value)}
+            >
+              {LOT_SIZE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Year Built
+            <div className="flex gap-2">
+              <input
+                type="number"
+                placeholder="Min"
+                className="w-1/2 rounded border border-border bg-white/5 px-2 py-1"
+                value={minYearBuilt}
+                onChange={(e) => setMinYearBuilt(e.target.value)}
+              />
+              <input
+                type="number"
+                placeholder="Max"
+                className="w-1/2 rounded border border-border bg-white/5 px-2 py-1"
+                value={maxYearBuilt}
+                onChange={(e) => setMaxYearBuilt(e.target.value)}
+              />
+            </div>
+          </label>
+        </div>
+        <div className="flex flex-col gap-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/60">
+            Amenities &amp; Comfort
+          </h4>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Keywords
+            <input
+              type="text"
+              placeholder="Pool, fixer upper..."
+              className="rounded border border-border bg-white/5 px-2 py-1"
+              value={keywords}
+              onChange={(e) => setKeywords(e.target.value)}
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-4 text-xs text-text-main/70">
+            <label className="flex flex-col gap-1">
+              Garage
+              <select
+                className="rounded border border-border bg-white/5 px-2 py-1"
+                value={minGarageSpaces}
+                onChange={(e) => setMinGarageSpaces(e.target.value)}
+              >
+                <option value="">Any</option>
+                <option value="1">1+</option>
+                <option value="2">2+</option>
+                <option value="3">3+</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              Stories
+              <select
+                className="rounded border border-border bg-white/5 px-2 py-1"
+                value={stories}
+                onChange={(e) => setStories(e.target.value)}
+              >
+                {STORIES_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Basement
+            <select
+              className="rounded border border-border bg-white/5 px-2 py-1"
+              value={basement}
+              onChange={(e) => setBasement(e.target.value)}
+            >
+              {BASEMENT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-2 text-xs text-text-main/80">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={hasCentralAir}
+                onChange={(e) => setHasCentralAir(e.target.checked)}
+              />
+              Central Air
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={hasForcedAir}
+                onChange={(e) => setHasForcedAir(e.target.checked)}
+              />
+              Forced Air
+            </label>
+          </div>
+        </div>
+        <div className="flex flex-col gap-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/60">
+            Timeline &amp; Costs
+          </h4>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Max HOA Fee
+            <input
+              type="number"
+              placeholder="No limit"
+              className="rounded border border-border bg-white/5 px-2 py-1"
+              value={maxHoaFee}
+              onChange={(e) => setMaxHoaFee(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Days on Market
+            <select
+              className="rounded border border-border bg-white/5 px-2 py-1"
+              value={maxDaysOnMarket}
+              onChange={(e) => setMaxDaysOnMarket(e.target.value)}
+            >
+              {DOM_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+      <div className="mt-6 flex items-center justify-end">
+        <button
+          className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white"
+          onClick={() => {
+            updateParams({
+              minSqft,
+              maxSqft,
+              minLotSize,
+              minYearBuilt,
+              maxYearBuilt,
+              maxDaysOnMarket,
+              keywords,
+              minGarageSpaces,
+              maxHoaFee,
+              stories,
+              basement,
+              hasCentralAir: hasCentralAir ? "true" : null,
+              hasForcedAir: hasForcedAir ? "true" : null,
+            });
+            setActiveFilter(null);
+          }}
+        >
+          Apply Filters
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="w-full border-t border-slate-200 dark:border-slate-800 px-4 py-2 relative" ref={dropdownRef}>
+    <div ref={barRef} className="relative w-full">
       <div className="mx-auto flex max-w-[1920px] flex-wrap items-center gap-3">
-        {/* Search Input */}
-        <div className="w-full sm:w-1/3 md:w-1/4 lg:w-1/5">
-          <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <span className="hidden text-[10px] font-bold uppercase tracking-widest text-slate-500 sm:inline">
+        <div className="w-full sm:w-1/3 md:w-1/3 lg:w-1/3 sm:ml-2">
+          <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-surface px-3 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <span className="hidden text-[10px] font-bold uppercase tracking-[0.3em] text-text-main/60 sm:inline">
               Search
             </span>
             <input
               type="text"
-              className="w-full min-w-0 border-none bg-transparent p-0 text-xs text-slate-900 focus:ring-0 placeholder:text-slate-400 dark:text-slate-100 outline-none"
+              className="w-full border-none bg-transparent p-0 text-xs text-text-main placeholder:text-text-main/40 focus:outline-none"
               placeholder="City, ZIP, Address"
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -181,88 +649,69 @@ export default function SearchFiltersBar() {
           </div>
         </div>
 
-        {/* Chips */}
-        <div className="flex flex-1 items-center gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
-          <button type="button" onClick={() => setActiveFilter(activeFilter === "status" ? null : "status")} className={`${chipBase} ${currentStatus ? chipActive : chipInactive}`}>{statusLabel}</button>
-          <button type="button" onClick={() => setActiveFilter(activeFilter === "price" ? null : "price")} className={`${chipBase} ${currentMinPrice || currentMaxPrice ? chipActive : chipInactive}`}>{priceLabel}</button>
-          <button type="button" onClick={() => setActiveFilter(activeFilter === "beds" ? null : "beds")} className={`${chipBase} ${currentBeds ? chipActive : chipInactive}`}>{bedsLabel}</button>
-          <button type="button" onClick={() => setActiveFilter(activeFilter === "baths" ? null : "baths")} className={`${chipBase} ${currentBaths ? chipActive : chipInactive}`}>{bathsLabel}</button>
-          <button type="button" onClick={() => setActiveFilter(activeFilter === "propertyType" ? null : "propertyType")} className={`${chipBase} ${currentType ? chipActive : chipInactive}`}>{typeLabel}</button>
-          <button type="button" onClick={() => setActiveFilter(activeFilter === "more" ? null : "more")} className={`${chipBase} ${hasMoreFilters ? chipActive : chipInactive}`}>More</button>
+        <div className="flex flex-1 items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+          <button
+            ref={(el) => (chipRefs.current.status = el)}
+            type="button"
+            onClick={() => openFilter("status", "status")}
+            className={`${chipBase} ${currentStatus ? chipActive : chipInactive}`}
+          >
+            {statusLabel}
+          </button>
+          <button
+            ref={(el) => (chipRefs.current.price = el)}
+            type="button"
+            onClick={() => openFilter("price", "price")}
+            className={`${chipBase} ${minPrice || maxPrice ? chipActive : chipInactive}`}
+          >
+            {priceLabel}
+          </button>
+          <button
+            ref={(el) => (chipRefs.current.beds = el)}
+            type="button"
+            onClick={() => openFilter("beds", "beds")}
+            className={`${chipBase} ${minBeds ? chipActive : chipInactive}`}
+          >
+            {bedsLabel}
+          </button>
+          <button
+            ref={(el) => (chipRefs.current.baths = el)}
+            type="button"
+            onClick={() => openFilter("baths", "baths")}
+            className={`${chipBase} ${minBaths ? chipActive : chipInactive}`}
+          >
+            {bathsLabel}
+          </button>
+          <button
+            ref={(el) => (chipRefs.current.propertyType = el)}
+            type="button"
+            onClick={() => openFilter("propertyType", "propertyType")}
+            className={`${chipBase} ${propertyType ? chipActive : chipInactive}`}
+          >
+            {typeLabel}
+          </button>
+          <button
+            ref={(el) => (chipRefs.current.more = el)}
+            type="button"
+            onClick={() => openFilter("more", "more")}
+            className={`${chipBase} ${moreActive ? chipActive : chipInactive}`}
+          >
+            More
+          </button>
         </div>
       </div>
 
-      {/* DROPDOWNS */}
       {activeFilter && (
-        <div className="absolute left-4 top-full mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:left-auto z-50">
-          
-          {activeFilter === "status" && (
-            <div className="flex flex-col gap-1">
-              <div className="text-xs font-bold uppercase text-slate-500 mb-2">Status</div>
-              {STATUS_OPTIONS.map((opt) => (
-                <button key={opt.value} onClick={() => handleStatusSelect(opt.value)} className={`w-full rounded px-2 py-1.5 text-left text-sm ${currentStatus === opt.value ? "bg-orange-500 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"}`}>{opt.label}</button>
-              ))}
-            </div>
-          )}
-
-          {activeFilter === "price" && (
-            <div className="flex flex-col gap-3">
-              <div className="text-xs font-bold uppercase text-slate-500">Price Range</div>
-              <div className="flex items-center gap-2">
-                <input type="number" placeholder="Min" className="w-full rounded border p-1 text-sm dark:bg-slate-800 dark:border-slate-600 dark:text-white" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
-                <span className="text-slate-400">-</span>
-                <input type="number" placeholder="Max" className="w-full rounded border p-1 text-sm dark:bg-slate-800 dark:border-slate-600 dark:text-white" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
-              </div>
-              <button onClick={handleApplyPrice} className="w-full rounded bg-orange-500 py-1.5 text-sm font-bold text-white hover:opacity-90">Apply</button>
-            </div>
-          )}
-
-          {activeFilter === "beds" && (
-            <div className="flex flex-col gap-2">
-              <div className="text-xs font-bold uppercase text-slate-500">Bedrooms</div>
-              <div className="grid grid-cols-3 gap-2">
-                {BEDS_OPTIONS.map((opt) => (
-                  <button key={opt.value} onClick={() => updateSimpleParam("minBeds", opt.value)} className={`rounded border py-1 text-sm ${currentBeds === opt.value ? "bg-orange-500 border-orange-500 text-white" : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200"}`}>{opt.label}</button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeFilter === "baths" && (
-             <div className="flex flex-col gap-2">
-               <div className="text-xs font-bold uppercase text-slate-500">Bathrooms</div>
-               <div className="grid grid-cols-3 gap-2">
-                 {BATHS_OPTIONS.map((opt) => (
-                   <button key={opt.value} onClick={() => updateSimpleParam("minBaths", opt.value)} className={`rounded border py-1 text-sm ${currentBaths === opt.value ? "bg-orange-500 border-orange-500 text-white" : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200"}`}>{opt.label}</button>
-                 ))}
-               </div>
-             </div>
-          )}
-
-          {activeFilter === "propertyType" && (
-             <div className="flex flex-col gap-1">
-               <div className="text-xs font-bold uppercase text-slate-500 mb-2">Property Type</div>
-               {PROPERTY_TYPE_OPTIONS.map((opt) => (
-                 <button key={opt.value} onClick={() => updateSimpleParam("propertyType", opt.value)} className={`w-full rounded px-2 py-1.5 text-left text-sm ${currentType === opt.value ? "bg-orange-500 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"}`}>{opt.label}</button>
-               ))}
-               <button onClick={() => updateSimpleParam("propertyType", "")} className="mt-2 text-xs text-slate-500 underline">Clear</button>
-             </div>
-          )}
-
-          {activeFilter === "more" && (
-            <div className="flex flex-col gap-3">
-              <div className="text-xs font-bold uppercase text-slate-500">More Options</div>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Min Sqft</span>
-                <input type="number" placeholder="1000" className="rounded border p-1 text-sm dark:bg-slate-800 dark:border-slate-600 dark:text-white" value={minSqft} onChange={(e) => setMinSqft(e.target.value)} />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Max Days on Market</span>
-                <input type="number" placeholder="30" className="rounded border p-1 text-sm dark:bg-slate-800 dark:border-slate-600 dark:text-white" value={maxDom} onChange={(e) => setMaxDom(e.target.value)} />
-              </label>
-              <button onClick={handleApplyMore} className="w-full rounded bg-orange-500 py-1.5 text-sm font-bold text-white hover:opacity-90">Apply</button>
-            </div>
-          )}
+        <div
+          className="absolute left-0 top-full z-50 mt-2"
+          style={dropdownStyle}
+        >
+          {activeFilter === "status" && renderStatusDropdown()}
+          {activeFilter === "price" && renderPriceDropdown()}
+          {activeFilter === "beds" && renderBedsDropdown()}
+          {activeFilter === "baths" && renderBathsDropdown()}
+          {activeFilter === "propertyType" && renderPropertyTypeDropdown()}
+          {activeFilter === "more" && renderMoreDropdown()}
         </div>
       )}
     </div>
