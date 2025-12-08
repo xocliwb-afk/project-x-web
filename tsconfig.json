@@ -16,7 +16,7 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@project-x/*": ["packages/*"]
+      "@project-x/*": ["packages/*/src"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],
