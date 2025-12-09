@@ -1,6 +1,4 @@
-import type { NormalizedListing } from "@project-x/shared-types";
-
-export const mockListings: NormalizedListing[] = [
+export const mockListings: any[] = [
   {
     id: "1",
     address: {

@@ -1,110 +1,96 @@
-import { Router, Request, Response } from "express";
-import { SearchRequest, ListingStatus } from "@project-x/shared-types";
+import { Router } from 'express';
+import { getListingProvider } from '../utils/provider.factory';
 import {
-  applyListingsCompliance,
-  applyListingCompliance,
-} from "../services/compliance";
-import { getListingProvider } from "../utils/provider.factory";
+  ListingSearchParams,
+  NormalizedListing,
+  ApiError,
+} from '@project-x/shared-types';
 
 const router = Router();
-const listingProvider = getListingProvider();
 
-function parseSearchRequest(query: any): SearchRequest {
-  const req: SearchRequest = {};
-
-  // Basic text + price + beds
-  if (query.q) req.query = String(query.q);
-  if (query.priceMin) req.priceMin = Number(query.priceMin);
-  if (query.priceMax) req.priceMax = Number(query.priceMax);
-  if (query.bedsMin) req.bedsMin = Number(query.bedsMin);
-
-  // Status: allow comma-separated or array
-  if (query.status) {
-    const statuses = Array.isArray(query.status)
-      ? query.status
-      : String(query.status).split(",");
-    req.status = statuses
-      .map((s: string) => s.toUpperCase().trim())
-      .filter((s: string) =>
-        ["FOR_SALE", "PENDING", "SOLD", "OFF_MARKET"].includes(s)
-      ) as ListingStatus[];
-  }
-
-  // Pagination
-  if (query.limit) req.limit = Number(query.limit);
-  if (query.offset) req.offset = Number(query.offset);
-
-  // --- Advanced filters (mapped from querystring names) ---
-
-  // Size
-  if (query.minSqft) req.sqftMin = Number(query.minSqft);
-  if (query.maxSqft) req.sqftMax = Number(query.maxSqft);
-
-  // Lot size (acres)
-  if (query.minLotSize) req.lotSizeMinAcres = Number(query.minLotSize);
-
-  // Year built range
-  if (query.minYearBuilt) req.yearBuiltMin = Number(query.minYearBuilt);
-  if (query.maxYearBuilt) req.yearBuiltMax = Number(query.maxYearBuilt);
-
-  // Days on market
-  if (query.maxDaysOnMarket) req.maxDaysOnMarket = Number(query.maxDaysOnMarket);
-
-  // Keywords
-  if (query.keywords) req.keywords = String(query.keywords);
-
-  // Garage
-  if (query.minGarageSpaces) req.minGarageSpaces = Number(query.minGarageSpaces);
-
-  // HOA
-  if (query.maxHoaFee) req.maxHoaFee = Number(query.maxHoaFee);
-
-  // Stories
-  if (query.stories) req.stories = Number(query.stories);
-
-  // Basement
-  if (query.basement) {
-    const val = String(query.basement);
-    const allowed = ["Finished", "Unfinished", "Partial", "None"];
-    if (allowed.includes(val)) {
-      req.basement = val as SearchRequest["basement"];
-    }
-  }
-
-  // HVAC flags
-  if (typeof query.hasCentralAir !== "undefined") {
-    req.hasCentralAir = String(query.hasCentralAir) === "true";
-  }
-  if (typeof query.hasForcedAir !== "undefined") {
-    req.hasForcedAir = String(query.hasForcedAir) === "true";
-  }
-
-  return req;
-}
-
-router.get("/", async (req: Request, res: Response) => {
+/**
+ * GET /api/listings
+ *
+ * Returns a paginated set of listings using the ListingProvider abstraction.
+ */
+router.get('/', async (req, res) => {
   try {
-    const searchRequest = parseSearchRequest(req.query);
-    const rawListings = await listingProvider.searchListings(searchRequest);
-    const compliantListings = applyListingsCompliance(rawListings);
-    res.json(compliantListings);
-  } catch (err) {
-    console.error("Error during listings search:", err);
-    res.status(500).json({ error: "Failed to fetch listings." });
+    const provider = getListingProvider();
+
+    // req.query is an untyped object; cast carefully into ListingSearchParams
+    const params: ListingSearchParams = {
+      bbox: typeof req.query.bbox === 'string' ? req.query.bbox : undefined,
+      page: req.query.page ? Number(req.query.page) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      minPrice: req.query.minPrice ? Number(req.query.minPrice) : undefined,
+      maxPrice: req.query.maxPrice ? Number(req.query.maxPrice) : undefined,
+      beds: req.query.beds ? Number(req.query.beds) : undefined,
+      baths: req.query.baths ? Number(req.query.baths) : undefined,
+      propertyType: typeof req.query.propertyType === 'string' ? req.query.propertyType : undefined,
+      sort: typeof req.query.sort === 'string' ? (req.query.sort as ListingSearchParams['sort']) : undefined,
+    };
+
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const limit = params.limit && params.limit > 0 ? params.limit : 20;
+
+    const allResults: NormalizedListing[] = await provider.search(params);
+    const total = allResults.length;
+
+    const start = (page - 1) * limit;
+    const end = page * limit;
+    const pagedResults = allResults.slice(start, end);
+
+    res.json({
+      results: pagedResults,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasMore: end < total,
+      },
+    });
+  } catch (err: any) {
+    const error: ApiError = {
+      error: true,
+      message: err?.message ?? 'Failed to fetch listings',
+      code: 'INTERNAL_ERROR',
+      status: 500,
+    };
+    res.status(500).json(error);
   }
 });
 
-router.get("/:id", async (req: Request, res: Response) => {
+/**
+ * GET /api/listings/:id
+ *
+ * Returns a single listing by ID or a 404 error if not found.
+ */
+router.get('/:id', async (req, res) => {
   try {
-    const listing = await listingProvider.getListingById(req.params.id);
+    const provider = getListingProvider();
+    const { id } = req.params;
+
+    const listing: NormalizedListing | null = await provider.getById(id);
+
     if (!listing) {
-      return res.status(404).json({ error: "Listing not found." });
+      const error: ApiError = {
+        error: true,
+        message: 'Listing not found',
+        code: 'NOT_FOUND',
+        status: 404,
+      };
+      return res.status(404).json(error);
     }
-    const compliantListing = applyListingCompliance(listing);
-    res.json(compliantListing);
-  } catch (err) {
-    console.error(`Error fetching listing ${req.params.id}:`, err);
-    res.status(500).json({ error: "Failed to fetch listing details." });
+
+    res.json({ listing });
+  } catch (err: any) {
+    const error: ApiError = {
+      error: true,
+      message: err?.message ?? 'Failed to fetch listing',
+      code: 'INTERNAL_ERROR',
+      status: 500,
+    };
+    res.status(500).json(error);
   }
 });
 
