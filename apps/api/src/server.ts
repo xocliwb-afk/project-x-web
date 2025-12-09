@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
 import listingsRouter from "./routes/listings.route";
+import leadsRouter from "./routes/leads.route";
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.use(
 app.use(express.json());
 
 app.use("/api/listings", listingsRouter);
+app.use("/api", leadsRouter);
 
 app.get("/health", (req, res) => {
   res.status(200).send("API is healthy and running.");
@@ -24,6 +26,6 @@ app.get("/health", (req, res) => {
 app.listen(PORT, () => {
   console.log(`[API] Server running on http://localhost:${PORT}`);
   console.log(
-    `[API] Routes exposed: GET /health, GET /api/listings, GET /api/listings/:id`
+    `[API] Routes exposed: GET /health, GET /api/listings, GET /api/listings/:id, POST /api/v1/leads`
   );
 });

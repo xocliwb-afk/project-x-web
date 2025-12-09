@@ -60,25 +60,19 @@ const BATHS_OPTIONS = [
   { label: "3+", value: "3" },
 ];
 
-const LOT_SIZE_OPTIONS = [
-  { label: "Any", value: "" },
-  { label: "0.25+ acres", value: "0.25" },
-  { label: "0.5+ acres", value: "0.5" },
-  { label: "1+ acres", value: "1" },
-  { label: "2+ acres", value: "2" },
-  { label: "5+ acres", value: "5" },
-];
-
-const STORIES_OPTIONS = [
-  { label: "Any", value: "" },
-  { label: "Single Story", value: "1" },
-  { label: "2+ Stories", value: "2" },
-];
-
-const BASEMENT_OPTIONS = [
-  { label: "Any", value: "" },
-  { label: "Finished", value: "Finished" },
-  { label: "Unfinished", value: "Unfinished" },
+const PRICE_OPTIONS = [
+  { label: "No min", value: "" },
+  { label: "$100k", value: "100000" },
+  { label: "$150k", value: "150000" },
+  { label: "$200k", value: "200000" },
+  { label: "$250k", value: "250000" },
+  { label: "$300k", value: "300000" },
+  { label: "$400k", value: "400000" },
+  { label: "$500k", value: "500000" },
+  { label: "$750k", value: "750000" },
+  { label: "$1M", value: "1000000" },
+  { label: "$1.5M", value: "1500000" },
+  { label: "$2M", value: "2000000" },
 ];
 
 const DOM_OPTIONS = [
@@ -104,16 +98,13 @@ export default function SearchFiltersBar() {
   const [text, setText] = useState(searchParams.get("q") || "");
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
-  const [minBeds, setMinBeds] = useState(searchParams.get("minBeds") || "");
-  const [minBaths, setMinBaths] = useState(searchParams.get("minBaths") || "");
+  const [minBeds, setMinBeds] = useState(searchParams.get("beds") || "");
+  const [minBaths, setMinBaths] = useState(searchParams.get("baths") || "");
   const [propertyType, setPropertyType] = useState(
     searchParams.get("propertyType") || ""
   );
   const [minSqft, setMinSqft] = useState(searchParams.get("minSqft") || "");
   const [maxSqft, setMaxSqft] = useState(searchParams.get("maxSqft") || "");
-  const [minLotSize, setMinLotSize] = useState(
-    searchParams.get("minLotSize") || ""
-  );
   const [minYearBuilt, setMinYearBuilt] = useState(
     searchParams.get("minYearBuilt") || ""
   );
@@ -124,20 +115,6 @@ export default function SearchFiltersBar() {
     searchParams.get("maxDaysOnMarket") || ""
   );
   const [keywords, setKeywords] = useState(searchParams.get("keywords") || "");
-  const [minGarageSpaces, setMinGarageSpaces] = useState(
-    searchParams.get("minGarageSpaces") || ""
-  );
-  const [maxHoaFee, setMaxHoaFee] = useState(
-    searchParams.get("maxHoaFee") || ""
-  );
-  const [stories, setStories] = useState(searchParams.get("stories") || "");
-  const [basement, setBasement] = useState(searchParams.get("basement") || "");
-  const [hasCentralAir, setHasCentralAir] = useState(
-    searchParams.get("hasCentralAir") === "true"
-  );
-  const [hasForcedAir, setHasForcedAir] = useState(
-    searchParams.get("hasForcedAir") === "true"
-  );
 
   const debouncedText = useDebounce(text, 500);
 
@@ -206,11 +183,11 @@ export default function SearchFiltersBar() {
   };
   const clearBeds = () => {
     setMinBeds("");
-    updateParams({ minBeds: null });
+    updateParams({ beds: null });
   };
   const clearBaths = () => {
     setMinBaths("");
-    updateParams({ minBaths: null });
+    updateParams({ baths: null });
   };
   const clearPropertyType = () => {
     setPropertyType("");
@@ -219,31 +196,17 @@ export default function SearchFiltersBar() {
   const clearMore = () => {
     setMinSqft("");
     setMaxSqft("");
-    setMinLotSize("");
     setMinYearBuilt("");
     setMaxYearBuilt("");
     setMaxDaysOnMarket("");
     setKeywords("");
-    setMinGarageSpaces("");
-    setMaxHoaFee("");
-    setStories("");
-    setBasement("");
-    setHasCentralAir(false);
-    setHasForcedAir(false);
     updateParams({
       minSqft: null,
       maxSqft: null,
-      minLotSize: null,
       minYearBuilt: null,
       maxYearBuilt: null,
       maxDaysOnMarket: null,
       keywords: null,
-      minGarageSpaces: null,
-      maxHoaFee: null,
-      stories: null,
-      basement: null,
-      hasCentralAir: null,
-      hasForcedAir: null,
     });
   };
 
@@ -263,17 +226,10 @@ export default function SearchFiltersBar() {
   const moreActive =
     minSqft ||
     maxSqft ||
-    minLotSize ||
     minYearBuilt ||
     maxYearBuilt ||
     maxDaysOnMarket ||
-    keywords ||
-    minGarageSpaces ||
-    maxHoaFee ||
-    stories ||
-    basement ||
-    hasCentralAir ||
-    hasForcedAir;
+    keywords;
 
   const dropdownStyle: CSSProperties = dropdownLeft === null
     ? { left: "50%", transform: "translateX(-50%)" }
@@ -316,22 +272,35 @@ export default function SearchFiltersBar() {
           Clear
         </button>
       </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          placeholder="Min"
-          className="w-full rounded border border-border bg-white/5 px-2 py-1"
-          value={minPrice}
-          onChange={(e) => setMinPrice(e.target.value)}
-        />
-        <span className="text-text-main/60">-</span>
-        <input
-          type="number"
-          placeholder="Max"
-          className="w-full rounded border border-border bg-white/5 px-2 py-1"
-          value={maxPrice}
-          onChange={(e) => setMaxPrice(e.target.value)}
-        />
+      <div className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1 text-xs text-text-main/70">
+          Min price
+          <select
+            className="w-full rounded border border-border bg-white/5 px-2 py-1"
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value)}
+          >
+            {PRICE_OPTIONS.map((opt) => (
+              <option key={opt.value || 'min-none'} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-text-main/70">
+          Max price
+          <select
+            className="w-full rounded border border-border bg-white/5 px-2 py-1"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+          >
+            {[{ label: "No max", value: "" }, ...PRICE_OPTIONS.slice(1)].map((opt) => (
+              <option key={opt.value || 'max-none'} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       <button
         className="mt-3 w-full rounded-full bg-orange-500 py-1.5 text-white"
@@ -359,7 +328,7 @@ export default function SearchFiltersBar() {
             key={opt.value}
             onClick={() => {
               setMinBeds(opt.value === "0" ? "" : opt.value);
-              updateParams({ minBeds: opt.value === "0" ? null : opt.value });
+              updateParams({ beds: opt.value === "0" ? null : opt.value });
               setActiveFilter(null);
             }}
             className={`rounded border border-border px-2 py-1 text-center text-sm ${
@@ -387,7 +356,7 @@ export default function SearchFiltersBar() {
             key={opt.value}
             onClick={() => {
               setMinBaths(opt.value === "0" ? "" : opt.value);
-              updateParams({ minBaths: opt.value === "0" ? null : opt.value });
+              updateParams({ baths: opt.value === "0" ? null : opt.value });
               setActiveFilter(null);
             }}
             className={`rounded border border-border px-2 py-1 text-center text-sm ${
@@ -464,20 +433,6 @@ export default function SearchFiltersBar() {
             </div>
           </label>
           <label className="flex flex-col gap-1 text-xs text-text-main/70">
-            Lot Size
-            <select
-              className="rounded border border-border bg-white/5 px-2 py-1"
-              value={minLotSize}
-              onChange={(e) => setMinLotSize(e.target.value)}
-            >
-              {LOT_SIZE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-text-main/70">
             Year Built
             <div className="flex gap-2">
               <input
@@ -511,82 +466,11 @@ export default function SearchFiltersBar() {
               onChange={(e) => setKeywords(e.target.value)}
             />
           </label>
-          <div className="grid grid-cols-2 gap-4 text-xs text-text-main/70">
-            <label className="flex flex-col gap-1">
-              Garage
-              <select
-                className="rounded border border-border bg-white/5 px-2 py-1"
-                value={minGarageSpaces}
-                onChange={(e) => setMinGarageSpaces(e.target.value)}
-              >
-                <option value="">Any</option>
-                <option value="1">1+</option>
-                <option value="2">2+</option>
-                <option value="3">3+</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              Stories
-              <select
-                className="rounded border border-border bg-white/5 px-2 py-1"
-                value={stories}
-                onChange={(e) => setStories(e.target.value)}
-              >
-                {STORIES_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label className="flex flex-col gap-1 text-xs text-text-main/70">
-            Basement
-            <select
-              className="rounded border border-border bg-white/5 px-2 py-1"
-              value={basement}
-              onChange={(e) => setBasement(e.target.value)}
-            >
-              {BASEMENT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-2 text-xs text-text-main/80">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={hasCentralAir}
-                onChange={(e) => setHasCentralAir(e.target.checked)}
-              />
-              Central Air
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={hasForcedAir}
-                onChange={(e) => setHasForcedAir(e.target.checked)}
-              />
-              Forced Air
-            </label>
-          </div>
         </div>
         <div className="flex flex-col gap-4">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/60">
             Timeline &amp; Costs
           </h4>
-          <label className="flex flex-col gap-1 text-xs text-text-main/70">
-            Max HOA Fee
-            <input
-              type="number"
-              placeholder="No limit"
-              className="rounded border border-border bg-white/5 px-2 py-1"
-              value={maxHoaFee}
-              onChange={(e) => setMaxHoaFee(e.target.value)}
-            />
-          </label>
           <label className="flex flex-col gap-1 text-xs text-text-main/70">
             Days on Market
             <select
@@ -610,17 +494,10 @@ export default function SearchFiltersBar() {
             updateParams({
               minSqft,
               maxSqft,
-              minLotSize,
               minYearBuilt,
               maxYearBuilt,
               maxDaysOnMarket,
               keywords,
-              minGarageSpaces,
-              maxHoaFee,
-              stories,
-              basement,
-              hasCentralAir: hasCentralAir ? "true" : null,
-              hasForcedAir: hasForcedAir ? "true" : null,
             });
             setActiveFilter(null);
           }}

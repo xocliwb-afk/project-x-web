@@ -31,15 +31,23 @@ export class MockListingProvider implements ListingProvider {
   private mapToListing(raw: any): NormalizedListing {
     const listPrice: number = raw.listPrice ?? raw.listprice ?? 0;
 
-    const fullAddress: string =
+    const rawFull =
       raw.address?.full ??
       raw.address ??
-      ((`${raw.streetName ?? ''} ${raw.streetNumber ?? ''}`.trim()) || 'Unknown address');
+      `${raw.streetName ?? ''} ${raw.streetNumber ?? ''}`.trim();
+
+    const fullAddress =
+      typeof rawFull === 'string' && rawFull.trim().length > 0
+        ? rawFull
+        : 'Unknown address';
 
     // Very simple street/city/state/zip extraction for mock data.
     // In real providers, this should use the actual address object.
-    const [streetPart, cityPart, stateZipPart] = fullAddress.split(',').map((s: string) => s.trim());
-    const [statePart, zipPart] = (stateZipPart || '').split(' ').map((s: string) => s.trim());
+    const parts = fullAddress.split(',').map((s: string) => s.trim());
+    const streetPart = parts[0] ?? fullAddress;
+    const cityPart = parts[1] ?? 'Unknown City';
+    const stateZipPart = parts[2] ?? '';
+    const [statePart, zipPart] = stateZipPart.split(' ').map((s: string) => s.trim());
 
     return {
       id: raw.listingId ?? raw.id ?? 'unknown-id',

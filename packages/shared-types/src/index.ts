@@ -47,6 +47,7 @@ export type Listing = NormalizedListing;
  * This type should be used by the backend for parsing and validating query strings.
  */
 export type ListingSearchParams = {
+  q?: string;
   bbox?: string; // "minLng,minLat,maxLng,maxLat"
   page?: number;
   limit?: number;
@@ -56,6 +57,13 @@ export type ListingSearchParams = {
   baths?: number;
   propertyType?: string;
   sort?: "price-asc" | "price-desc" | "dom" | "newest";
+  status?: string[]; // e.g. ["FOR_SALE", "PENDING"]
+  minSqft?: number;
+  maxSqft?: number;
+  minYearBuilt?: number;
+  maxYearBuilt?: number;
+  maxDaysOnMarket?: number;
+  keywords?: string;
 };
 
 /**
@@ -67,4 +75,37 @@ export type ApiError = {
   message: string;
   code: string;
   status: number;
+};
+
+export type CRMType =
+  | 'null'
+  | 'webhook'
+  | 'hubspot'
+  | 'gohighlevel'
+  | 'followupboss'
+  | 'email';
+
+export type CRMConfig = {
+  brokerId: string;
+  crmType: CRMType;
+  webhookUrl?: string;
+  webhookSecret?: string;
+  apiKey?: string;
+  metadata?: Record<string, string | number>;
+};
+
+export type LeadPayload = {
+  listingId: string;
+  listingAddress?: string;
+  message?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  brokerId: string;
+  agentId?: string;
+  source: 'project-x-web' | 'project-x-app';
+};
+
+export type LeadResponse = {
+  success: boolean;
 };

@@ -19,15 +19,35 @@ router.get('/', async (req, res) => {
 
     // req.query is an untyped object; cast carefully into ListingSearchParams
     const params: ListingSearchParams = {
+      q: typeof req.query.q === 'string' ? req.query.q : undefined,
       bbox: typeof req.query.bbox === 'string' ? req.query.bbox : undefined,
       page: req.query.page ? Number(req.query.page) : undefined,
       limit: req.query.limit ? Number(req.query.limit) : undefined,
       minPrice: req.query.minPrice ? Number(req.query.minPrice) : undefined,
       maxPrice: req.query.maxPrice ? Number(req.query.maxPrice) : undefined,
-      beds: req.query.beds ? Number(req.query.beds) : undefined,
-      baths: req.query.baths ? Number(req.query.baths) : undefined,
+      beds: req.query.beds
+        ? Number(req.query.beds)
+        : req.query.minBeds
+        ? Number(req.query.minBeds)
+        : undefined,
+      baths: req.query.baths
+        ? Number(req.query.baths)
+        : req.query.minBaths
+        ? Number(req.query.minBaths)
+        : undefined,
       propertyType: typeof req.query.propertyType === 'string' ? req.query.propertyType : undefined,
       sort: typeof req.query.sort === 'string' ? (req.query.sort as ListingSearchParams['sort']) : undefined,
+      status: Array.isArray(req.query.status)
+        ? (req.query.status as string[])
+        : typeof req.query.status === 'string'
+        ? (req.query.status as string).split(',').filter(Boolean)
+        : undefined,
+      minSqft: req.query.minSqft ? Number(req.query.minSqft) : undefined,
+      maxSqft: req.query.maxSqft ? Number(req.query.maxSqft) : undefined,
+      minYearBuilt: req.query.minYearBuilt ? Number(req.query.minYearBuilt) : undefined,
+      maxYearBuilt: req.query.maxYearBuilt ? Number(req.query.maxYearBuilt) : undefined,
+      maxDaysOnMarket: req.query.maxDaysOnMarket ? Number(req.query.maxDaysOnMarket) : undefined,
+      keywords: typeof req.query.keywords === 'string' ? req.query.keywords : undefined,
     };
 
     const page = params.page && params.page > 0 ? params.page : 1;

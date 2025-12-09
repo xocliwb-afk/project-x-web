@@ -1,23 +1,40 @@
-import type { Listing } from "@project-x/shared-types";
-import { SearchLayoutClient } from "./SearchLayoutClient";
+import { fetchListings } from '@/lib/api-client';
+import type { ListingSearchParams } from '@project-x/shared-types';
+import SearchLayoutClient from './SearchLayoutClient';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+type SearchPageProps = {
+  searchParams: {
+    bbox?: string;
+    page?: string;
+    limit?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    beds?: string;
+    baths?: string;
+    propertyType?: string;
+    sort?: string;
+  };
+};
 
-async function fetchListings(): Promise<Listing[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/listings`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
+export default async function SearchPage({ searchParams }: SearchPageProps) {
+  const params: ListingSearchParams = {
+    bbox: searchParams.bbox,
+    page: searchParams.page ? Number(searchParams.page) : undefined,
+    limit: searchParams.limit ? Number(searchParams.limit) : undefined,
+    minPrice: searchParams.minPrice ? Number(searchParams.minPrice) : undefined,
+    maxPrice: searchParams.maxPrice ? Number(searchParams.maxPrice) : undefined,
+    beds: searchParams.beds ? Number(searchParams.beds) : undefined,
+    baths: searchParams.baths ? Number(searchParams.baths) : undefined,
+    propertyType: searchParams.propertyType,
+    sort: searchParams.sort as ListingSearchParams['sort'] | undefined,
+  };
 
-export default async function SearchPage() {
-  const listings = await fetchListings();
+  const { results, pagination } = await fetchListings(params);
 
-  return <SearchLayoutClient initialListings={listings} />;
+  return (
+    <SearchLayoutClient
+      initialListings={results}
+      initialPagination={pagination}
+    />
+  );
 }
