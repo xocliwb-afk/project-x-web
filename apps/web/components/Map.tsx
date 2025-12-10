@@ -1,10 +1,19 @@
 "use client";
 
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { createLayerComponent, type LayerProps } from "@react-leaflet/core";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { Listing as NormalizedListing } from "@project-x/shared-types";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createClusterIcon } from "./map/MapClusterMarker";
+import { MapLens } from "./map/MapLens";
+import { useMapLensStore } from "@/stores/useMapLensStore";
+import { useMapLens } from "@/hooks/useMapLens";
+import { useLongPress } from "@/hooks/useLongPress";
 
 const iconUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png";
 const iconRetinaUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png";
@@ -30,11 +39,25 @@ const SelectedIcon = L.icon({
   shadowSize: [41, 41],
 });
 
+type MarkerClusterGroupProps = L.MarkerClusterGroupOptions & LayerProps;
+
+const MarkerClusterGroup = createLayerComponent<L.MarkerClusterGroup, MarkerClusterGroupProps>(
+  (props, context) => {
+    const { children: _c, eventHandlers: _eh, ...options } = props;
+    const clusterGroup = L.markerClusterGroup(options);
+    return {
+      instance: clusterGroup,
+      context: { ...context, layerContainer: clusterGroup },
+    };
+  },
+);
+
 interface MapProps {
   listings: NormalizedListing[];
   selectedListingId?: string | null;
   hoveredListingId?: string | null;
   onSelectListing?: (id: string | null) => void;
+  onHoverListing?: (id: string | null) => void;
 }
 
 export default function Map({
@@ -42,8 +65,32 @@ export default function Map({
   selectedListingId,
   hoveredListingId,
   onSelectListing,
+  onHoverListing,
 }: MapProps) {
   const mapRef = useRef<L.Map | null>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const dismissLens = useMapLensStore((s) => s.dismissLens);
+  const { cancelHover, openImmediate } = useMapLens({ map: mapInstance });
+  const longPressTargetRef = useRef<{
+    listings: NormalizedListing[];
+    position: { lat: number; lng: number };
+  } | null>(null);
+  const longPressTriggeredRef = useRef(false);
+  const longPressHandlers = useLongPress({
+    onLongPress: () => {
+      const target = longPressTargetRef.current;
+      if (target) {
+        longPressTriggeredRef.current = true;
+        openImmediate(target.listings, target.position);
+      }
+    },
+    onCancel: () => {
+      longPressTargetRef.current = null;
+      longPressTriggeredRef.current = false;
+      cancelHover(false);
+    },
+    thresholdMs: 300,
+  });
   const defaultCenter: [number, number] = [42.9634, -85.6681];
 
   const firstWithCoords = listings.find((l) => l.address.lat && l.address.lng);
@@ -51,6 +98,115 @@ export default function Map({
   const center: [number, number] = firstWithCoords
     ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
     : defaultCenter;
+  const getClusterListings = (cluster: L.MarkerCluster): NormalizedListing[] =>
+    cluster
+      .getAllChildMarkers()
+      .map((m: any) => m.options?.listingData as NormalizedListing)
+      .filter(Boolean);
+
+  const handleClusterMouseOver = () => {};
+
+  const handleClusterPointerLeave = (e?: any) => {
+    const oe = e?.originalEvent as PointerEvent | undefined;
+    if (oe) {
+      longPressHandlers.onPointerLeave(oe);
+    }
+    longPressTargetRef.current = null;
+    longPressTriggeredRef.current = false;
+  };
+
+  const handleClusterMouseOut = () => {};
+
+  const handleClusterPointerDown = (e: any) => {
+    const oe = e.originalEvent as PointerEvent | undefined;
+    if (!oe) return;
+    const listingsForCluster = getClusterListings(e.layer);
+    longPressTargetRef.current = {
+      listings: listingsForCluster,
+      position: e.layer.getLatLng(),
+    };
+    longPressTriggeredRef.current = false;
+    longPressHandlers.onPointerDown(oe);
+  };
+
+  const handleClusterPointerMove = (e: any) => {
+    const oe = e.originalEvent as PointerEvent | undefined;
+    if (!oe) return;
+    longPressHandlers.onPointerMove(oe);
+  };
+
+  const handleClusterPointerUp = (e: any) => {
+    const oe = e.originalEvent as PointerEvent | undefined;
+    if (!oe) return;
+    longPressHandlers.onPointerUp(oe);
+    if (longPressTriggeredRef.current) {
+      oe.stopPropagation();
+      oe.preventDefault();
+    }
+    longPressTargetRef.current = null;
+    longPressTriggeredRef.current = false;
+  };
+
+  const handleClusterClick = (e: any) => {
+    console.log("[Map] clusterclick event", {
+      longPressTriggered: longPressTriggeredRef.current,
+      originalEvent: {
+        clientX: e.originalEvent?.clientX,
+        clientY: e.originalEvent?.clientY,
+        type: e.originalEvent?.type,
+      },
+    });
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      e.originalEvent?.stopPropagation?.();
+      e.originalEvent?.preventDefault?.();
+      return;
+    }
+    const cluster = e.layer as L.MarkerCluster;
+    const listingsForCluster = getClusterListings(cluster);
+    const latLng = cluster.getLatLng();
+
+    const { clientX, clientY } = e.originalEvent ?? {};
+    const screenPosition =
+      typeof clientX === "number" && typeof clientY === "number"
+        ? { x: clientX, y: clientY }
+        : undefined;
+
+    console.log("[Map] clusterclick -> openImmediate", {
+      listingsCount: listingsForCluster.length,
+      latLng,
+      screenPositionOverride: screenPosition,
+    });
+    openImmediate(listingsForCluster, latLng, screenPosition);
+    console.log("[Map] clusterclick -> openImmediate called");
+
+    e.originalEvent?.stopPropagation?.();
+    e.originalEvent?.preventDefault?.();
+  };
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.on("movestart", dismissLens);
+    return () => {
+      map.off("movestart", dismissLens);
+    };
+  }, [dismissLens]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleZoomStart = () => {
+      dismissLens();
+    };
+
+    map.on("zoomstart", handleZoomStart);
+
+    return () => {
+      map.off("zoomstart", handleZoomStart);
+    };
+  }, [dismissLens]);
 
   return (
     <div className="h-full w-full relative z-0">
@@ -61,6 +217,7 @@ export default function Map({
         scrollWheelZoom={true}
         whenCreated={(map) => {
           mapRef.current = map;
+          setMapInstance(map);
         }}
       >
         <TileLayer
@@ -68,73 +225,111 @@ export default function Map({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {listings
-          .filter((l) => l.address.lat && l.address.lng)
-          .map((l) => {
-            const isSelected =
-              l.id === selectedListingId || l.id === hoveredListingId;
-            const position: [number, number] = [l.address.lat, l.address.lng];
-            const priceNumber = typeof l.listPrice === "number" ? l.listPrice : 0;
-            const priceLabel =
-              typeof l.listPriceFormatted === "string" && l.listPriceFormatted.length > 0
-                ? l.listPriceFormatted
-                : priceNumber > 0
-                ? `$${priceNumber.toLocaleString()}`
-                : "$0";
-            const beds = l.details?.beds ?? 0;
-            const baths = l.details?.baths ?? 0;
-            const sqft = l.details?.sqft ?? null;
-            const mainPhoto = l.media?.photos?.[0] ?? "/placeholder-house.jpg";
-            const fullAddress = l.address?.full ?? "Address unavailable";
-            const cityLine = `${l.address.city}, ${l.address.state} ${l.address.zip}`.trim();
+        <MarkerClusterGroup
+          chunkedLoading
+          showCoverageOnHover={false}
+          zoomToBoundsOnClick={false}
+          spiderfyOnEveryZoom={false}
+          spiderfyOnClick={false}
+          iconCreateFunction={(cluster) =>
+            createClusterIcon(
+              getClusterListings(cluster as unknown as L.MarkerCluster),
+            )
+          }
+          eventHandlers={{
+            clustermouseover: handleClusterMouseOver,
+            clustermouseout: handleClusterMouseOut,
+            clusterclick: handleClusterClick,
+            clustermousedown: handleClusterPointerDown,
+            clustermousemove: handleClusterPointerMove,
+            clustermouseup: handleClusterPointerUp,
+            clustertouchend: handleClusterPointerUp,
+            clustertouchmove: handleClusterPointerLeave,
+          }}
+        >
+          {listings
+            .filter((l) => l.address.lat && l.address.lng)
+            .map((l) => {
+              const isSelected =
+                l.id === selectedListingId || l.id === hoveredListingId;
+              const position: [number, number] = [l.address.lat, l.address.lng];
+              const priceNumber = typeof l.listPrice === "number" ? l.listPrice : 0;
+              const priceLabel =
+                typeof l.listPriceFormatted === "string" && l.listPriceFormatted.length > 0
+                  ? l.listPriceFormatted
+                  : priceNumber > 0
+                  ? `$${priceNumber.toLocaleString()}`
+                  : "$0";
+              const beds = l.details?.beds ?? 0;
+              const baths = l.details?.baths ?? 0;
+              const sqft = l.details?.sqft ?? null;
+              const mainPhoto = l.media?.photos?.[0] ?? "/placeholder-house.jpg";
+              const fullAddress = l.address?.full ?? "Address unavailable";
+              const cityLine = `${l.address.city}, ${l.address.state} ${l.address.zip}`.trim();
 
-            return (
-              <Marker
-                key={l.id}
-                position={position}
-                icon={isSelected ? SelectedIcon : DefaultIcon}
-                eventHandlers={{
-                  click: () => {
-                    onSelectListing?.(l.id);
-                    mapRef.current?.flyTo(position, mapRef.current.getZoom());
-                  },
-                  popupopen: () => {
-                    onSelectListing?.(l.id);
-                  },
-                }}
-              >
-                <Popup>
-                  <div className="w-64 p-2 text-xs font-sans">
-                    <div className="mb-2 w-full overflow-hidden rounded">
-                      <img
-                        src={mainPhoto}
-                        alt={l.address.street || fullAddress}
-                        className="h-28 w-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
+              return (
+                <Marker
+                  key={l.id}
+                  position={position}
+                  icon={isSelected ? SelectedIcon : DefaultIcon}
+                  ref={(marker) => {
+                    if (marker) {
+                      (marker as any).options.listingData = l;
+                    }
+                  }}
+                  eventHandlers={{
+                    click: () => {
+                      onSelectListing?.(l.id);
+                      mapRef.current?.flyTo(position, mapRef.current.getZoom());
+                    },
+                    popupopen: () => {
+                      onSelectListing?.(l.id);
+                    },
+                    mouseover: () => {
+                      onHoverListing?.(l.id);
+                    },
+                    mouseout: () => {
+                      (onHoverListing ?? onSelectListing)?.(null);
+                    },
+                  }}
+                >
+                  <Popup>
+                    <div className="w-64 p-2 text-xs font-sans">
+                      <div className="mb-2 w-full overflow-hidden rounded">
+                        <img
+                          src={mainPhoto}
+                          alt={l.address.street || fullAddress}
+                          className="h-28 w-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
 
-                    <div className="mb-1 text-sm font-semibold text-gray-900">
-                      {priceLabel}
+                      <div className="mb-1 text-sm font-semibold text-gray-900">
+                        {priceLabel}
+                      </div>
+                      <div className="text-gray-600 text-xs leading-snug">
+                        {fullAddress}
+                        <br />
+                        {cityLine}
+                      </div>
+                      <div className="mt-1 text-[11px] text-gray-500">
+                        {beds} bds • {baths} ba •{" "}
+                        {typeof sqft === "number" && sqft > 0
+                          ? sqft.toLocaleString()
+                          : "—"}{" "}
+                        sqft
+                      </div>
                     </div>
-                    <div className="text-gray-600 text-xs leading-snug">
-                      {fullAddress}
-                      <br />
-                      {cityLine}
-                    </div>
-                    <div className="mt-1 text-[11px] text-gray-500">
-                      {beds} bds • {baths} ba •{" "}
-                      {typeof sqft === "number" && sqft > 0
-                        ? sqft.toLocaleString()
-                        : "—"}{" "}
-                      sqft
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
+                  </Popup>
+                </Marker>
+              );
+            })}
+        </MarkerClusterGroup>
       </MapContainer>
+      <MapLens
+        onHoverListing={onHoverListing}
+        onSelectListing={onSelectListing}
+      />
     </div>
   );
 }

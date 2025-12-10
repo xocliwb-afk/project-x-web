@@ -109,3 +109,5 @@ export type LeadPayload = {
 export type LeadResponse = {
   success: boolean;
 };
+
+export * from './tour';

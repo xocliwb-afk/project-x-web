@@ -3,6 +3,8 @@
 import type { Listing } from '@project-x/shared-types';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useTourStore } from '@/src/stores/useTourStore';
+import { AddToTourIcon } from './icons/AddToTourIcon';
 
 interface ListingCardProps {
   listing: Listing;
@@ -19,6 +21,8 @@ export function ListingCard({
   onMouseLeave,
   onClick,
 }: ListingCardProps) {
+  const addStop = useTourStore((state) => state.addStop);
+
   // --- Derive Null-Safe Values ---
   const numericPrice =
     typeof listing.listPrice === 'number' ? listing.listPrice : 0;
@@ -96,14 +100,27 @@ export function ListingCard({
               {fullAddress}
             </p>
           </div>
-          <Link
-            href={`/listing/${listing.id}`}
-            onClick={(e) => e.stopPropagation()} // Prevent card click from firing
-            className="text-xs text-blue-500 hover:underline whitespace-nowrap ml-2"
-            aria-label={`View full page for ${fullAddress}`}
-          >
-            Full Page
-          </Link>
+          <div className="flex flex-col items-end gap-2">
+            <Link
+              href={`/listing/${listing.id}`}
+              onClick={(e) => e.stopPropagation()} // Prevent card click from firing
+              className="text-xs text-blue-500 hover:underline whitespace-nowrap ml-2"
+              aria-label={`View full page for ${fullAddress}`}
+            >
+              Full Page
+            </Link>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                addStop(listing);
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <AddToTourIcon className="h-3.5 w-3.5" />
+              Add to Tour
+            </button>
+          </div>
         </div>
         <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-300">
           <span>{beds} bd</span>

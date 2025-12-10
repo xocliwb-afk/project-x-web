@@ -7,6 +7,13 @@ settings:
 importers:
 
   .:
+    dependencies:
+      leaflet.markercluster:
+        specifier: ^1.5.3
+        version: 1.5.3(leaflet@1.9.4)
+      zustand:
+        specifier: ^4.5.7
+        version: 4.5.7(@types/react@18.3.27)(react@18.3.1)
     devDependencies:
       prettier:
         specifier: latest
@@ -72,6 +79,9 @@ importers:
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
+      leaflet.markercluster:
+        specifier: ^1.5.3
+        version: 1.5.3(leaflet@1.9.4)
       lucide-react:
         specifier: ^0.300.0
         version: 0.300.0(react@18.3.1)
@@ -90,10 +100,16 @@ importers:
       tailwind-merge:
         specifier: ^2.2.0
         version: 2.6.0
+      zustand:
+        specifier: ^4.5.7
+        version: 4.5.7(@types/react@18.3.27)(react@18.3.1)
     devDependencies:
       '@types/leaflet':
         specifier: ^1.9.8
         version: 1.9.21
+      '@types/leaflet.markercluster':
+        specifier: ^1.5.4
+        version: 1.5.6
       '@types/node':
         specifier: ^20
         version: 20.19.25
@@ -259,6 +275,9 @@ packages:
 
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
+
+  '@types/leaflet.markercluster@1.5.6':
+    resolution: {integrity: sha512-I7hZjO2+isVXGYWzKxBp8PsCzAYCJBc29qBdFpquOCkS7zFDqUsUvkEOyQHedsk/Cy5tocQzf+Ndorm5W9YKTQ==}
 
   '@types/leaflet@1.9.21':
     resolution: {integrity: sha512-TbAd9DaPGSnzp6QvtYngntMZgcRk+igFELwR2N99XZn7RXUdKgsXMR+28bUO0rPsWp8MIu/f47luLIQuSLYv/w==}
@@ -676,6 +695,11 @@ packages:
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
+
+  leaflet.markercluster@1.5.3:
+    resolution: {integrity: sha512-vPTw/Bndq7eQHjLBVlWpnGeLa3t+3zGiuM7fJwCkiMFq+nmRuG3RI3f7f4N4TDX7T4NpbAXpR2+NTRSEGfCSeA==}
+    peerDependencies:
+      leaflet: ^1.3.1
 
   leaflet@1.9.4:
     resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
@@ -1183,6 +1207,11 @@ packages:
     peerDependencies:
       browserslist: '>= 4.21.0'
 
+  use-sync-external-store@1.6.0:
+    resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
@@ -1216,6 +1245,21 @@ packages:
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
+  zustand@4.5.7:
+    resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
+    engines: {node: '>=12.7.0'}
+    peerDependencies:
+      '@types/react': '>=16.8'
+      immer: '>=9.0.6'
+      react: '>=16.8'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
 
 snapshots:
 
@@ -1333,6 +1377,10 @@ snapshots:
   '@types/geojson@7946.0.16': {}
 
   '@types/http-errors@2.0.5': {}
+
+  '@types/leaflet.markercluster@1.5.6':
+    dependencies:
+      '@types/leaflet': 1.9.21
 
   '@types/leaflet@1.9.21':
     dependencies:
@@ -1771,6 +1819,10 @@ snapshots:
   jiti@1.21.7: {}
 
   js-tokens@4.0.0: {}
+
+  leaflet.markercluster@1.5.3(leaflet@1.9.4):
+    dependencies:
+      leaflet: 1.9.4
 
   leaflet@1.9.4: {}
 
@@ -2269,6 +2321,10 @@ snapshots:
       escalade: 3.2.0
       picocolors: 1.1.1
 
+  use-sync-external-store@1.6.0(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+
   util-deprecate@1.0.2: {}
 
   utils-merge@1.0.1: {}
@@ -2291,3 +2347,10 @@ snapshots:
   yn@3.1.1: {}
 
   zod@3.25.76: {}
+
+  zustand@4.5.7(@types/react@18.3.27)(react@18.3.1):
+    dependencies:
+      use-sync-external-store: 1.6.0(react@18.3.1)
+    optionalDependencies:
+      '@types/react': 18.3.27
+      react: 18.3.1

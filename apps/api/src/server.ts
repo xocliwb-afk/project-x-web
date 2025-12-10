@@ -3,6 +3,7 @@ import cors from "cors";
 import * as dotenv from "dotenv";
 import listingsRouter from "./routes/listings.route";
 import leadsRouter from "./routes/leads.route";
+import toursRouter from "./routes/tours.route";
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 
 app.use("/api/listings", listingsRouter);
 app.use("/api", leadsRouter);
+app.use("/api/v1/tours", toursRouter);
 
 app.get("/health", (req, res) => {
   res.status(200).send("API is healthy and running.");

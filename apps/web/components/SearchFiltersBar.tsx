@@ -26,6 +26,7 @@ type ActiveFilter =
   | "beds"
   | "baths"
   | "propertyType"
+  | "sort"
   | "more";
 
 const chipBase =
@@ -83,6 +84,13 @@ const DOM_OPTIONS = [
   { label: "Less than 30", value: "30" },
 ];
 
+const SORT_OPTIONS = [
+  { label: "Newest", value: "newest" },
+  { label: "Price: Low to High", value: "price-asc" },
+  { label: "Price: High to Low", value: "price-desc" },
+  { label: "Days on Market", value: "dom" },
+];
+
 export default function SearchFiltersBar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -103,6 +111,7 @@ export default function SearchFiltersBar() {
   const [propertyType, setPropertyType] = useState(
     searchParams.get("propertyType") || ""
   );
+  const [sort, setSort] = useState(searchParams.get("sort") || "");
   const [minSqft, setMinSqft] = useState(searchParams.get("minSqft") || "");
   const [maxSqft, setMaxSqft] = useState(searchParams.get("maxSqft") || "");
   const [minYearBuilt, setMinYearBuilt] = useState(
@@ -193,6 +202,10 @@ export default function SearchFiltersBar() {
     setPropertyType("");
     updateParams({ propertyType: null });
   };
+  const clearSort = () => {
+    setSort("");
+    updateParams({ sort: null });
+  };
   const clearMore = () => {
     setMinSqft("");
     setMaxSqft("");
@@ -222,6 +235,8 @@ export default function SearchFiltersBar() {
   const bedsLabel = minBeds ? `${minBeds}+ Beds` : "Beds";
   const bathsLabel = minBaths ? `${minBaths}+ Baths` : "Baths";
   const typeLabel = propertyType || "Home Type";
+  const sortLabel =
+    SORT_OPTIONS.find((opt) => opt.value === sort)?.label || "Sort";
 
   const moreActive =
     minSqft ||
@@ -361,6 +376,34 @@ export default function SearchFiltersBar() {
             }}
             className={`rounded border border-border px-2 py-1 text-center text-sm ${
               minBaths === opt.value ? "bg-orange-500 text-white" : ""
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderSortDropdown = () => (
+    <div className="w-64 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+      <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
+        <span className="font-semibold uppercase tracking-wider">Sort</span>
+        <button onClick={clearSort} className="text-orange-500">
+          Clear
+        </button>
+      </div>
+      <div className="flex flex-col gap-1">
+        {SORT_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => {
+              setSort(opt.value);
+              updateParams({ sort: opt.value });
+              setActiveFilter(null);
+            }}
+            className={`rounded px-2 py-1 text-left transition ${
+              sort === opt.value ? "bg-orange-500 text-white" : "hover:bg-white/10"
             }`}
           >
             {opt.label}
@@ -568,6 +611,14 @@ export default function SearchFiltersBar() {
             {typeLabel}
           </button>
           <button
+            ref={(el) => (chipRefs.current.sort = el)}
+            type="button"
+            onClick={() => openFilter("sort", "sort")}
+            className={`${chipBase} ${sort ? chipActive : chipInactive}`}
+          >
+            {sortLabel}
+          </button>
+          <button
             ref={(el) => (chipRefs.current.more = el)}
             type="button"
             onClick={() => openFilter("more", "more")}
@@ -587,6 +638,7 @@ export default function SearchFiltersBar() {
           {activeFilter === "price" && renderPriceDropdown()}
           {activeFilter === "beds" && renderBedsDropdown()}
           {activeFilter === "baths" && renderBathsDropdown()}
+          {activeFilter === "sort" && renderSortDropdown()}
           {activeFilter === "propertyType" && renderPropertyTypeDropdown()}
           {activeFilter === "more" && renderMoreDropdown()}
         </div>
