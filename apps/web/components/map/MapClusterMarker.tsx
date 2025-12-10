@@ -9,14 +9,20 @@ export function createClusterIcon(listings: NormalizedListing[]) {
     html: `
       <div
         title="Inspect cluster"
-        class="flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary bg-surface/90 shadow-[0_0_12px_rgba(15,23,42,0.25)] backdrop-blur-sm cursor-zoom-in"
+        class="relative flex h-12 w-12 items-center justify-center cursor-zoom-in transition-transform duration-200 ease-out hover:scale-110"
       >
-        <span class="font-bold text-primary text-base leading-none">
-          ${listings.length}
-        </span>
+        <div class="absolute h-4 w-4 rounded-full bg-blue-500/60 border-[2px] border-white/70 shadow-sm transform -translate-x-2 translate-y-1 -rotate-[20deg]"></div>
+        <div class="absolute h-4 w-4 rounded-full bg-blue-500/80 border-[2px] border-white/80 shadow-sm transform translate-x-2 translate-y-1 rotate-[20deg]"></div>
+        <div class="absolute h-4 w-4 rounded-full bg-blue-500 border-[2px] border-white shadow-sm transform translate-y-0"></div>
+
+        <div class="relative flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary text-[11px] font-bold ring-2 ring-primary shadow-md">
+          <span class="leading-none">
+            ${listings.length}
+          </span>
+        </div>
       </div>
     `,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    iconSize: [48, 48],
+    iconAnchor: [24, 48],
   });
 }

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { NormalizedListing } from "@project-x/shared-types";
+import L from "leaflet";
 import { useMapLensStore } from "@/stores/useMapLensStore";
+import { LensMiniMap } from "./LensMiniMap";
 
 type MapLensProps = {
   onHoverListing?: (id: string | null) => void;
@@ -29,13 +30,13 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
   const [visible, setVisible] = useState(false);
   const [focusedListingId, setFocusedListingId] = useState<string | null>(null);
   const lensRef = useRef<HTMLDivElement | null>(null);
-  const radius = 130;
+  const radius = 175;
   console.log("[MapLens] render", {
     activeClusterDataPresent: Boolean(activeClusterData),
     isLocked,
   });
 
-  const visibleListings = activeClusterData?.listings.slice(0, 12) ?? [];
+  const visibleListings = activeClusterData?.listings.slice(0, 50) ?? [];
   console.log("[MapLens] visibleListings", {
     count: visibleListings.length,
   });
@@ -50,26 +51,40 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
       }),
     [visibleListings]
   );
-  const positions = useMemo(() => {
-    const count = sortedVisibleListings.length;
-    if (count === 0) return [];
 
-    const spacing = 42;
-    const goldenAngle = 2.39996323;
-    return Array.from({ length: count }).map((_, i) => {
-      const angle = i * goldenAngle;
-      const radius = spacing * Math.sqrt(i);
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-      const maxRadius = 100;
-      const scale = radius > maxRadius ? maxRadius / radius : 1;
-      return {
-        x: x * scale,
-        y: y * scale,
-        delay: i * 30,
-      };
+  const clusterBounds = useMemo(() => {
+    if (!activeClusterData) return null;
+    const bounds = L.latLngBounds([]);
+    activeClusterData.listings.forEach((l) => {
+      if (typeof l.address?.lat === "number" && typeof l.address?.lng === "number") {
+        bounds.extend([l.address.lat, l.address.lng]);
+      }
     });
-  }, [sortedVisibleListings]);
+    return bounds.isValid() ? bounds : null;
+  }, [activeClusterData]);
+
+  const lensSizePx = useMemo(() => {
+    const defaultSize = 350;
+    if (!clusterBounds || !clusterBounds.isValid()) {
+      return defaultSize;
+    }
+    const sw = clusterBounds.getSouthWest();
+    const ne = clusterBounds.getNorthEast();
+    const diagonalMeters = sw.distanceTo(ne);
+    let viewportBase = 1024;
+    if (typeof window !== "undefined") {
+      viewportBase = Math.min(window.innerWidth, window.innerHeight);
+    }
+    let size = 0.28 * viewportBase;
+    if (diagonalMeters > 3000) {
+      size = 0.34 * viewportBase;
+    }
+    if (diagonalMeters > 12000) {
+      size = 0.42 * viewportBase;
+    }
+    size = Math.max(320, Math.min(480, size));
+    return size;
+  }, [clusterBounds]);
 
   useEffect(() => {
     setMounted(true);
@@ -146,12 +161,11 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
       onClick={handleDismiss}
     >
       <div
-        className="fixed inset-0 bg-black/15 dark:bg-black/25 transition-opacity"
+        className="fixed inset-0 bg-black/5 dark:bg-black/10 transition-opacity"
         aria-hidden="true"
       />
       <div
         className="relative h-full w-full"
-        onClick={(e) => e.stopPropagation()}
       >
         <div
           ref={lensRef}
@@ -161,48 +175,38 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
             top: clampedY,
             position: "absolute",
           }}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="relative flex flex-col items-center">
             <div
-              className="relative h-[260px] w-[260px] rounded-full border border-border/40 bg-gradient-to-b from-surface/20 via-surface/10 to-surface/30 shadow-[0_12px_40px_rgba(15,23,42,0.25)] backdrop-blur-2xl"
+              style={{ width: lensSizePx, height: lensSizePx }}
+              className="relative rounded-full overflow-hidden border-4 border-black/80 bg-surface/10 shadow-[0_14px_44px_rgba(15,23,42,0.3)] backdrop-blur-2xl"
             >
-              <button
-                type="button"
-                onClick={handleDismiss}
-                className="absolute right-2 top-2 z-20 h-7 w-7 rounded-full bg-black/60 text-white text-sm font-semibold transition hover:bg-black/80"
-              >
-                ×
-              </button>
-              {sortedVisibleListings.map((listing, idx) => {
-                const pos = positions[idx] || { x: 0, y: 0, delay: 0 };
-                const isFocused = focusedListingId === listing.id;
-                const bubbleBase =
-                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-surface/80 px-4 py-2 text-sm font-semibold text-text-main shadow-sm backdrop-blur-sm transition-transform transition-shadow duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:shadow-md hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 cursor-pointer";
-                const bubbleFocused =
-                  "bg-primary text-primary-foreground border-primary shadow-lg -translate-y-[2px] scale-105";
-                return (
-                  <button
-                    key={listing.id}
-                    className={`${bubbleBase} ${isFocused ? bubbleFocused : ""}`}
-                    style={{
-                      transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px)) scale(${visible ? 1 : 0.75})`,
-                      opacity: visible ? 1 : 0,
-                      transitionDuration: "220ms",
-                      transitionTimingFunction: "ease-out",
-                      transitionProperty: "transform, opacity",
-                      transitionDelay: `${pos.delay}ms`,
-                    }}
-                    onMouseEnter={() => onHoverListing?.(listing.id)}
-                    onMouseLeave={() => onHoverListing?.(null)}
-                    onClick={() => {
-                      setFocusedListingId(listing.id);
-                      onHoverListing?.(listing.id);
-                    }}
-                  >
-                    {formatPriceCompact(typeof listing.listPrice === "number" ? listing.listPrice : null)}
-                  </button>
-                );
-              })}
+              <LensMiniMap
+                center={[
+                  (activeClusterData.mapPosition?.lat as number) ||
+                    (activeClusterData.listings.find(
+                      (l) =>
+                        typeof l.address?.lat === "number" &&
+                        typeof l.address?.lng === "number"
+                    )?.address.lat as number) ||
+                    0,
+                  (activeClusterData.mapPosition?.lng as number) ||
+                    (activeClusterData.listings.find(
+                      (l) =>
+                        typeof l.address?.lat === "number" &&
+                        typeof l.address?.lng === "number"
+                    )?.address.lng as number) ||
+                    0,
+                ]}
+                listings={sortedVisibleListings}
+                bounds={clusterBounds}
+                onMarkerClick={(listing) => {
+                  setFocusedListingId(listing.id);
+                  onHoverListing?.(listing.id);
+                  onSelectListing?.(listing.id);
+                }}
+              />
             </div>
 
             {isLocked && focusedListing && (

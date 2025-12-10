@@ -11,7 +11,6 @@ type ListingsListProps = {
   hoveredListingId?: string | null;
   onSelectListing: (id: string | null) => void;
   onHoverListing?: (id: string | null) => void;
-  selectionTick?: number;
   onCardClick?: (listing: Listing) => void;
 };
 
@@ -22,7 +21,6 @@ export default function ListingsList({
   hoveredListingId,
   onSelectListing,
   onHoverListing,
-  selectionTick = 0,
   onCardClick,
 }: ListingsListProps) {
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -38,7 +36,7 @@ export default function ListingsList({
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [selectedListingId, selectionTick]);
+  }, [selectedListingId]);
 
   if (isLoading) {
     return <p className="text-sm text-slate-500">Loading listings...</p>;

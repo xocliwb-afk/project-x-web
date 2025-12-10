@@ -34,7 +34,6 @@ export default function SearchLayoutClient({
 
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
-  const [selectionTick, setSelectionTick] = useState(0);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -48,14 +47,12 @@ export default function SearchLayoutClient({
 
   const handleCardClick = (listing: Listing) => {
     setSelectedListingId(listing.id);
-    setSelectionTick((t) => t + 1);
     setSelectedListing(listing);
     setIsDetailModalOpen(true);
   };
 
   const handleSelectListing = (id: string | null) => {
     setSelectedListingId(id);
-    setSelectionTick((t) => t + 1);
   };
 
   const handleCloseModal = () => {
@@ -116,7 +113,6 @@ export default function SearchLayoutClient({
                   hoveredListingId={hoveredListingId}
                   onHoverListing={(id) => setHoveredListingId(id)}
                   onSelectListing={handleSelectListing}
-                  selectionTick={selectionTick}
                   onCardClick={handleCardClick}
                 />
               </div>
@@ -159,7 +155,6 @@ export default function SearchLayoutClient({
                       hoveredListingId={hoveredListingId}
                       onHoverListing={(id) => setHoveredListingId(id)}
                       onSelectListing={handleSelectListing}
-                      selectionTick={selectionTick}
                       onCardClick={handleCardClick}
                     />
                   </div>
@@ -188,7 +183,6 @@ export default function SearchLayoutClient({
                       hoveredListingId={hoveredListingId}
                       onHoverListing={(id) => setHoveredListingId(id)}
                       onSelectListing={handleSelectListing}
-                      selectionTick={selectionTick}
                       onCardClick={handleCardClick}
                     />
                   </div>
