@@ -134,7 +134,7 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
           />
         </div>
 
-        {isLocked && focusedListing && (
+        {focusedListing && (
           <div
             className={`absolute left-1/2 ${
               shouldFlipCard ? "bottom-full mb-3" : "top-full mt-3"
