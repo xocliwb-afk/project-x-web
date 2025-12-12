@@ -12,7 +12,7 @@ export type PaginatedListingsResponse = {
   pagination: {
     page: number;
     limit: number;
-    pageCount: number;
+    total: number;
     hasMore: boolean;
   };
 };
@@ -28,21 +28,11 @@ const API_BASE_URL =
  */
 export async function fetchListings(
   params: FetchListingsParams = {},
+  options?: { signal?: AbortSignal },
 ): Promise<PaginatedListingsResponse> {
   const searchParams = new URLSearchParams();
 
-  const bboxFromCorners =
-    params.swLat != null &&
-    params.swLng != null &&
-    params.neLat != null &&
-    params.neLng != null
-      ? `${params.swLng},${params.swLat},${params.neLng},${params.neLat}`
-      : null;
-
-  const bbox = params.bbox ?? bboxFromCorners;
-
-  if (bbox) searchParams.set('bbox', bbox);
-  if (params.q) searchParams.set('q', params.q);
+  if (params.bbox) searchParams.set('bbox', params.bbox);
   if (params.page != null) searchParams.set('page', String(params.page));
   if (params.limit != null) searchParams.set('limit', String(params.limit));
   if (params.minPrice != null) searchParams.set('minPrice', String(params.minPrice));
@@ -51,17 +41,6 @@ export async function fetchListings(
   if (params.baths != null) searchParams.set('baths', String(params.baths));
   if (params.propertyType) searchParams.set('propertyType', params.propertyType);
   if (params.sort) searchParams.set('sort', params.sort);
-  if (params.status?.length)
-    searchParams.set('status', params.status.filter(Boolean).join(','));
-  if (params.minSqft != null) searchParams.set('minSqft', String(params.minSqft));
-  if (params.maxSqft != null) searchParams.set('maxSqft', String(params.maxSqft));
-  if (params.minYearBuilt != null)
-    searchParams.set('minYearBuilt', String(params.minYearBuilt));
-  if (params.maxYearBuilt != null)
-    searchParams.set('maxYearBuilt', String(params.maxYearBuilt));
-  if (params.maxDaysOnMarket != null)
-    searchParams.set('maxDaysOnMarket', String(params.maxDaysOnMarket));
-  if (params.keywords) searchParams.set('keywords', params.keywords);
 
   const qs = searchParams.toString();
   const url = `${API_BASE_URL}/api/listings${qs ? `?${qs}` : ''}`;
@@ -69,6 +48,7 @@ export async function fetchListings(
   const res = await fetch(url, {
     // Always fetch fresh data for search
     cache: 'no-store',
+    signal: options?.signal,
   });
 
   if (!res.ok) {

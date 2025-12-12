@@ -58,6 +58,8 @@ export default function SearchLayoutClient({
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const abortRef = useRef<AbortController | null>(null);
+  const prevBBoxRef = useRef<string | undefined>(undefined);
 
   const parsedParams = useMemo<FetchListingsParams>(() => {
     const getNumber = (key: string) => {
@@ -95,21 +97,35 @@ export default function SearchLayoutClient({
     };
   }, [searchParams]);
 
-  const effectiveParams = useMemo(() => {
-    if (!mapBounds) return parsedParams;
+  const requestParams = useMemo(() => {
+    const {
+      bbox,
+      page,
+      limit,
+      minPrice,
+      maxPrice,
+      beds,
+      baths,
+      propertyType,
+      sort,
+    } = parsedParams;
+
     return {
-      ...parsedParams,
-      bbox: mapBounds.bbox,
-      swLat: mapBounds.swLat,
-      swLng: mapBounds.swLng,
-      neLat: mapBounds.neLat,
-      neLng: mapBounds.neLng,
+      bbox,
+      page,
+      limit,
+      minPrice,
+      maxPrice,
+      beds,
+      baths,
+      propertyType,
+      sort,
     };
-  }, [mapBounds, parsedParams]);
+  }, [parsedParams]);
 
   const paramsKey = useMemo(
-    () => JSON.stringify(effectiveParams),
-    [effectiveParams],
+    () => JSON.stringify(requestParams),
+    [requestParams],
   );
 
   useEffect(() => {
@@ -118,20 +134,34 @@ export default function SearchLayoutClient({
     }
 
     const parsed: FetchListingsParams = JSON.parse(paramsKey);
+    const bboxKey = parsed.bbox ?? '';
+    const bboxChanged = prevBBoxRef.current !== bboxKey;
+    prevBBoxRef.current = bboxKey;
+
+    const delay = bboxChanged ? 300 : 0;
     let cancelled = false;
 
     fetchTimeoutRef.current = setTimeout(async () => {
+      if (cancelled) return;
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       if (hasCompletedInitialFetch.current) {
         setIsLoading(true);
       }
+
       try {
-        const { results, pagination: newPagination } = await fetchListings(parsed);
+        const { results, pagination: newPagination } = await fetchListings(parsed, {
+          signal: controller.signal,
+        });
         if (cancelled) return;
         setListings(results);
         setPagination(newPagination);
         setError(null);
       } catch (err) {
-        if (cancelled) return;
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
         console.error('[SearchLayoutClient] failed to fetch listings', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch listings');
       } finally {
@@ -140,10 +170,11 @@ export default function SearchLayoutClient({
           hasCompletedInitialFetch.current = true;
         }
       }
-    }, 400);
+    }, delay);
 
     return () => {
       cancelled = true;
+      abortRef.current?.abort();
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
@@ -302,7 +333,7 @@ export default function SearchLayoutClient({
                     <p className="text-sm text-text-main/70">
                       {isLoading
                         ? 'Loading...'
-                        : `${(pagination.pageCount ?? listings.length).toLocaleString()} results`}
+                        : `${(pagination.total ?? listings.length).toLocaleString()} results`}
                     </p>
                     {error && (
                       <p className="text-xs text-red-500">
