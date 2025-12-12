@@ -253,21 +253,6 @@ export default function Map({
     };
   }, [onBoundsChange]);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const handleZoomStart = () => {
-      dismissLens();
-    };
-
-    map.on("zoomstart", handleZoomStart);
-
-    return () => {
-      map.off("zoomstart", handleZoomStart);
-    };
-  }, [dismissLens]);
-
   return (
     <div className="h-full w-full relative z-0">
       <MapContainer
