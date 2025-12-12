@@ -1,4 +1,4 @@
-import { ListingProvider } from './listing-provider.interface';
+import { ListingProvider, ListingSearchResult } from './listing-provider.interface';
 import { ListingSearchParams, NormalizedListing } from '@project-x/shared-types';
 
 export class SimplyRetsListingProvider implements ListingProvider {
@@ -21,7 +21,7 @@ export class SimplyRetsListingProvider implements ListingProvider {
     this.authHeader = `Basic ${token}`;
   }
 
-  public async search(params: ListingSearchParams): Promise<NormalizedListing[]> {
+  public async search(params: ListingSearchParams): Promise<ListingSearchResult> {
     const url = new URL('/properties', this.baseUrl);
 
     if (params.limit) url.searchParams.set('limit', String(params.limit));
@@ -98,7 +98,7 @@ export class SimplyRetsListingProvider implements ListingProvider {
       }
     }
 
-    return results;
+    return { results, total: results.length };
   }
 
   public async getById(id: string): Promise<NormalizedListing | null> {

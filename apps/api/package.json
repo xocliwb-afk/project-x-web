@@ -5,6 +5,8 @@
   "scripts": {
     "start": "ts-node src/server.ts",
     "dev": "ts-node-dev --respawn src/server.ts",
+    "start:mock": "DOTENV_CONFIG_PATH=.env.mock ts-node src/server.ts",
+    "dev:mock": "DOTENV_CONFIG_PATH=.env.mock ts-node-dev --respawn src/server.ts",
     "build": "tsc"
   },
   "dependencies": {
