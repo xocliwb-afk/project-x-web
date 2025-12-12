@@ -11,6 +11,11 @@ const nextConfig = {
         hostname: 'd2bd5h5te3s67r.cloudfront.net',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 's3-us-west-2.amazonaws.com',
+        pathname: '/cdn.simplyrets.com/**',
+      },
     ],
   },
 };

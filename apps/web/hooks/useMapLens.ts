@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type L from "leaflet";
 import type { NormalizedListing } from "@project-x/shared-types";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 
 type MapPosition = { lat: number; lng: number };
+type MapLike = {
+  latLngToContainerPoint: (latLng: [number, number]) => { x: number; y: number };
+  getContainer: () => HTMLElement;
+};
+type LatLngLike = MapPosition | [number, number];
 
-export function useMapLens({ map }: { map: L.Map | null }) {
+export function useMapLens({ map }: { map: MapLike | null }) {
   const activateLens = useMapLensStore((s) => s.activateLens);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const setLocked = useMapLensStore((s) => s.setLocked);
@@ -32,7 +36,7 @@ export function useMapLens({ map }: { map: L.Map | null }) {
   const openLens = useCallback(
     (
       listings: NormalizedListing[],
-      position: L.LatLngExpression,
+      position: LatLngLike,
       screenPositionOverride?: { x: number; y: number },
     ) => {
       console.log("[useMapLens] openLens()", {
@@ -42,12 +46,8 @@ export function useMapLens({ map }: { map: L.Map | null }) {
       });
       const screenPosition =
         screenPositionOverride ??
-        (Array.isArray(position) || typeof position === "number"
-          ? toScreenPosition(
-              Array.isArray(position)
-                ? { lat: position[0], lng: position[1] }
-                : { lat: (position as any).lat, lng: (position as any).lng },
-            )
+        (Array.isArray(position)
+          ? toScreenPosition({ lat: position[0], lng: position[1] })
           : toScreenPosition(position as MapPosition));
       console.log("[useMapLens] openLens -> screenPosition", {
         screenPosition,
@@ -100,7 +100,7 @@ export function useMapLens({ map }: { map: L.Map | null }) {
   const openImmediate = useCallback(
     (
       listings: NormalizedListing[],
-      position: L.LatLngExpression,
+      position: LatLngLike,
       screenPositionOverride?: { x: number; y: number },
     ) => {
       console.log("[useMapLens] openImmediate()", {

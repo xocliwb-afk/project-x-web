@@ -58,6 +58,13 @@ interface MapProps {
   hoveredListingId?: string | null;
   onSelectListing?: (id: string | null) => void;
   onHoverListing?: (id: string | null) => void;
+  onBoundsChange?: (bounds: {
+    swLat: number;
+    swLng: number;
+    neLat: number;
+    neLng: number;
+    bbox?: string;
+  }) => void;
 }
 
 export default function Map({
@@ -66,6 +73,7 @@ export default function Map({
   hoveredListingId,
   onSelectListing,
   onHoverListing,
+  onBoundsChange,
 }: MapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
@@ -192,6 +200,32 @@ export default function Map({
       map.off("movestart", dismissLens);
     };
   }, [dismissLens]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !onBoundsChange) return;
+    const emitBounds = () => {
+      const bounds = map.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      onBoundsChange({
+        swLat: sw.lat,
+        swLng: sw.lng,
+        neLat: ne.lat,
+        neLng: ne.lng,
+        bbox: `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`,
+      });
+    };
+
+    emitBounds();
+    map.on("moveend", emitBounds);
+    map.on("zoomend", emitBounds);
+
+    return () => {
+      map.off("moveend", emitBounds);
+      map.off("zoomend", emitBounds);
+    };
+  }, [onBoundsChange]);
 
   useEffect(() => {
     const map = mapRef.current;

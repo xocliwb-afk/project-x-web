@@ -15,10 +15,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="flex h-screen flex-col overflow-hidden bg-surface text-text-main antialiased font-sans transition-colors duration-300">
+      <body className="flex min-h-screen flex-col overflow-x-hidden bg-surface text-text-main antialiased font-sans transition-colors duration-300">
         <ThemeProvider>
           <Header />
-          <main className="relative flex-1 overflow-hidden">{children}</main>
+          <main className="relative flex-1 overflow-x-hidden">{children}</main>
         </ThemeProvider>
       </body>
     </html>

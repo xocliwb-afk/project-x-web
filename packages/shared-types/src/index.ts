@@ -18,6 +18,12 @@ export type NormalizedListing = {
   };
   media: {
     photos: string[];
+    thumbnailUrl?: string | null;
+  };
+  attribution?: {
+    mlsName: string;
+    disclaimer: string;
+    logoUrl?: string;
   };
   details: {
     beds: number | null;

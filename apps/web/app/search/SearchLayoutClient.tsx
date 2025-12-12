@@ -1,9 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { Listing } from '@project-x/shared-types';
-import type { PaginatedListingsResponse } from '@/lib/api-client';
+import type {
+  FetchListingsParams,
+  PaginatedListingsResponse,
+} from '@/lib/api-client';
+import { fetchListings } from '@/lib/api-client';
+import Footer from '@/components/Footer';
 import ListingsList from '@/components/ListingsList';
 import { ListingDetailModal } from '@/components/ListingDetailModal';
 import { useTheme } from '@/context/ThemeContext';
@@ -22,15 +28,30 @@ type SearchLayoutClientProps = {
   initialPagination: PaginatedListingsResponse['pagination'];
 };
 
+type MapBounds = {
+  swLat: number;
+  swLng: number;
+  neLat: number;
+  neLng: number;
+  bbox: string;
+};
+
 export default function SearchLayoutClient({
   initialListings,
   initialPagination,
 }: SearchLayoutClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { mapSide, paneDominance } = useTheme();
-  const [listings] = useState<Listing[]>(initialListings);
-  const [pagination] = useState<PaginatedListingsResponse['pagination']>(
-    initialPagination,
-  );
+  const [listings, setListings] = useState<Listing[]>(initialListings);
+  const [pagination, setPagination] =
+    useState<PaginatedListingsResponse['pagination']>(initialPagination);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasCompletedInitialFetch = useRef(false);
 
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
@@ -38,12 +59,135 @@ export default function SearchLayoutClient({
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
+  const parsedParams = useMemo<FetchListingsParams>(() => {
+    const getNumber = (key: string) => {
+      const value = searchParams.get(key);
+      return value != null && value !== '' ? Number(value) : undefined;
+    };
+
+    const statusParam = searchParams.getAll('status');
+    const singleStatus = searchParams.get('status');
+    const statusArray =
+      statusParam.length > 0
+        ? statusParam
+        : singleStatus
+        ? singleStatus.split(',').filter(Boolean)
+        : undefined;
+
+    return {
+      q: searchParams.get('q') || undefined,
+      bbox: searchParams.get('bbox') || undefined,
+      page: getNumber('page'),
+      limit: getNumber('limit'),
+      minPrice: getNumber('minPrice'),
+      maxPrice: getNumber('maxPrice'),
+      beds: getNumber('beds'),
+      baths: getNumber('baths'),
+      propertyType: searchParams.get('propertyType') || undefined,
+      sort: (searchParams.get('sort') as FetchListingsParams['sort']) || undefined,
+      status: statusArray,
+      minSqft: getNumber('minSqft'),
+      maxSqft: getNumber('maxSqft'),
+      minYearBuilt: getNumber('minYearBuilt'),
+      maxYearBuilt: getNumber('maxYearBuilt'),
+      maxDaysOnMarket: getNumber('maxDaysOnMarket'),
+      keywords: searchParams.get('keywords') || undefined,
+    };
+  }, [searchParams]);
+
+  const effectiveParams = useMemo(() => {
+    if (!mapBounds) return parsedParams;
+    return {
+      ...parsedParams,
+      bbox: mapBounds.bbox,
+      swLat: mapBounds.swLat,
+      swLng: mapBounds.swLng,
+      neLat: mapBounds.neLat,
+      neLng: mapBounds.neLng,
+    };
+  }, [mapBounds, parsedParams]);
+
+  const paramsKey = useMemo(
+    () => JSON.stringify(effectiveParams),
+    [effectiveParams],
+  );
+
+  useEffect(() => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    const parsed: FetchListingsParams = JSON.parse(paramsKey);
+    let cancelled = false;
+
+    fetchTimeoutRef.current = setTimeout(async () => {
+      if (hasCompletedInitialFetch.current) {
+        setIsLoading(true);
+      }
+      try {
+        const { results, pagination: newPagination } = await fetchListings(parsed);
+        if (cancelled) return;
+        setListings(results);
+        setPagination(newPagination);
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[SearchLayoutClient] failed to fetch listings', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch listings');
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+          hasCompletedInitialFetch.current = true;
+        }
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, [paramsKey]);
+
+  const updateUrlWithBounds = useCallback(
+    (bbox: string) => {
+      const currentBbox = searchParams.get('bbox');
+      if (currentBbox === bbox) return;
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('bbox', bbox);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  useEffect(() => {
+    if (!mapBounds) return;
+    updateUrlWithBounds(mapBounds.bbox);
+  }, [mapBounds, updateUrlWithBounds]);
+
   const leftPaneClass =
     paneDominance === 'left' ? 'md:basis-3/5' : 'md:basis-2/5';
   const rightPaneClass =
     paneDominance === 'right' ? 'md:basis-3/5' : 'md:basis-2/5';
   const mapPaneClass = mapSide === 'left' ? leftPaneClass : rightPaneClass;
   const listPaneClass = mapSide === 'left' ? rightPaneClass : leftPaneClass;
+
+  const handleBoundsChange = useCallback((bounds: MapBounds) => {
+    setMapBounds((prev) => {
+      if (
+        prev &&
+        prev.swLat === bounds.swLat &&
+        prev.swLng === bounds.swLng &&
+        prev.neLat === bounds.neLat &&
+        prev.neLng === bounds.neLng
+      ) {
+        return prev;
+      }
+      return bounds;
+    });
+  }, []);
 
   const handleCardClick = (listing: Listing) => {
     setSelectedListingId(listing.id);
@@ -83,7 +227,7 @@ export default function SearchLayoutClient({
 
   return (
     <>
-      <main className="h-[calc(100vh-64px)] w-full">
+      <main className="w-full">
         {/* Mobile Toggle */}
         <div className="border-b border-border p-2 md:hidden">
           <div className="grid grid-cols-2 gap-2 rounded-lg bg-surface-muted p-1">
@@ -93,113 +237,95 @@ export default function SearchLayoutClient({
         </div>
 
         {/* Main Content Area */}
-        <div className="h-full w-full">
+        <div className="w-full">
           {/* Mobile View */}
           <div className="h-full w-full md:hidden">
             {viewMode === 'map' && (
-              <MapPanel
-                listings={listings}
-                selectedListingId={selectedListingId}
-                hoveredListingId={hoveredListingId}
-                onSelectListing={handleSelectListing}
-              />
+              <div className="h-[420px]">
+                <MapPanel
+                  listings={listings}
+                  selectedListingId={selectedListingId}
+                  hoveredListingId={hoveredListingId}
+                  onSelectListing={handleSelectListing}
+                  onBoundsChange={handleBoundsChange}
+                />
+              </div>
             )}
             {viewMode === 'list' && (
               <div className="h-full overflow-y-auto px-4 pt-4 pb-6">
                 <ListingsList
                   listings={listings}
-                  isLoading={false}
+                  isLoading={isLoading}
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
                   onHoverListing={(id) => setHoveredListingId(id)}
                   onSelectListing={handleSelectListing}
                   onCardClick={handleCardClick}
                 />
+                <div className="mt-6">
+                  <Footer />
+                </div>
               </div>
             )}
           </div>
 
           {/* Desktop View (60/40 Split) */}
-          <div className="hidden h-full w-full md:flex md:gap-4 md:p-4">
-            {mapSide === 'left' ? (
-              <>
-                <div
-                  className={`h-full w-full overflow-hidden rounded-lg border border-border ${mapPaneClass}`}
-                >
-                  <MapPanel
-                    listings={listings}
-                    selectedListingId={selectedListingId}
-                    hoveredListingId={hoveredListingId}
-                    onSelectListing={handleSelectListing}
-                  />
-                </div>
+          {/* Desktop View (60/40 Split) */}
+          <div
+            className={`hidden md:flex flex-row gap-4 ${
+              mapSide === 'right' ? 'flex-row-reverse' : ''
+            }`}
+          >
+            {/* Map Column */}
+            <div className={`relative ${mapPaneClass}`}>
+              <div className="sticky top-24 h-[calc(100vh-120px)] overflow-hidden rounded-lg border border-border">
+                <MapPanel
+                  listings={listings}
+                  selectedListingId={selectedListingId}
+                  hoveredListingId={hoveredListingId}
+                  onSelectListing={handleSelectListing}
+                  onBoundsChange={handleBoundsChange}
+                />
+              </div>
+            </div>
 
-                <div
-                  className={`flex h-full w-full flex-col rounded-lg border border-border bg-surface ${listPaneClass}`}
-                >
-                  <div className="flex items-end justify-between border-b border-border px-4 py-3">
-                    <div>
-                      <h2 className="text-xl font-bold text-text-main">
-                        Homes for sale
-                      </h2>
-                      <p className="text-sm text-text-main/70">
-                        {pagination.total} results
+            {/* Listings Column */}
+            <div className={`h-[calc(100vh-120px)] overflow-y-auto ${listPaneClass}`}>
+              <div className="flex h-full flex-col rounded-lg border border-border bg-surface">
+                <div className="flex items-end justify-between border-b border-border px-4 pt-3 pb-2">
+                  <div>
+                    <h2 className="text-xl font-bold text-text-main">
+                      Homes for sale
+                    </h2>
+                    <p className="text-sm text-text-main/70">
+                      {isLoading
+                        ? 'Loading...'
+                        : `${(pagination.pageCount ?? listings.length).toLocaleString()} results`}
+                    </p>
+                    {error && (
+                      <p className="text-xs text-red-500">
+                        Unable to refresh listings. Please try again.
                       </p>
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
-                    <ListingsList
-                      listings={listings}
-                      isLoading={false}
-                      selectedListingId={selectedListingId}
-                      hoveredListingId={hoveredListingId}
-                      onHoverListing={(id) => setHoveredListingId(id)}
-                      onSelectListing={handleSelectListing}
-                      onCardClick={handleCardClick}
-                    />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div
-                  className={`flex h-full w-full flex-col rounded-lg border border-border bg-surface ${listPaneClass}`}
-                >
-                  <div className="flex items-end justify-between border-b border-border px-4 py-3">
-                    <div>
-                      <h2 className="text-xl font-bold text-text-main">
-                        Homes for sale
-                      </h2>
-                      <p className="text-sm text-text-main/70">
-                        {pagination.total} results
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
-                    <ListingsList
-                      listings={listings}
-                      isLoading={false}
-                      selectedListingId={selectedListingId}
-                      hoveredListingId={hoveredListingId}
-                      onHoverListing={(id) => setHoveredListingId(id)}
-                      onSelectListing={handleSelectListing}
-                      onCardClick={handleCardClick}
-                    />
+                    )}
                   </div>
                 </div>
 
-                <div
-                  className={`h-full w-full overflow-hidden rounded-lg border border-border ${mapPaneClass}`}
-                >
-                  <MapPanel
+                <div className="flex-1 p-4">
+                  <ListingsList
                     listings={listings}
+                    isLoading={isLoading}
                     selectedListingId={selectedListingId}
                     hoveredListingId={hoveredListingId}
+                    onHoverListing={(id) => setHoveredListingId(id)}
                     onSelectListing={handleSelectListing}
+                    onCardClick={handleCardClick}
                   />
                 </div>
-              </>
-            )}
+                <div className="px-4 pb-6">
+                  <Footer />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>

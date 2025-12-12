@@ -1,81 +1,52 @@
 import {
   PlanTourRequest,
   PlannedTour,
+  Tour,
   TourStop,
 } from '@project-x/shared-types';
 
-export class TourService {
-  planTour(request: PlanTourRequest): PlannedTour {
-    const start = new Date(request.startTime);
+const makeId = () => `tour-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-    if (Number.isNaN(start.getTime())) {
-      throw new Error('Invalid startTime provided');
-    }
+export function planTour(req: PlanTourRequest): PlannedTour {
+  const { date, startTime, defaultDurationMinutes, defaultBufferMinutes } = req;
+  const startDate = new Date(`${date}T${startTime}:00`);
+  if (Number.isNaN(startDate.getTime())) {
+    throw new Error('Invalid startTime provided');
+  }
 
-    const stops: TourStop[] = [];
-    let currentStart = start;
-
-    for (const stop of request.stops) {
-      const stopStart = currentStart;
-      const stopEnd = new Date(
-        stopStart.getTime() + stop.showingDurationMinutes * 60_000,
-      );
-
-      stops.push({
-        ...stop,
-        startTime: stopStart.toISOString(),
-        endTime: stopEnd.toISOString(),
-      });
-
-      currentStart = new Date(
-        stopEnd.getTime() + request.travelTimeMinutes * 60_000,
-      );
-    }
-
-    const tourStartTime = start.toISOString();
-    const tourEndTime =
-      stops.length > 0
-        ? stops[stops.length - 1].endTime
-        : start.toISOString();
-    const totalDurationMinutes =
-      stops.length > 0
-        ? Math.max(
-            0,
-            Math.round(
-              (new Date(tourEndTime).getTime() - start.getTime()) / 60_000,
-            ),
-          )
-        : 0;
+  let current = startDate;
+  const stops: TourStop[] = req.stops.map((stop, idx) => {
+    const startIso = current.toISOString();
+    const endDate = new Date(current);
+    endDate.setMinutes(endDate.getMinutes() + defaultDurationMinutes);
+    const endIso = endDate.toISOString();
+    const nextStart = new Date(endDate);
+    nextStart.setMinutes(nextStart.getMinutes() + defaultBufferMinutes);
+    current = nextStart;
 
     return {
-      stops,
-      googleMapsUrl: this.buildGoogleMapsUrl(request),
-      totalDurationMinutes,
-      startTime: tourStartTime,
-      endTime: tourEndTime,
+      id: makeId(),
+      listingId: stop.listingId,
+      order: idx,
+      address: stop.address,
+      lat: stop.lat,
+      lng: stop.lng,
+      thumbnailUrl: null,
+      startTime: startIso,
+      endTime: endIso,
     };
-  }
+  });
 
-  private buildGoogleMapsUrl(request: PlanTourRequest): string {
-    if (!request.stops || request.stops.length === 0) {
-      return '';
-    }
+  const tour: Tour = {
+    id: makeId(),
+    title: req.clientName ? `${req.clientName}'s Tour` : "Planned Tour",
+    clientName: req.clientName ?? '',
+    date: req.date,
+    startTime: req.startTime,
+    defaultDurationMinutes,
+    defaultBufferMinutes,
+    stops,
+  };
 
-    const addresses = request.stops.map((s) => s.fullAddress);
-
-    if (addresses.length === 1) {
-      const destination = encodeURIComponent(addresses[0]);
-      return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
-    }
-
-    const origin = encodeURIComponent(addresses[0]);
-    const destination = encodeURIComponent(addresses[addresses.length - 1]);
-    const middle = addresses.slice(1, -1);
-    const waypointParam =
-      middle.length > 0
-        ? `&waypoints=${middle.map((addr) => encodeURIComponent(addr)).join('|')}`
-        : '';
-
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypointParam}`;
-  }
+  return tour as PlannedTour;
 }

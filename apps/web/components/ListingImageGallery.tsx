@@ -1,52 +1,86 @@
 'use client';
 
-import { useState } from 'react';
 import Image from 'next/image';
+import { useState } from 'react';
 
 type ListingImageGalleryProps = {
   photos: string[];
 };
 
-export function ListingImageGallery({ photos }: ListingImageGalleryProps) {
-  const imageList =
-    Array.isArray(photos) && photos.length > 0
-      ? photos
-      : ['/placeholder-house.jpg']; // adjust placeholder path if needed
+export default function ListingImageGallery({ photos }: ListingImageGalleryProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const hasPhotos = Array.isArray(photos) && photos.length > 0;
+  const safeIndex = hasPhotos ? currentIndex % photos.length : 0;
+  const currentPhoto = hasPhotos ? photos[safeIndex] : '/placeholder-house.jpg';
 
-  const [mainImage, setMainImage] = useState(imageList[0]);
+  const handlePrev = () => {
+    if (!hasPhotos) return;
+    setCurrentIndex((prev) => (prev - 1 + photos.length) % photos.length);
+  };
+
+  const handleNext = () => {
+    if (!hasPhotos) return;
+    setCurrentIndex((prev) => (prev + 1) % photos.length);
+  };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="relative flex-grow h-64 md:h-96">
-        <Image
-          src={mainImage}
-          alt="Main listing image"
-          fill
-          style={{ objectFit: 'cover' }}
-          className="bg-slate-200"
-        />
-      </div>
-      {imageList.length > 1 && (
-        <div className="flex space-x-2 p-2 bg-slate-100 dark:bg-slate-800">
-          {imageList.slice(0, 5).map((photo, index) => (
+    <div className="w-full">
+      <div className="relative w-full overflow-hidden rounded-xl border border-border">
+        <div className="relative w-full aspect-[16/9] bg-slate-200">
+          <Image
+            src={currentPhoto}
+            alt={`Listing photo ${safeIndex + 1}`}
+            fill
+            sizes="100vw"
+            className="object-cover"
+            priority
+          />
+        </div>
+
+        {hasPhotos && photos.length > 1 && (
+          <>
             <button
               type="button"
-              key={index}
-              className="relative w-20 h-20 rounded-md overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onMouseEnter={() => setMainImage(photo)}
-              onClick={() => setMainImage(photo)}
+              onClick={handlePrev}
+              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 text-slate-800 shadow hover:bg-white"
+              aria-label="Previous photo"
             >
-              <Image
-                src={photo}
-                alt={`Thumbnail ${index + 1}`}
-                fill
-                style={{ objectFit: 'cover' }}
-                className={
-                  mainImage === photo ? 'ring-2 ring-blue-500' : 'ring-0'
-                }
-              />
+              ‹
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={handleNext}
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 text-slate-800 shadow hover:bg-white"
+              aria-label="Next photo"
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+
+      {hasPhotos && photos.length > 1 && (
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          {photos.map((photo, idx) => {
+            const isActive = idx === safeIndex;
+            return (
+              <button
+                key={`${photo}-${idx}`}
+                type="button"
+                onClick={() => setCurrentIndex(idx)}
+                className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-md border ${isActive ? 'border-primary ring-2 ring-primary/50' : 'border-border opacity-80 hover:opacity-100'}`}
+                aria-label={`View photo ${idx + 1}`}
+              >
+                <Image
+                  src={photo}
+                  alt={`Listing thumbnail ${idx + 1}`}
+                  fill
+                  sizes="120px"
+                  className="object-cover"
+                />
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

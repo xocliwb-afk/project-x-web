@@ -1,37 +1,43 @@
-/**
- * Input provided by the client for a single tour stop.
- */
-export type TourStopInput = {
+export interface TourStop {
+  id: string;
   listingId: string;
-  mlsId: string;
-  fullAddress: string;
-  showingDurationMinutes: number; // default 30 on the client side
-};
+  order: number;
 
-/**
- * Request payload for planning a tour.
- */
-export type PlanTourRequest = {
-  stops: TourStopInput[];
-  startTime: string; // ISO datetime, UTC assumed
-  travelTimeMinutes: number;
-};
+  address: string;
+  lat: number;
+  lng: number;
+  thumbnailUrl?: string | null;
 
-/**
- * A planned stop with computed start and end times.
- */
-export type TourStop = TourStopInput & {
+  startTime?: string;
+  endTime?: string;
+}
+
+export interface Tour {
+  id: string;
+  title: string;
+  clientName: string;
+  date: string;
   startTime: string;
-  endTime: string;
-};
-
-/**
- * The fully planned tour returned by the backend.
- */
-export type PlannedTour = {
+  defaultDurationMinutes: number;
+  defaultBufferMinutes: number;
   stops: TourStop[];
-  googleMapsUrl: string;
-  totalDurationMinutes: number;
+}
+
+export interface TourStopInput {
+  listingId: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+export interface PlanTourRequest {
+  date: string;
+  clientName?: string;
+  stops: TourStopInput[];
   startTime: string;
-  endTime: string;
-};
+  defaultDurationMinutes: number;
+  defaultBufferMinutes: number;
+  timeZone?: string;
+}
+
+export type PlannedTour = Tour;

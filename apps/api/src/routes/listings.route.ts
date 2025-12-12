@@ -53,20 +53,15 @@ router.get('/', async (req, res) => {
     const page = params.page && params.page > 0 ? params.page : 1;
     const limit = params.limit && params.limit > 0 ? params.limit : 20;
 
-    const allResults: NormalizedListing[] = await provider.search(params);
-    const total = allResults.length;
-
-    const start = (page - 1) * limit;
-    const end = page * limit;
-    const pagedResults = allResults.slice(start, end);
+    const results: NormalizedListing[] = await provider.search(params);
 
     res.json({
-      results: pagedResults,
+      results,
       pagination: {
         page,
         limit,
-        total,
-        hasMore: end < total,
+        pageCount: results.length,
+        hasMore: results.length === limit,
       },
     });
   } catch (err: any) {

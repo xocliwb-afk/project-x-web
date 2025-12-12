@@ -2,8 +2,9 @@
 
 import { useEffect } from 'react';
 import type { Listing } from '@project-x/shared-types';
-import { ListingImageGallery } from './ListingImageGallery';
+import ListingImageGallery from './ListingImageGallery';
 import { ListingInfo } from './ListingInfo';
+import Link from 'next/link';
 
 type ListingDetailModalProps = {
   listing: Listing | null;
@@ -58,6 +59,15 @@ export function ListingDetailModal({
           <ListingImageGallery photos={listing.media?.photos ?? []} />
         </div>
         <div className="w-full md:w-1/2 flex flex-col">
+          <div className="flex items-center justify-between px-4 pt-4 md:px-6">
+            <Link
+              href={`/listing/${listing.id}`}
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition hover:brightness-95"
+            >
+              View full page
+            </Link>
+          </div>
           <ListingInfo listing={listing} />
         </div>
       </div>

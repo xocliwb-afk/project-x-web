@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import L from "leaflet";
+import Image from "next/image";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 import { LensMiniMap } from "./LensMiniMap";
 
@@ -31,15 +32,7 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
   const [focusedListingId, setFocusedListingId] = useState<string | null>(null);
   const lensRef = useRef<HTMLDivElement | null>(null);
   const radius = 175;
-  console.log("[MapLens] render", {
-    activeClusterDataPresent: Boolean(activeClusterData),
-    isLocked,
-  });
-
   const visibleListings = activeClusterData?.listings.slice(0, 50) ?? [];
-  console.log("[MapLens] visibleListings", {
-    count: visibleListings.length,
-  });
   const sortedVisibleListings = useMemo(
     () =>
       [...visibleListings].sort((a, b) => {
@@ -120,16 +113,6 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
     () => sortedVisibleListings.find((l) => l.id === focusedListingId) ?? null,
     [sortedVisibleListings, focusedListingId]
   );
-  console.log("[MapLens] focusedListing", {
-    focusedListingId,
-    focusedListingPresent: Boolean(focusedListing),
-  });
-
-  console.log("[MapLens] before guard", {
-    mounted,
-    hasActiveClusterData: Boolean(activeClusterData),
-    visibleCount: visibleListings.length,
-  });
   if (!mounted || !activeClusterData || visibleListings.length === 0) {
     return null;
   }
@@ -154,7 +137,6 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
   const lensTransitionClass =
     "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]";
   const lensVisibilityClass = visible ? "opacity-100 scale-100" : "opacity-0 scale-50";
-  console.log("[MapLens] rendering portal");
   return createPortal(
     <div
       className="fixed inset-0 z-[2000] pointer-events-auto"
@@ -180,7 +162,7 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
           <div className="relative flex flex-col items-center">
             <div
               style={{ width: lensSizePx, height: lensSizePx }}
-              className="relative rounded-full overflow-hidden border-4 border-black/80 bg-surface/10 shadow-[0_14px_44px_rgba(15,23,42,0.3)] backdrop-blur-2xl"
+              className="relative rounded-full overflow-hidden border-2 border-border/70 bg-surface/10 shadow-2xl backdrop-blur-lg"
             >
               <LensMiniMap
                 center={[
@@ -216,46 +198,56 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
                 } -translate-x-1/2`}
               >
                 <div
-                  className={`w-72 rounded-xl bg-surface/90 backdrop-blur-md shadow-2xl border border-border/60 p-3 flex gap-3 items-center transition-all duration-200 ease-out ${
+                  className={`w-80 max-w-sm rounded-2xl bg-white shadow-lg border border-border/60 p-4 transition-all duration-200 ease-out ${
                     focusedListing ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
                   }`}
                 >
-                {focusedListing.media?.photos?.[0] && (
-                  <img
-                    src={focusedListing.media.photos[0]}
-                    alt={focusedListing.address?.full ?? "Listing photo"}
-                    className="h-20 w-24 rounded-md object-cover flex-shrink-0"
-                  />
-                )}
-                <div className="flex flex-col gap-1 text-xs text-text-main">
-                  <div className="text-2xl font-bold text-text-main leading-tight">
-                    {formatPriceCompact(
-                      typeof focusedListing.listPrice === "number"
-                        ? focusedListing.listPrice
-                        : null
-                    )}
+                  <div className="flex flex-col gap-3 w-full">
+                    <div className="relative w-full overflow-hidden rounded-xl bg-slate-200 aspect-[4/3]">
+                      <Image
+                        src={
+                          focusedListing.media?.thumbnailUrl ??
+                          (focusedListing.media?.photos?.[0] ?? "/placeholder-house.jpg")
+                        }
+                        alt={focusedListing.address?.full ?? "Listing photo"}
+                        fill
+                        sizes="(min-width: 1024px) 320px, 80vw"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 text-text-main">
+                      <div className="text-lg font-semibold leading-tight">
+                        {formatPriceCompact(
+                          typeof focusedListing.listPrice === "number"
+                            ? focusedListing.listPrice
+                            : null
+                        )}
+                      </div>
+                      <div className="text-sm text-slate-600 line-clamp-2">
+                        {focusedListing.address?.full || "Address unavailable"}
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        {(focusedListing.details?.beds ?? "—").toString()} bd •{" "}
+                        {(focusedListing.details?.baths ?? "—").toString()} ba
+                        {typeof focusedListing.details?.sqft === "number" && focusedListing.details.sqft > 0
+                          ? ` • ${focusedListing.details.sqft.toLocaleString()} sqft`
+                          : ""}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="inline-flex items-center self-start rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition hover:brightness-95"
+                          onClick={() => {
+                            onSelectListing?.(focusedListing.id);
+                            handleDismiss();
+                          }}
+                        >
+                          View details
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm text-text-secondary line-clamp-2">
-                    {focusedListing.address?.full || "Address unavailable"}
-                  </div>
-                  <div className="text-xs text-text-secondary">
-                    {(focusedListing.details?.beds ?? "—").toString()} bd • {(focusedListing.details?.baths ?? "—").toString()} ba
-                    {typeof focusedListing.details?.sqft === "number" && focusedListing.details.sqft > 0
-                      ? ` • ${focusedListing.details.sqft.toLocaleString()} sqft`
-                      : ""}
-                  </div>
-                  <button
-                    type="button"
-                    className="mt-1 inline-flex items-center rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition hover:brightness-95"
-                    onClick={() => {
-                      onSelectListing?.(focusedListing.id);
-                      handleDismiss();
-                    }}
-                  >
-                    View details
-                  </button>
                 </div>
-              </div>
               </div>
             )}
             {isLocked && (

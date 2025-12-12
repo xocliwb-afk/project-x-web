@@ -3,6 +3,7 @@
 import type { Listing } from '@project-x/shared-types';
 import { useEffect, useRef } from 'react';
 import { ListingCard } from './ListingCard';
+import ListingCardSkeleton from './ListingCardSkeleton';
 
 type ListingsListProps = {
   listings: Listing[];
@@ -39,7 +40,13 @@ export default function ListingsList({
   }, [selectedListingId]);
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Loading listings...</p>;
+    return (
+      <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2">
+        {Array.from({ length: 8 }).map((_, idx) => (
+          <ListingCardSkeleton key={`listing-skeleton-${idx}`} />
+        ))}
+      </div>
+    );
   }
 
   if (!listings.length) {
@@ -47,7 +54,7 @@ export default function ListingsList({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2">
       {listings.map((listing) => (
         <div
           key={listing.id}

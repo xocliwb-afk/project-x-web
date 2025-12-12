@@ -51,7 +51,27 @@ export class SimplyRetsListingProvider implements ListingProvider {
         url.searchParams.set('sort', mapped);
       }
     }
-    // MVP: ignore bbox, sort, page → offset mapping for now
+    if (params.bbox) {
+      const parts = params.bbox.split(',').map((p) => Number(p));
+      if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+        const [minLng, minLat, maxLng, maxLat] = parts;
+        const rectangle: Array<[number, number]> = [
+          [minLat, minLng],
+          [minLat, maxLng],
+          [maxLat, maxLng],
+          [maxLat, minLng],
+        ];
+        rectangle.forEach(([lat, lng]) => {
+          url.searchParams.append('points', `${lat},${lng}`);
+        });
+      }
+    }
+
+    const page = params.page && params.page > 0 ? params.page : 1;
+    if (params.limit && params.limit > 0 && page > 1) {
+      const offset = (page - 1) * params.limit;
+      url.searchParams.set('offset', String(offset));
+    }
 
     const res = await fetch(url.toString(), {
       headers: {
@@ -130,6 +150,12 @@ export class SimplyRetsListingProvider implements ListingProvider {
       },
       media: {
         photos: Array.isArray(raw.photos) ? raw.photos : [],
+        thumbnailUrl: Array.isArray(raw.photos) && raw.photos.length > 0 ? raw.photos[0] : null,
+      },
+      attribution: {
+        mlsName: raw.mls?.name ?? 'MLS (via SimplyRETS)',
+        disclaimer: 'Listing information is deemed reliable but not guaranteed.',
+        logoUrl: undefined,
       },
       details: {
         beds: raw.property?.bedrooms ?? null,
@@ -147,8 +173,9 @@ export class SimplyRetsListingProvider implements ListingProvider {
       },
       meta: {
         daysOnMarket: raw.mls?.daysOnMarket ?? null,
-        mlsName: 'SimplyRETS',
+        mlsName: raw.mls?.name ?? 'SimplyRETS',
       },
+      // Compensation/commission fields intentionally excluded for compliance.
     };
   }
 }

@@ -20,8 +20,8 @@ export default function ContactAgentPanel({ listingId, brokerId }: ContactAgentP
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+    setIsLoading(true);
 
     const payload: LeadPayload = {
       listingId,
@@ -33,15 +33,24 @@ export default function ContactAgentPanel({ listingId, brokerId }: ContactAgentP
       source: 'project-x-web',
     };
 
-    const result = await submitLead(payload);
+    try {
+      const result = await submitLead(payload);
 
-    if (result.success) {
-      setSubmitted(true);
-    } else {
-      setError(result.message || 'Failed to send your message.');
+      if (result.success) {
+        setSubmitted(true);
+        setName('');
+        setEmail('');
+        setPhone('');
+        setMessage('');
+      } else {
+        setError(result.message || 'Failed to send your message.');
+      }
+    } catch (err) {
+      console.error('Failed to submit lead', err);
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   }
 
   return (
@@ -49,7 +58,7 @@ export default function ContactAgentPanel({ listingId, brokerId }: ContactAgentP
       <h2 className="mb-2 text-lg font-semibold">Contact Agent</h2>
       {submitted ? (
         <p className="text-sm text-green-600">
-          Thanks! Your message has been noted. (In Epic 4 this will send to the backend.)
+          Thanks! Your message has been sent.
         </p>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">

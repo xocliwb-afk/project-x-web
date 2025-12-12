@@ -8,12 +8,15 @@ importers:
 
   .:
     dependencies:
+      immer:
+        specifier: ^11.0.1
+        version: 11.0.1
       leaflet.markercluster:
         specifier: ^1.5.3
         version: 1.5.3(leaflet@1.9.4)
       zustand:
         specifier: ^4.5.7
-        version: 4.5.7(@types/react@18.3.27)(react@18.3.1)
+        version: 4.5.7(@types/react@18.3.27)(immer@11.0.1)(react@18.3.1)
     devDependencies:
       prettier:
         specifier: latest
@@ -76,6 +79,9 @@ importers:
       clsx:
         specifier: ^2.1.0
         version: 2.1.1
+      immer:
+        specifier: ^11.0.1
+        version: 11.0.1
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
@@ -102,7 +108,7 @@ importers:
         version: 2.6.0
       zustand:
         specifier: ^4.5.7
-        version: 4.5.7(@types/react@18.3.27)(react@18.3.1)
+        version: 4.5.7(@types/react@18.3.27)(immer@11.0.1)(react@18.3.1)
     devDependencies:
       '@types/leaflet':
         specifier: ^1.9.8
@@ -657,6 +663,9 @@ packages:
   iconv-lite@0.4.24:
     resolution: {integrity: sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==}
     engines: {node: '>=0.10.0'}
+
+  immer@11.0.1:
+    resolution: {integrity: sha512-naDCyggtcBWANtIrjQEajhhBEuL9b0Zg4zmlWK2CzS6xCWSE39/vvf4LqnMjUAWHBhot4m9MHCM/Z+mfWhUkiA==}
 
   inflight@1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
@@ -1791,6 +1800,8 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
+  immer@11.0.1: {}
+
   inflight@1.0.6:
     dependencies:
       once: 1.4.0
@@ -2348,9 +2359,10 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zustand@4.5.7(@types/react@18.3.27)(react@18.3.1):
+  zustand@4.5.7(@types/react@18.3.27)(immer@11.0.1)(react@18.3.1):
     dependencies:
       use-sync-external-store: 1.6.0(react@18.3.1)
     optionalDependencies:
       '@types/react': 18.3.27
+      immer: 11.0.1
       react: 18.3.1

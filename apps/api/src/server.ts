@@ -19,6 +19,7 @@ app.use(express.json());
 
 app.use("/api/listings", listingsRouter);
 app.use("/api", leadsRouter);
+app.use("/api/tours", toursRouter);
 app.use("/api/v1/tours", toursRouter);
 
 app.get("/health", (req, res) => {
