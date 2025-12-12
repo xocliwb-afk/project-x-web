@@ -10,7 +10,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { Listing as NormalizedListing } from "@project-x/shared-types";
 import { useEffect, useRef, useState } from "react";
 import { createClusterIcon } from "./map/MapClusterMarker";
-import { MapLens } from "./map/MapLens";
+import { MapLensPanePortal } from "./map/leaflet/MapLensPanePortal";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 import { useMapLens } from "@/hooks/useMapLens";
 import { useLongPress } from "@/hooks/useLongPress";
@@ -78,7 +78,7 @@ export default function Map({
   const mapRef = useRef<L.Map | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
-  const { cancelHover, openImmediate } = useMapLens({ map: mapInstance });
+  const { cancelHover, openImmediate } = useMapLens();
   const longPressTargetRef = useRef<{
     listings: NormalizedListing[];
     position: { lat: number; lng: number };
@@ -174,18 +174,7 @@ export default function Map({
     const listingsForCluster = getClusterListings(cluster);
     const latLng = cluster.getLatLng();
 
-    const { clientX, clientY } = e.originalEvent ?? {};
-    const screenPosition =
-      typeof clientX === "number" && typeof clientY === "number"
-        ? { x: clientX, y: clientY }
-        : undefined;
-
-    console.log("[Map] clusterclick -> openImmediate", {
-      listingsCount: listingsForCluster.length,
-      latLng,
-      screenPositionOverride: screenPosition,
-    });
-    openImmediate(listingsForCluster, latLng, screenPosition);
+    openImmediate(listingsForCluster, latLng);
     console.log("[Map] clusterclick -> openImmediate called");
 
     e.originalEvent?.stopPropagation?.();
@@ -360,7 +349,8 @@ export default function Map({
             })}
         </MarkerClusterGroup>
       </MapContainer>
-      <MapLens
+      <MapLensPanePortal
+        map={mapInstance}
         onHoverListing={onHoverListing}
         onSelectListing={onSelectListing}
       />

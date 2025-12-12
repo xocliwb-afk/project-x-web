@@ -6,8 +6,7 @@ import type { NormalizedListing } from "@project-x/shared-types";
 type MapLensState = {
   activeClusterData: null | {
     listings: NormalizedListing[];
-    mapPosition: { lat: number; lng: number };
-    screenPosition: { x: number; y: number };
+    anchorLatLng: { lat: number; lng: number };
   };
   activateLens: (data: NonNullable<MapLensState["activeClusterData"]>) => void;
   dismissLens: () => void;
@@ -30,8 +29,7 @@ export const useMapLensStore = create<MapLensState>((set) => ({
   activateLens: (data) => {
     console.log("[useMapLensStore] activateLens()", {
       listingsCount: data.listings.length,
-      mapPosition: data.mapPosition,
-      screenPosition: data.screenPosition,
+      anchorLatLng: data.anchorLatLng,
     });
     set({ activeClusterData: data });
   },

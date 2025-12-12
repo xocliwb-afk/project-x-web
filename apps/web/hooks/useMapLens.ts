@@ -5,64 +5,37 @@ import type { NormalizedListing } from "@project-x/shared-types";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 
 type MapPosition = { lat: number; lng: number };
-type MapLike = {
-  latLngToContainerPoint: (latLng: [number, number]) => { x: number; y: number };
-  getContainer: () => HTMLElement;
-};
 type LatLngLike = MapPosition | [number, number];
 
-export function useMapLens({ map }: { map: MapLike | null }) {
+export function useMapLens() {
   const activateLens = useMapLensStore((s) => s.activateLens);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const setLocked = useMapLensStore((s) => s.setLocked);
   const hoverTimerRef = useRef<number | null>(null);
 
-  const toScreenPosition = useCallback(
-    (position: MapPosition) => {
-      if (!map) return null;
-      const containerPoint = map.latLngToContainerPoint([
-        position.lat,
-        position.lng,
-      ]);
-      const rect = map.getContainer().getBoundingClientRect();
-      return {
-        x: rect.left + containerPoint.x,
-        y: rect.top + containerPoint.y,
-      };
-    },
-    [map]
-  );
-
   const openLens = useCallback(
     (
       listings: NormalizedListing[],
-      position: LatLngLike,
-      screenPositionOverride?: { x: number; y: number },
+      position: LatLngLike
     ) => {
       console.log("[useMapLens] openLens()", {
         listingsCount: listings.length,
         position,
-        screenPositionOverride,
       });
-      const screenPosition =
-        screenPositionOverride ??
-        (Array.isArray(position)
-          ? toScreenPosition({ lat: position[0], lng: position[1] })
-          : toScreenPosition(position as MapPosition));
-      console.log("[useMapLens] openLens -> screenPosition", {
-        screenPosition,
-      });
-      if (!screenPosition) return;
+
+      const anchorLatLng = Array.isArray(position)
+        ? { lat: position[0], lng: position[1] }
+        : position;
+
+      if (!anchorLatLng) return;
+
       console.log("[useMapLens] openLens -> activateLens");
       activateLens({
         listings,
-        mapPosition: Array.isArray(position)
-          ? { lat: position[0], lng: position[1] }
-          : (position as any),
-        screenPosition,
+        anchorLatLng,
       });
     },
-    [activateLens, toScreenPosition]
+    [activateLens]
   );
 
   const scheduleHover = useCallback(
@@ -71,7 +44,7 @@ export function useMapLens({ map }: { map: MapLike | null }) {
         listingsCount: listings.length,
         position,
       });
-      if (!map) return;
+
       if (hoverTimerRef.current) {
         window.clearTimeout(hoverTimerRef.current);
       }
@@ -81,7 +54,7 @@ export function useMapLens({ map }: { map: MapLike | null }) {
         openLens(listings, position);
       }, 150);
     },
-    [map, openLens, setLocked]
+    [openLens, setLocked]
   );
 
   const cancelHover = useCallback(
@@ -101,16 +74,14 @@ export function useMapLens({ map }: { map: MapLike | null }) {
     (
       listings: NormalizedListing[],
       position: LatLngLike,
-      screenPositionOverride?: { x: number; y: number },
     ) => {
       console.log("[useMapLens] openImmediate()", {
         listingsCount: listings.length,
         position,
-        screenPositionOverride,
       });
       useMapLensStore.setState({ isLocked: true });
       cancelHover(false);
-      openLens(listings, position, screenPositionOverride);
+      openLens(listings, position);
     },
     [cancelHover, openLens]
   );
