@@ -1,12 +1,39 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { getListingProvider } from '../utils/provider.factory';
-import {
-  ListingSearchParams,
-  NormalizedListing,
-  ApiError,
-} from '@project-x/shared-types';
+import { ListingSearchParams, ApiError } from '@project-x/shared-types';
+import { formatBbox, parseBbox } from '../utils/bbox';
 
 const router = Router();
+export const listingRouter = Router();
+
+const MAX_LIMIT = 50;
+const DEFAULT_LIMIT = 20;
+const DEFAULT_PAGE = 1;
+const VALID_SORTS: ListingSearchParams['sort'][] = ['price-asc', 'price-desc', 'dom', 'newest'];
+
+const toNumber = (value: unknown): number | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const normalizePage = (value: number | undefined) => {
+  if (!value || value < 1) return DEFAULT_PAGE;
+  return value;
+};
+
+const normalizeLimit = (value: number | undefined) => {
+  if (!value || value < 1) return DEFAULT_LIMIT;
+  return Math.min(value, MAX_LIMIT);
+};
+
+const badRequest = (res: Response, message: string) =>
+  res.status(400).json({
+    error: true,
+    message,
+    code: 'INVALID_REQUEST',
+    status: 400,
+  } satisfies ApiError);
 
 /**
  * GET /api/listings
@@ -17,51 +44,48 @@ router.get('/', async (req, res) => {
   try {
     const provider = getListingProvider();
 
-    // req.query is an untyped object; cast carefully into ListingSearchParams
+    const bboxParam = typeof req.query.bbox === 'string' ? req.query.bbox : undefined;
+    const parsedBbox = parseBbox(bboxParam);
+
+    if (!parsedBbox) {
+      return badRequest(res, 'bbox is required and must be "minLng,minLat,maxLng,maxLat"');
+    }
+
+    const page = normalizePage(toNumber(req.query.page));
+    const limit = normalizeLimit(toNumber(req.query.limit));
+
+    const sort =
+      typeof req.query.sort === 'string' && VALID_SORTS.includes(req.query.sort as ListingSearchParams['sort'])
+        ? (req.query.sort as ListingSearchParams['sort'])
+        : undefined;
+
     const params: ListingSearchParams = {
-      q: typeof req.query.q === 'string' ? req.query.q : undefined,
-      bbox: typeof req.query.bbox === 'string' ? req.query.bbox : undefined,
-      page: req.query.page ? Number(req.query.page) : undefined,
-      limit: req.query.limit ? Number(req.query.limit) : undefined,
-      minPrice: req.query.minPrice ? Number(req.query.minPrice) : undefined,
-      maxPrice: req.query.maxPrice ? Number(req.query.maxPrice) : undefined,
-      beds: req.query.beds
-        ? Number(req.query.beds)
-        : req.query.minBeds
-        ? Number(req.query.minBeds)
-        : undefined,
-      baths: req.query.baths
-        ? Number(req.query.baths)
-        : req.query.minBaths
-        ? Number(req.query.minBaths)
-        : undefined,
+      bbox: formatBbox(parsedBbox),
+      page,
+      limit,
+      minPrice: toNumber(req.query.minPrice),
+      maxPrice: toNumber(req.query.maxPrice),
+      beds: toNumber(req.query.beds),
+      baths: toNumber(req.query.baths),
       propertyType: typeof req.query.propertyType === 'string' ? req.query.propertyType : undefined,
-      sort: typeof req.query.sort === 'string' ? (req.query.sort as ListingSearchParams['sort']) : undefined,
-      status: Array.isArray(req.query.status)
-        ? (req.query.status as string[])
-        : typeof req.query.status === 'string'
-        ? (req.query.status as string).split(',').filter(Boolean)
-        : undefined,
-      minSqft: req.query.minSqft ? Number(req.query.minSqft) : undefined,
-      maxSqft: req.query.maxSqft ? Number(req.query.maxSqft) : undefined,
-      minYearBuilt: req.query.minYearBuilt ? Number(req.query.minYearBuilt) : undefined,
-      maxYearBuilt: req.query.maxYearBuilt ? Number(req.query.maxYearBuilt) : undefined,
-      maxDaysOnMarket: req.query.maxDaysOnMarket ? Number(req.query.maxDaysOnMarket) : undefined,
-      keywords: typeof req.query.keywords === 'string' ? req.query.keywords : undefined,
+      sort,
     };
 
-    const page = params.page && params.page > 0 ? params.page : 1;
-    const limit = params.limit && params.limit > 0 ? params.limit : 20;
+    const searchResult = await provider.search(params);
 
-    const results: NormalizedListing[] = await provider.search(params);
+    const total = searchResult.total ?? searchResult.results.length;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const pagedResults = searchResult.results.slice(start, end);
+    const hasMore = end < total;
 
     res.json({
-      results,
+      results: pagedResults,
       pagination: {
         page,
         limit,
-        pageCount: results.length,
-        hasMore: results.length === limit,
+        total,
+        hasMore,
       },
     });
   } catch (err: any) {
@@ -76,16 +100,16 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * GET /api/listings/:id
+ * GET /api/listing/:id (canonical) and /api/listings/:id (alias)
  *
  * Returns a single listing by ID or a 404 error if not found.
  */
-router.get('/:id', async (req, res) => {
+const handleGetListing = async (req: Request, res: Response) => {
   try {
     const provider = getListingProvider();
     const { id } = req.params;
 
-    const listing: NormalizedListing | null = await provider.getById(id);
+    const listing = await provider.getById(id);
 
     if (!listing) {
       const error: ApiError = {
@@ -97,7 +121,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json(error);
     }
 
-    res.json({ listing });
+    res.json(listing);
   } catch (err: any) {
     const error: ApiError = {
       error: true,
@@ -107,6 +131,9 @@ router.get('/:id', async (req, res) => {
     };
     res.status(500).json(error);
   }
-});
+};
+
+router.get('/:id', handleGetListing);
+listingRouter.get('/:id', handleGetListing);
 
 export default router;

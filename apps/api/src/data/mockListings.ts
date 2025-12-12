@@ -136,4 +136,38 @@ export const mockListings: any[] = [
       lng: -85.675,
     },
   },
+  {
+    id: "5",
+    address: {
+      street: "500 Lakeshore Dr",
+      city: "Muskegon",
+      state: "MI",
+      zip: "49440",
+      neighborhood: "Beachwood",
+      county: "Muskegon",
+    },
+    media: {
+      photos: ["https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80"],
+    },
+    details: {
+      price: 425000,
+      beds: 3,
+      baths: 2,
+      sqft: 1850,
+      lotSize: 0.4,
+      yearBuilt: 1978,
+      propertyType: "Single Family",
+      status: "FOR_SALE",
+      description: "Lakefront cottage with private dock.",
+    },
+    meta: {
+      daysOnMarket: 20,
+      mlsName: "MichRIC",
+      mlsId: "MK100001",
+    },
+    coordinates: {
+      lat: 43.2389,
+      lng: -86.3326,
+    },
+  },
 ];
