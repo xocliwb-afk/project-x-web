@@ -20,9 +20,9 @@ const currency = new Intl.NumberFormat('en-US', {
 const InlineMap = dynamic(() => import('@/components/Map'), { ssr: false });
 
 export default async function ListingDetailPage({ params }: ListingDetailPageProps) {
-  let listingResponse;
+  let listing: Awaited<ReturnType<typeof fetchListing>>;
   try {
-    listingResponse = await fetchListing(params.id);
+    listing = await fetchListing(params.id);
   } catch (error: any) {
     if (typeof error?.message === 'string' && error.message.includes('404')) {
       notFound();
@@ -30,7 +30,6 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     throw error;
   }
 
-  const { listing } = listingResponse;
   const photos = listing.media?.photos ?? [];
 
   const brokerId = process.env.NEXT_PUBLIC_BROKER_ID || 'demo-broker';

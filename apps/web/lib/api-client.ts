@@ -62,8 +62,8 @@ export async function fetchListings(
  * Fetches a single listing by its ID from the backend API.
  * Intended to be called from server components.
  */
-export async function fetchListing(id: string): Promise<{ listing: Listing }> {
-  const url = `${API_BASE_URL}/api/listings/${encodeURIComponent(id)}`;
+export async function fetchListing(id: string): Promise<Listing> {
+  const url = `${API_BASE_URL}/api/listing/${encodeURIComponent(id)}`;
 
   const res = await fetch(url, {
     cache: 'no-store',
@@ -73,7 +73,9 @@ export async function fetchListing(id: string): Promise<{ listing: Listing }> {
     throw new Error(`Failed to fetch listing ${id}: ${res.status} ${res.statusText}`);
   }
 
-  return (await res.json()) as { listing: Listing };
+  const data = await res.json();
+  const listing = (data as any)?.listing ?? data;
+  return listing as Listing;
 }
 
 export async function planTourApi(payload: PlanTourRequest): Promise<PlannedTour> {
