@@ -1,19 +1,24 @@
 "use client";
 
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import { createLayerComponent, type LayerProps } from "@react-leaflet/core";
+import {
+  createLayerComponent,
+  type LayerProps,
+  type LeafletContextInterface,
+} from "@react-leaflet/core";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { Listing as NormalizedListing } from "@project-x/shared-types";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { createClusterIcon } from "./map/MapClusterMarker";
 import { MapLensPanePortal } from "./map/leaflet/MapLensPanePortal";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 import { useMapLens } from "@/hooks/useMapLens";
 import { useLongPress } from "@/hooks/useLongPress";
+import type { LayerGroup, LeafletEvent, Map as LeafletMap } from "leaflet";
 
 const iconUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png";
 const iconRetinaUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png";
@@ -39,10 +44,12 @@ const SelectedIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-type MarkerClusterGroupProps = L.MarkerClusterGroupOptions & LayerProps;
+type MarkerClusterGroupProps = PropsWithChildren<
+  L.MarkerClusterGroupOptions & LayerProps
+>;
 
 const MarkerClusterGroup = createLayerComponent<L.MarkerClusterGroup, MarkerClusterGroupProps>(
-  (props, context) => {
+  (props: MarkerClusterGroupProps, context: LeafletContextInterface) => {
     const { children: _c, eventHandlers: _eh, ...options } = props;
     const clusterGroup = L.markerClusterGroup(options);
     return {
@@ -75,8 +82,9 @@ export default function Map({
   onHoverListing,
   onBoundsChange,
 }: MapProps) {
-  const mapRef = useRef<L.Map | null>(null);
-  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const clusterRef = useRef<LayerGroup | null>(null);
+  const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const { cancelHover, openImmediate } = useMapLens();
   const longPressTargetRef = useRef<{
@@ -112,7 +120,7 @@ export default function Map({
       .map((m: any) => m.options?.listingData as NormalizedListing)
       .filter(Boolean);
 
-  const handleClusterMouseOver = () => {};
+  const handleClusterMouseOver = (_e: LeafletEvent) => {};
 
   const handleClusterPointerLeave = (e?: any) => {
     const oe = e?.originalEvent as PointerEvent | undefined;
@@ -123,7 +131,7 @@ export default function Map({
     longPressTriggeredRef.current = false;
   };
 
-  const handleClusterMouseOut = () => {};
+  const handleClusterMouseOut = (_e: LeafletEvent) => {};
 
   const handleClusterPointerDown = (e: any) => {
     const oe = e.originalEvent as PointerEvent | undefined;
@@ -191,6 +199,47 @@ export default function Map({
   }, [dismissLens]);
 
   useEffect(() => {
+    const layer = clusterRef.current;
+    if (!layer) return;
+
+    const onOver = (e: LeafletEvent) => handleClusterMouseOver(e);
+    const onOut = (e: LeafletEvent) => handleClusterMouseOut(e);
+    const onClick = (e: LeafletEvent) => handleClusterClick(e);
+    const onMouseDown = (e: LeafletEvent) => handleClusterPointerDown(e);
+    const onMouseMove = (e: LeafletEvent) => handleClusterPointerMove(e);
+    const onMouseUp = (e: LeafletEvent) => handleClusterPointerUp(e);
+    const onTouchEnd = (e: LeafletEvent) => handleClusterPointerUp(e);
+    const onTouchMove = (e: LeafletEvent) => handleClusterPointerLeave(e);
+    layer.on("clustermouseover", onOver);
+    layer.on("clustermouseout", onOut);
+    layer.on("clusterclick", onClick);
+    layer.on("clustermousedown", onMouseDown);
+    layer.on("clustermousemove", onMouseMove);
+    layer.on("clustermouseup", onMouseUp);
+    layer.on("clustertouchend", onTouchEnd);
+    layer.on("clustertouchmove", onTouchMove);
+
+    return () => {
+      layer.off("clustermouseover", onOver);
+      layer.off("clustermouseout", onOut);
+    layer.off("clusterclick", onClick);
+    layer.off("clustermousedown", onMouseDown);
+    layer.off("clustermousemove", onMouseMove);
+    layer.off("clustermouseup", onMouseUp);
+    layer.off("clustertouchend", onTouchEnd);
+    layer.off("clustertouchmove", onTouchMove);
+    };
+  }, [
+    handleClusterClick,
+    handleClusterMouseOut,
+    handleClusterMouseOver,
+    handleClusterPointerDown,
+    handleClusterPointerLeave,
+    handleClusterPointerMove,
+    handleClusterPointerUp,
+  ]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map || !onBoundsChange) return;
     const emitBounds = () => {
@@ -238,7 +287,8 @@ export default function Map({
         zoom={12}
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={true}
-        whenCreated={(map) => {
+        ref={(map: LeafletMap | null) => {
+          if (!map) return;
           mapRef.current = map;
           setMapInstance(map);
         }}
@@ -253,21 +303,11 @@ export default function Map({
           showCoverageOnHover={false}
           zoomToBoundsOnClick={false}
           spiderfyOnEveryZoom={false}
-          spiderfyOnClick={false}
-          iconCreateFunction={(cluster) =>
-            createClusterIcon(
-              getClusterListings(cluster as unknown as L.MarkerCluster),
-            )
+          iconCreateFunction={(cluster: L.MarkerCluster) =>
+            createClusterIcon(getClusterListings(cluster))
           }
-          eventHandlers={{
-            clustermouseover: handleClusterMouseOver,
-            clustermouseout: handleClusterMouseOut,
-            clusterclick: handleClusterClick,
-            clustermousedown: handleClusterPointerDown,
-            clustermousemove: handleClusterPointerMove,
-            clustermouseup: handleClusterPointerUp,
-            clustertouchend: handleClusterPointerUp,
-            clustertouchmove: handleClusterPointerLeave,
+          ref={(layer: LayerGroup | null) => {
+            clusterRef.current = layer;
           }}
         >
           {listings

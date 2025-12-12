@@ -20,10 +20,14 @@ function toNumber(value: unknown): number | undefined {
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
-function toStatus(value: unknown): ListingStatus | undefined {
+function toStatuses(value: unknown): ListingStatus[] | undefined {
   if (typeof value !== "string") return undefined;
-  const valid = ["FOR_SALE", "PENDING", "SOLD"];
-  return valid.includes(value) ? (value as ListingStatus) : undefined;
+  const valid = new Set(["FOR_SALE", "PENDING", "SOLD"]);
+  const statuses = value
+    .split(",")
+    .map((status) => status.trim())
+    .filter((status) => valid.has(status)) as ListingStatus[];
+  return statuses.length ? statuses : undefined;
 }
 
 function toPropertyType(value: unknown): PropertyType | undefined {
@@ -41,9 +45,9 @@ app.get("/api/listings", (req, res) => {
     q: query.q as string,
     minPrice: toNumber(query.minPrice),
     maxPrice: toNumber(query.maxPrice),
-    minBeds: toNumber(query.minBeds),
-    minBaths: toNumber(query.minBaths),
-    status: toStatus(query.status),
+    beds: toNumber(query.beds),
+    baths: toNumber(query.baths),
+    status: toStatuses(query.status),
     propertyType: toPropertyType(query.propertyType),
     minSqft: toNumber(query.minSqft),
     maxDaysOnMarket: toNumber(query.maxDaysOnMarket),
@@ -63,9 +67,13 @@ app.get("/api/listings", (req, res) => {
     // Ranges & Enums
     if (params.minPrice && l.details.price < params.minPrice) return false;
     if (params.maxPrice && l.details.price > params.maxPrice) return false;
-    if (params.minBeds && l.details.beds < params.minBeds) return false;
-    if (params.minBaths && l.details.baths < params.minBaths) return false;
-    if (params.status && l.details.status !== params.status) return false;
+    if (params.beds && (l.details.beds ?? 0) < params.beds) return false;
+    if (params.baths && (l.details.baths ?? 0) < params.baths) return false;
+    if (
+      params.status?.length &&
+      !params.status.includes(l.details.status)
+    )
+      return false;
     if (
       params.propertyType &&
       l.details.propertyType !== params.propertyType

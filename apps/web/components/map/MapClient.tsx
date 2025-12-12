@@ -38,7 +38,15 @@ export default function MapClient({ listings }: { listings: Listing[] }) {
           <Marker key={l.id} position={[l.address.lat, l.address.lng]}>
             <Popup>
               <div className="text-sm font-sans">
-                <strong className="block mb-1 text-gray-900">${l.price.toLocaleString()}</strong>
+                <strong className="block mb-1 text-gray-900">
+                  {[
+                    l.details.beds != null ? `${l.details.beds} bd` : null,
+                    l.details.baths != null ? `${l.details.baths} ba` : null,
+                    l.details.sqft != null ? `${l.details.sqft.toLocaleString()} sqft` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" • ") || "Details N/A"}
+                </strong>
                 <span className="text-gray-600">{l.address.street}</span>
               </div>
             </Popup>

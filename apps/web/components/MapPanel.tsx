@@ -71,7 +71,13 @@ export default function MapPanel({ listings, isDark = true, onListingSelect }: M
               onClick={() => onListingSelect(l)}
             >
               <div className="font-bold">
-                {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(l.price)}
+                {l.price != null
+                  ? new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                      maximumFractionDigits: 0,
+                    }).format(l.price)
+                  : "Price N/A"}
               </div>
               <div className="text-xs">{l.addressLine1}</div>
               <div className="text-xs text-slate-500">{l.beds}bd, {l.baths}ba</div>

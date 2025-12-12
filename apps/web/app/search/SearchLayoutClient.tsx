@@ -33,7 +33,7 @@ type MapBounds = {
   swLng: number;
   neLat: number;
   neLng: number;
-  bbox: string;
+  bbox?: string;
 };
 
 export default function SearchLayoutClient({
@@ -164,7 +164,9 @@ export default function SearchLayoutClient({
 
   useEffect(() => {
     if (!mapBounds) return;
-    updateUrlWithBounds(mapBounds.bbox);
+    if (mapBounds.bbox) {
+      updateUrlWithBounds(mapBounds.bbox);
+    }
   }, [mapBounds, updateUrlWithBounds]);
 
   const leftPaneClass =

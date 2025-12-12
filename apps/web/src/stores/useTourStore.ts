@@ -43,9 +43,9 @@ export const useTourStore = create<TourStoreState>((set, get) => ({
     if (exists) return;
     const nextStop: TourStopInput = {
       listingId: listing.id,
-      mlsId: listing.mlsId,
-      fullAddress: listing.address.full,
-      showingDurationMinutes,
+      address: listing.address.full,
+      lat: listing.address.lat,
+      lng: listing.address.lng,
     };
     set({ stops: [...stops, nextStop], plannedTour: null, error: null });
   },
@@ -61,17 +61,22 @@ export const useTourStore = create<TourStoreState>((set, get) => ({
     set({ travelTimeMinutes: minutes });
   },
   planTour: async () => {
-    const { stops, startTime, travelTimeMinutes } = get();
+    const { stops, startTime, travelTimeMinutes, showingDurationMinutes } = get();
 
     if (!startTime) {
       set({ error: 'Start time is required to plan a tour.' });
       return;
     }
 
+    const today = new Date().toISOString().slice(0, 10);
+
     const payload: PlanTourRequest = {
+      date: today,
+      clientName: undefined,
       stops,
       startTime,
-      travelTimeMinutes,
+      defaultDurationMinutes: showingDurationMinutes,
+      defaultBufferMinutes: travelTimeMinutes,
     };
 
     set({ isLoading: true, error: null });

@@ -16,6 +16,11 @@ function formatIsoDisplay(value: string) {
   return date.toISOString();
 }
 
+function formatIsoDisplaySafe(value?: string) {
+  if (!value) return "—";
+  return formatIsoDisplay(value);
+}
+
 export default function TourBuilderClient() {
   const {
     stops,
@@ -38,6 +43,13 @@ export default function TourBuilderClient() {
     () => formatInputValue(startTime),
     [startTime]
   );
+
+  const totalDurationMinutes =
+    plannedTour?.stops.reduce((sum, stop) => {
+      const dur = (stop as any).durationMinutes ?? plannedTour.defaultDurationMinutes;
+      const buf = (stop as any).bufferMinutes ?? plannedTour.defaultBufferMinutes;
+      return sum + dur + buf;
+    }, 0) ?? 0;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8">
@@ -116,10 +128,7 @@ export default function TourBuilderClient() {
               >
                 <div>
                   <p className="font-semibold text-text-main">
-                    Stop {idx + 1}: {stop.fullAddress}
-                  </p>
-                  <p className="text-xs text-text-main/60">
-                    Showing: {stop.showingDurationMinutes} minutes
+                    Stop {idx + 1}: {stop.address}
                   </p>
                 </div>
                 <button
@@ -146,32 +155,25 @@ export default function TourBuilderClient() {
           <div className="mb-3">
             <h3 className="text-lg font-semibold text-text-main">Planned Tour</h3>
             <p className="text-xs text-text-main/60">
-              Total duration: {plannedTour.totalDurationMinutes} minutes
+              Total duration: {totalDurationMinutes} minutes
             </p>
           </div>
           <div className="mb-3 text-sm text-text-main/80">
             <p>Start: {formatIsoDisplay(plannedTour.startTime)}</p>
-            <p>End: {formatIsoDisplay(plannedTour.endTime)}</p>
+            <p>
+              End: {formatIsoDisplaySafe(plannedTour.stops.at(-1)?.endTime)}
+            </p>
           </div>
-          {plannedTour.googleMapsUrl && (
-            <a
-              href={plannedTour.googleMapsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
-            >
-              Open route in Google Maps
-            </a>
-          )}
           <div className="mt-4 space-y-2">
             {plannedTour.stops.map((stop) => (
               <div
                 key={stop.listingId + stop.startTime}
                 className="rounded border border-border bg-surface-muted p-3 text-sm"
               >
-                <p className="font-semibold text-text-main">{stop.fullAddress}</p>
+                <p className="font-semibold text-text-main">{stop.address}</p>
                 <p className="text-xs text-text-main/60">
-                  {formatIsoDisplay(stop.startTime)} → {formatIsoDisplay(stop.endTime)}
+                  {formatIsoDisplaySafe(stop.startTime)} →{" "}
+                  {formatIsoDisplaySafe(stop.endTime)}
                 </p>
               </div>
             ))}

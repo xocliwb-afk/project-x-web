@@ -571,7 +571,9 @@ export default function SearchFiltersBar() {
 
         <div className="flex flex-1 items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
           <button
-            ref={(el) => (chipRefs.current.status = el)}
+            ref={(el) => {
+              chipRefs.current.status = el;
+            }}
             type="button"
             onClick={() => openFilter("status", "status")}
             className={`${chipBase} ${currentStatus ? chipActive : chipInactive}`}
@@ -579,7 +581,9 @@ export default function SearchFiltersBar() {
             {statusLabel}
           </button>
           <button
-            ref={(el) => (chipRefs.current.price = el)}
+            ref={(el) => {
+              chipRefs.current.price = el;
+            }}
             type="button"
             onClick={() => openFilter("price", "price")}
             className={`${chipBase} ${minPrice || maxPrice ? chipActive : chipInactive}`}
@@ -587,7 +591,9 @@ export default function SearchFiltersBar() {
             {priceLabel}
           </button>
           <button
-            ref={(el) => (chipRefs.current.beds = el)}
+            ref={(el) => {
+              chipRefs.current.beds = el;
+            }}
             type="button"
             onClick={() => openFilter("beds", "beds")}
             className={`${chipBase} ${minBeds ? chipActive : chipInactive}`}
@@ -595,7 +601,9 @@ export default function SearchFiltersBar() {
             {bedsLabel}
           </button>
           <button
-            ref={(el) => (chipRefs.current.baths = el)}
+            ref={(el) => {
+              chipRefs.current.baths = el;
+            }}
             type="button"
             onClick={() => openFilter("baths", "baths")}
             className={`${chipBase} ${minBaths ? chipActive : chipInactive}`}
@@ -603,7 +611,9 @@ export default function SearchFiltersBar() {
             {bathsLabel}
           </button>
           <button
-            ref={(el) => (chipRefs.current.propertyType = el)}
+            ref={(el) => {
+              chipRefs.current.propertyType = el;
+            }}
             type="button"
             onClick={() => openFilter("propertyType", "propertyType")}
             className={`${chipBase} ${propertyType ? chipActive : chipInactive}`}
@@ -611,7 +621,9 @@ export default function SearchFiltersBar() {
             {typeLabel}
           </button>
           <button
-            ref={(el) => (chipRefs.current.sort = el)}
+            ref={(el) => {
+              chipRefs.current.sort = el;
+            }}
             type="button"
             onClick={() => openFilter("sort", "sort")}
             className={`${chipBase} ${sort ? chipActive : chipInactive}`}
@@ -619,7 +631,9 @@ export default function SearchFiltersBar() {
             {sortLabel}
           </button>
           <button
-            ref={(el) => (chipRefs.current.more = el)}
+            ref={(el) => {
+              chipRefs.current.more = el;
+            }}
             type="button"
             onClick={() => openFilter("more", "more")}
             className={`${chipBase} ${moreActive ? chipActive : chipInactive}`}

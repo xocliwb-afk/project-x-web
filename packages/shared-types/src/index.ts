@@ -116,4 +116,8 @@ export type LeadResponse = {
   success: boolean;
 };
 
+// TEMP: keep contract-safe and serializable. Status / propertyType are strings in the API.
+export type ListingStatus = string;
+export type PropertyType = string;
+
 export * from './tour';
