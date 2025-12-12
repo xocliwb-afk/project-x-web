@@ -13,28 +13,25 @@ type MapLensState = {
   isLocked: boolean;
   setLocked: (isLocked: boolean) => void;
   lockLens: () => void;
+  focusedListingId: string | null;
+  setFocusedListingId: (id: string | null) => void;
 };
 
 export const useMapLensStore = create<MapLensState>((set) => ({
   activeClusterData: null,
   isLocked: false,
+  focusedListingId: null,
+  setFocusedListingId: (focusedListingId) => set({ focusedListingId }),
   setLocked: (isLocked) => {
-    console.log("[useMapLensStore] setLocked()", { isLocked });
     set({ isLocked });
   },
   lockLens: () => {
-    console.log("[useMapLensStore] lockLens()");
     set({ isLocked: true });
   },
   activateLens: (data) => {
-    console.log("[useMapLensStore] activateLens()", {
-      listingsCount: data.listings.length,
-      anchorLatLng: data.anchorLatLng,
-    });
-    set({ activeClusterData: data });
+    set({ activeClusterData: data, focusedListingId: null });
   },
   dismissLens: () => {
-    console.log("[useMapLensStore] dismissLens()");
-    set({ activeClusterData: null, isLocked: false });
+    set({ activeClusterData: null, isLocked: false, focusedListingId: null });
   },
 }));

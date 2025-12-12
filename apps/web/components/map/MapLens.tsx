@@ -23,8 +23,9 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
   const activeClusterData = useMapLensStore((s) => s.activeClusterData);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const isLocked = useMapLensStore((s) => s.isLocked);
+  const focusedListingId = useMapLensStore((s) => s.focusedListingId);
+  const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const [visible, setVisible] = useState(false);
-  const [focusedListingId, setFocusedListingId] = useState<string | null>(null);
   const lensRef = useRef<HTMLDivElement | null>(null);
 
   const visibleListings = activeClusterData?.listings.slice(0, 50) ?? [];
@@ -66,11 +67,7 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
     setFocusedListingId(null);
     dismissLens();
     onHoverListing?.(null);
-  }, [dismissLens, onHoverListing]);
-
-  useEffect(() => {
-    setFocusedListingId(null);
-  }, [activeClusterData]);
+  }, [dismissLens, onHoverListing, setFocusedListingId]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -114,11 +111,19 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
           className="relative rounded-full overflow-hidden border-2 border-border/70 bg-surface/10 shadow-2xl backdrop-blur-lg"
           onClick={(e) => {
             e.stopPropagation();
-            if (!isLocked) {
-              handleDismiss();
-            }
           }}
         >
+          <button
+            type="button"
+            className="absolute right-2 top-2 z-10 h-8 w-8 rounded-full bg-black/60 text-white text-sm flex items-center justify-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDismiss();
+            }}
+            aria-label="Close lens"
+          >
+            ×
+          </button>
           <LensMiniMap
             center={[
               activeClusterData.anchorLatLng?.lat,
@@ -129,7 +134,6 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
             onMarkerClick={(listing) => {
               setFocusedListingId(listing.id);
               onHoverListing?.(listing.id);
-              onSelectListing?.(listing.id);
             }}
           />
         </div>

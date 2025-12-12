@@ -155,23 +155,10 @@ export default function Map({
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     longPressHandlers.onPointerUp(oe);
-    if (longPressTriggeredRef.current) {
-      oe.stopPropagation();
-      oe.preventDefault();
-    }
     longPressTargetRef.current = null;
-    longPressTriggeredRef.current = false;
   };
 
   const handleClusterClick = (e: any) => {
-    console.log("[Map] clusterclick event", {
-      longPressTriggered: longPressTriggeredRef.current,
-      originalEvent: {
-        clientX: e.originalEvent?.clientX,
-        clientY: e.originalEvent?.clientY,
-        type: e.originalEvent?.type,
-      },
-    });
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
       e.originalEvent?.stopPropagation?.();
@@ -183,7 +170,6 @@ export default function Map({
     const latLng = cluster.getLatLng();
 
     openImmediate(listingsForCluster, latLng);
-    console.log("[Map] clusterclick -> openImmediate called");
 
     e.originalEvent?.stopPropagation?.();
     e.originalEvent?.preventDefault?.();
@@ -193,8 +179,10 @@ export default function Map({
     const map = mapRef.current;
     if (!map) return;
     map.on("movestart", dismissLens);
+    map.on("zoomstart", dismissLens);
     return () => {
       map.off("movestart", dismissLens);
+      map.off("zoomstart", dismissLens);
     };
   }, [dismissLens]);
 

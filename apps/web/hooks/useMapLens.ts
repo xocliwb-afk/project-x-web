@@ -18,18 +18,12 @@ export function useMapLens() {
       listings: NormalizedListing[],
       position: LatLngLike
     ) => {
-      console.log("[useMapLens] openLens()", {
-        listingsCount: listings.length,
-        position,
-      });
-
       const anchorLatLng = Array.isArray(position)
         ? { lat: position[0], lng: position[1] }
         : position;
 
       if (!anchorLatLng) return;
 
-      console.log("[useMapLens] openLens -> activateLens");
       activateLens({
         listings,
         anchorLatLng,
@@ -40,17 +34,11 @@ export function useMapLens() {
 
   const scheduleHover = useCallback(
     (listings: NormalizedListing[], position: MapPosition) => {
-      console.log("[useMapLens] scheduleHover()", {
-        listingsCount: listings.length,
-        position,
-      });
-
       if (hoverTimerRef.current) {
         window.clearTimeout(hoverTimerRef.current);
       }
       setLocked(false);
       hoverTimerRef.current = window.setTimeout(() => {
-        console.log("[useMapLens] scheduleHover -> openLens");
         openLens(listings, position);
       }, 150);
     },
@@ -75,10 +63,6 @@ export function useMapLens() {
       listings: NormalizedListing[],
       position: LatLngLike,
     ) => {
-      console.log("[useMapLens] openImmediate()", {
-        listingsCount: listings.length,
-        position,
-      });
       useMapLensStore.setState({ isLocked: true });
       cancelHover(false);
       openLens(listings, position);

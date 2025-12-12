@@ -22,30 +22,12 @@ export function MapLensPanePortal({
     dismissLens: s.dismissLens,
   }));
 
-  const backdropRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!map) return;
 
-    let isInitialized = false;
-    // Create DOM elements if they don't exist
-    if (!backdropRef.current) {
-      backdropRef.current = L.DomUtil.create("div");
-      Object.assign(backdropRef.current.style, {
-        position: "absolute",
-        left: "0",
-        top: "0",
-        width: "100%",
-        height: "100%",
-        pointerEvents: "auto",
-        background: "transparent",
-        zIndex: "9998",
-      });
-      L.DomEvent.on(backdropRef.current, "click", dismissLens);
-      isInitialized = true;
-    }
     if (!containerRef.current) {
       containerRef.current = L.DomUtil.create("div");
       Object.assign(containerRef.current.style, {
@@ -53,20 +35,11 @@ export function MapLensPanePortal({
         pointerEvents: "auto",
         zIndex: "9999",
       });
-      // Stop clicks from propagating to the backdrop/map
-      L.DomEvent.on(
-        containerRef.current,
-        "click dblclick mousedown mouseup",
-        L.DomEvent.stopPropagation
-      );
-      isInitialized = true;
-    }
-
-    if (isInitialized) {
+      L.DomEvent.disableClickPropagation(containerRef.current);
+      L.DomEvent.disableScrollPropagation(containerRef.current);
       setReady(true);
     }
 
-    const backdrop = backdropRef.current;
     const container = containerRef.current;
     const overlayPane = map.getPanes().overlayPane;
 
@@ -81,20 +54,20 @@ export function MapLensPanePortal({
     };
 
     if (activeClusterData) {
-      overlayPane.appendChild(backdrop);
       overlayPane.appendChild(container);
-
       map.on("move zoom", updatePosition);
-      updatePosition(); // Initial position
+      map.on("click", dismissLens);
+      updatePosition();
+    } else {
+      if (overlayPane.contains(container)) {
+        overlayPane.removeChild(container);
+      }
     }
 
-    // Cleanup function
     return () => {
       map.off("move zoom", updatePosition);
-      if (backdrop && overlayPane.contains(backdrop)) {
-        overlayPane.removeChild(backdrop);
-      }
-      if (container && overlayPane.contains(container)) {
+      map.off("click", dismissLens);
+      if (overlayPane.contains(container)) {
         overlayPane.removeChild(container);
       }
     };
