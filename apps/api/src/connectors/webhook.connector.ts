@@ -1,12 +1,15 @@
 import fetch from 'node-fetch';
-import { CRMConfig, LeadPayload } from '@project-x/shared-types';
+import { CRMConfig } from '@project-x/shared-types';
 import { CrmConnector } from './connector.interface';
+import type { NormalizedLead } from '../providers/crm/crm-provider.interface';
 
 export class WebhookConnector implements CrmConnector {
-  async sendLead(lead: LeadPayload, config: CRMConfig): Promise<void> {
+  async sendLead(lead: NormalizedLead, config: CRMConfig): Promise<void> {
     if (!config.webhookUrl) {
       throw new Error('Webhook URL is not configured for this broker');
     }
+
+    const { honeypot: _honeypot, ...safeLead } = lead as NormalizedLead & { honeypot?: string };
 
     const response = await fetch(config.webhookUrl, {
       method: 'POST',
@@ -16,7 +19,7 @@ export class WebhookConnector implements CrmConnector {
       },
       body: JSON.stringify({
         source: lead.source ?? 'project-x-web',
-        payload: lead,
+        payload: safeLead,
       }),
     });
 

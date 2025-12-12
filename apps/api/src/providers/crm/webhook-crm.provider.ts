@@ -1,5 +1,5 @@
-import type { LeadPayload, CRMConfig } from '@project-x/shared-types';
-import { CrmProvider } from './crm-provider.interface';
+import type { CRMConfig } from '@project-x/shared-types';
+import { CrmProvider, type NormalizedLead } from './crm-provider.interface';
 import { WebhookConnector } from '../../connectors/webhook.connector';
 
 /**
@@ -13,7 +13,7 @@ export class WebhookCrmProvider implements CrmProvider {
     this.connector = new WebhookConnector();
   }
 
-  async createLead(lead: LeadPayload, config: CRMConfig): Promise<void> {
+  async createLead(lead: NormalizedLead, config: CRMConfig): Promise<void> {
     await this.connector.sendLead(lead, config);
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import type { Listing, LeadPayload } from '@project-x/shared-types';
+import { useEffect, useState } from 'react';
+import type { Listing, LeadCreateRequest } from '@project-x/shared-types';
 import { submitLead } from '@/lib/lead-api';
 
 type LeadCaptureModalProps = {
@@ -21,9 +21,17 @@ export function LeadCaptureModal({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setSourceUrl(window.location.href);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -40,14 +48,20 @@ export function LeadCaptureModal({
     setIsLoading(true);
     setError(null);
 
-    const payload: LeadPayload = {
+    const nameParts = name.trim().split(' ').filter(Boolean);
+    const [firstName, ...restName] = nameParts;
+
+    const payload: LeadCreateRequest = {
+      firstName: firstName || undefined,
+      lastName: restName.length ? restName.join(' ') : undefined,
+      email: email.trim() || undefined,
+      phone: phone.trim() || undefined,
+      message: message.trim() || undefined,
       listingId: listing.id,
-      name,
-      email,
-      phone,
-      message,
-      brokerId,
-      source: 'project-x-web',
+      source: 'pdp',
+      sourceUrl: sourceUrl || undefined,
+      consentToContact: consent,
+      honeypot,
     };
 
     const result = await submitLead(payload);
@@ -120,6 +134,27 @@ export function LeadCaptureModal({
                 onChange={(e) => setMessage(e.target.value)}
               />
             </div>
+            <div className="flex items-start space-x-2">
+              <input
+                type="checkbox"
+                id="consent"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-1"
+                required
+              />
+              <label htmlFor="consent" className="text-xs text-slate-600">
+                I agree to be contacted about this inquiry.
+              </label>
+            </div>
+            <input
+              type="text"
+              className="hidden"
+              aria-hidden="true"
+              tabIndex={-1}
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"

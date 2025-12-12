@@ -1,4 +1,12 @@
-import type { LeadPayload, CRMConfig } from '@project-x/shared-types';
+import type { CRMConfig, LeadCreateRequest } from '@project-x/shared-types';
+
+export type NormalizedLead = Omit<LeadCreateRequest, 'source' | 'honeypot'> & {
+  leadId: string;
+  brokerId: string;
+  agentId?: string;
+  source: NonNullable<LeadCreateRequest['source']>;
+  listingAddress?: string;
+};
 
 /**
  * CrmProvider abstracts a downstream CRM integration.
@@ -11,5 +19,5 @@ export interface CrmProvider {
    * @param lead - The lead data payload.
    * @param config - The broker-specific configuration for this CRM.
    */
-  createLead(lead: LeadPayload, config: CRMConfig): Promise<void>;
+  createLead(lead: NormalizedLead, config: CRMConfig): Promise<void>;
 }

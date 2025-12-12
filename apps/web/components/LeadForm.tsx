@@ -1,17 +1,13 @@
 "use client";
 
-import { useState, type FormEvent, type ChangeEvent } from "react";
-import type { LeadPayload } from "@project-x/shared-types";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
-const DEFAULT_BROKER_ID =
-  process.env.NEXT_PUBLIC_BROKER_ID || "demo-broker";
-const DEFAULT_AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || undefined;
+import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
+import type { LeadCreateRequest } from "@project-x/shared-types";
+import { submitLead } from "@/lib/lead-api";
 
 interface LeadFormProps {
-  listingId: string;
+  listingId?: string;
   listingAddress?: string;
+  source?: LeadCreateRequest["source"];
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -19,21 +15,50 @@ interface LeadFormProps {
 export default function LeadForm({
   listingId,
   listingAddress,
+  source = "unknown",
   onSuccess,
   onCancel,
 }: LeadFormProps) {
   const [formState, setFormState] = useState({
-    name: "",
+    fullName: "",
     email: "",
     phone: "",
     message: listingAddress
       ? `I'm interested in ${listingAddress}`
       : "I'm interested in this property.",
+    consent: false,
+    honeypot: "",
+  });
+  const [meta, setMeta] = useState({
+    sourceUrl: "",
+    utmSource: "",
+    utmMedium: "",
+    utmCampaign: "",
   });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    setMeta({
+      sourceUrl: url.toString(),
+      utmSource: url.searchParams.get("utm_source") || "",
+      utmMedium: url.searchParams.get("utm_medium") || "",
+      utmCampaign: url.searchParams.get("utm_campaign") || "",
+    });
+  }, []);
+
+  useEffect(() => {
+    setFormState((prev) => ({
+      ...prev,
+      message: listingAddress
+        ? `I'm interested in ${listingAddress}`
+        : "I'm interested in this property.",
+    }));
+  }, [listingAddress]);
 
   const handleChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -47,40 +72,43 @@ export default function LeadForm({
     setStatus("loading");
     setErrorMessage(null);
 
-    const payload: LeadPayload = {
-      listingId,
-      listingAddress,
-      name: formState.name.trim(),
-      email: formState.email.trim(),
+    const trimmedName = formState.fullName.trim();
+    const [firstName, ...restName] = trimmedName.split(" ").filter(Boolean);
+    const lastName = restName.length ? restName.join(" ") : "";
+
+    const payload: LeadCreateRequest = {
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      email: formState.email.trim() || undefined,
       phone: formState.phone.trim() || undefined,
       message: formState.message.trim() || undefined,
-      brokerId: DEFAULT_BROKER_ID,
-      agentId: DEFAULT_AGENT_ID,
-      source: "project-x-web",
+      listingId,
+      source: source || "unknown",
+      sourceUrl: meta.sourceUrl || undefined,
+      utmSource: meta.utmSource || undefined,
+      utmMedium: meta.utmMedium || undefined,
+      utmCampaign: meta.utmCampaign || undefined,
+      consentToContact: formState.consent,
+      honeypot: formState.honeypot,
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/leads`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const result = await submitLead(payload);
 
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.message || "Failed to submit lead");
+      if (!result.success) {
+        throw new Error(result.message || "Failed to submit lead");
       }
 
       setStatus("success");
       setFormState({
-        name: "",
+        fullName: "",
         email: "",
         phone: "",
         message: listingAddress
           ? `I'm interested in ${listingAddress}`
           : "I'm interested in this property.",
+        consent: false,
+        honeypot: "",
       });
       onSuccess?.();
     } catch (error: any) {
@@ -114,9 +142,9 @@ export default function LeadForm({
       <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
         <input
           type="text"
-          name="name"
+          name="fullName"
           required
-          value={formState.name}
+          value={formState.fullName}
           onChange={handleChange}
           className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
           placeholder="Name"
@@ -124,7 +152,6 @@ export default function LeadForm({
         <input
           type="email"
           name="email"
-          required
           value={formState.email}
           onChange={handleChange}
           className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
@@ -146,6 +173,39 @@ export default function LeadForm({
           rows={4}
           placeholder="Message"
         />
+        <div className="flex items-start space-x-2">
+          <input
+            type="checkbox"
+            id="consent"
+            name="consent"
+            checked={formState.consent}
+            onChange={(e) =>
+              setFormState((prev) => ({ ...prev, consent: e.target.checked }))
+            }
+            className="mt-1"
+            required
+          />
+          <label htmlFor="consent" className="text-xs text-text-muted">
+            I agree to be contacted about this inquiry.
+          </label>
+        </div>
+
+        <input
+          type="text"
+          name="honeypot"
+          value={formState.honeypot}
+          onChange={handleChange}
+          className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+        <input type="hidden" name="sourceUrl" value={meta.sourceUrl} readOnly />
+        <input type="hidden" name="source" value={source} readOnly />
+        <input type="hidden" name="listingId" value={listingId ?? ""} readOnly />
+        <input type="hidden" name="utmSource" value={meta.utmSource} readOnly />
+        <input type="hidden" name="utmMedium" value={meta.utmMedium} readOnly />
+        <input type="hidden" name="utmCampaign" value={meta.utmCampaign} readOnly />
 
         {errorMessage && (
           <p className="text-sm text-danger">{errorMessage}</p>

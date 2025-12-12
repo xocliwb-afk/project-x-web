@@ -112,8 +112,38 @@ export type LeadPayload = {
   source: 'project-x-web' | 'project-x-app';
 };
 
+export type LeadCreateRequest = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+
+  message?: string;
+  listingId?: string;
+  sourceUrl?: string;
+  source?: 'pdp' | 'search' | 'tour' | 'contact' | 'unknown';
+
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+
+  consentToContact: boolean;
+  preferredContact?: 'phone' | 'email' | 'text';
+  honeypot?: string;
+};
+
+export type LeadCreateResponse = {
+  ok: true;
+  success: true;
+  leadId: string;
+  receivedAt: string;
+};
+
 export type LeadResponse = {
   success: boolean;
+  ok?: boolean;
+  leadId?: string;
+  receivedAt?: string;
 };
 
 // TEMP: keep contract-safe and serializable. Status / propertyType are strings in the API.
