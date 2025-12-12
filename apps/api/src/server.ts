@@ -4,6 +4,7 @@ import * as dotenv from "dotenv";
 import listingsRouter from "./routes/listings.route";
 import leadsRouter from "./routes/leads.route";
 import toursRouter from "./routes/tours.route";
+import { getListingById } from "./routes/listings.route";
 
 dotenv.config();
 
@@ -22,9 +23,15 @@ app.use("/api", leadsRouter);
 app.use("/api/tours", toursRouter);
 app.use("/api/v1/tours", toursRouter);
 
-app.get("/health", (req, res) => {
-  res.status(200).send("API is healthy and running.");
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ ok: true, ts: new Date().toISOString() });
 });
+app.get("/health", (_req, res) => {
+  res.status(200).json({ ok: true, ts: new Date().toISOString() });
+});
+
+app.get("/api/listing/:id", getListingById);
+app.get("/api/listings/:id", getListingById);
 
 app.listen(PORT, () => {
   console.log(`[API] Server running on http://localhost:${PORT}`);

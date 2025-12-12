@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { getListingProvider } from '../utils/provider.factory';
 import {
   ListingSearchParams,
@@ -8,21 +8,25 @@ import {
 
 const router = Router();
 
-/**
- * GET /api/listings
- *
- * Returns a paginated set of listings using the ListingProvider abstraction.
- */
-router.get('/', async (req, res) => {
+export async function getListings(req: Request, res: Response) {
   try {
     const provider = getListingProvider();
 
-    // req.query is an untyped object; cast carefully into ListingSearchParams
+    const parsedLimit =
+      typeof req.query.limit === 'string' ? Number(req.query.limit) : undefined;
+    const parsedPage =
+      typeof req.query.page === 'string' ? Number(req.query.page) : undefined;
+
+    const limit = Math.max(1, Math.min(parsedLimit ?? 20, 50));
+    const page = Math.max(1, parsedPage ?? 1);
+    const start = (page - 1) * limit;
+    const end = start + limit;
+
     const params: ListingSearchParams = {
       q: typeof req.query.q === 'string' ? req.query.q : undefined,
       bbox: typeof req.query.bbox === 'string' ? req.query.bbox : undefined,
-      page: req.query.page ? Number(req.query.page) : undefined,
-      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      page,
+      limit,
       minPrice: req.query.minPrice ? Number(req.query.minPrice) : undefined,
       maxPrice: req.query.maxPrice ? Number(req.query.maxPrice) : undefined,
       beds: req.query.beds
@@ -35,8 +39,12 @@ router.get('/', async (req, res) => {
         : req.query.minBaths
         ? Number(req.query.minBaths)
         : undefined,
-      propertyType: typeof req.query.propertyType === 'string' ? req.query.propertyType : undefined,
-      sort: typeof req.query.sort === 'string' ? (req.query.sort as ListingSearchParams['sort']) : undefined,
+      propertyType:
+        typeof req.query.propertyType === 'string' ? req.query.propertyType : undefined,
+      sort:
+        typeof req.query.sort === 'string'
+          ? (req.query.sort as ListingSearchParams['sort'])
+          : undefined,
       status: Array.isArray(req.query.status)
         ? (req.query.status as string[])
         : typeof req.query.status === 'string'
@@ -46,22 +54,26 @@ router.get('/', async (req, res) => {
       maxSqft: req.query.maxSqft ? Number(req.query.maxSqft) : undefined,
       minYearBuilt: req.query.minYearBuilt ? Number(req.query.minYearBuilt) : undefined,
       maxYearBuilt: req.query.maxYearBuilt ? Number(req.query.maxYearBuilt) : undefined,
-      maxDaysOnMarket: req.query.maxDaysOnMarket ? Number(req.query.maxDaysOnMarket) : undefined,
+      maxDaysOnMarket: req.query.maxDaysOnMarket
+        ? Number(req.query.maxDaysOnMarket)
+        : undefined,
       keywords: typeof req.query.keywords === 'string' ? req.query.keywords : undefined,
     };
 
-    const page = params.page && params.page > 0 ? params.page : 1;
-    const limit = params.limit && params.limit > 0 ? params.limit : 20;
+    // Provider should not paginate; ensure page/limit are not used for slicing downstream.
+    const { page: _p, limit: _l, ...providerParams } = params;
+    const allResults: NormalizedListing[] = await provider.search(providerParams);
 
-    const results: NormalizedListing[] = await provider.search(params);
+    const total = allResults.length;
+    const pagedResults = allResults.slice(start, end);
 
     res.json({
-      results,
+      results: pagedResults,
       pagination: {
         page,
         limit,
-        pageCount: results.length,
-        hasMore: results.length === limit,
+        total,
+        hasMore: end < total,
       },
     });
   } catch (err: any) {
@@ -73,14 +85,9 @@ router.get('/', async (req, res) => {
     };
     res.status(500).json(error);
   }
-});
+}
 
-/**
- * GET /api/listings/:id
- *
- * Returns a single listing by ID or a 404 error if not found.
- */
-router.get('/:id', async (req, res) => {
+export async function getListingById(req: Request, res: Response) {
   try {
     const provider = getListingProvider();
     const { id } = req.params;
@@ -107,6 +114,9 @@ router.get('/:id', async (req, res) => {
     };
     res.status(500).json(error);
   }
-});
+}
+
+router.get('/', getListings);
+router.get('/:id', getListingById);
 
 export default router;

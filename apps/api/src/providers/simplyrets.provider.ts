@@ -8,12 +8,12 @@ export class SimplyRetsListingProvider implements ListingProvider {
   constructor() {
     this.baseUrl = process.env.SIMPLYRETS_BASE_URL ?? 'https://api.simplyrets.com';
 
-    const username = process.env.SIMPLYRETS_USERNAME;
-    const password = process.env.SIMPLYRETS_PASSWORD;
+    const username = process.env.SIMPLYRETS_API_KEY ?? process.env.SIMPLYRETS_USERNAME;
+    const password = process.env.SIMPLYRETS_API_SECRET ?? process.env.SIMPLYRETS_PASSWORD;
 
     if (!username || !password) {
       throw new Error(
-        'SIMPLYRETS_USERNAME and SIMPLYRETS_PASSWORD must be set when using SimplyRetsListingProvider',
+        'SIMPLYRETS_API_KEY and SIMPLYRETS_API_SECRET must be set when using SimplyRetsListingProvider',
       );
     }
 
@@ -24,7 +24,6 @@ export class SimplyRetsListingProvider implements ListingProvider {
   public async search(params: ListingSearchParams): Promise<NormalizedListing[]> {
     const url = new URL('/properties', this.baseUrl);
 
-    if (params.limit) url.searchParams.set('limit', String(params.limit));
     if (params.q) url.searchParams.set('q', params.q);
     if (params.minPrice) url.searchParams.set('minprice', String(params.minPrice));
     if (params.maxPrice) url.searchParams.set('maxprice', String(params.maxPrice));
@@ -65,12 +64,6 @@ export class SimplyRetsListingProvider implements ListingProvider {
           url.searchParams.append('points', `${lat},${lng}`);
         });
       }
-    }
-
-    const page = params.page && params.page > 0 ? params.page : 1;
-    if (params.limit && params.limit > 0 && page > 1) {
-      const offset = (page - 1) * params.limit;
-      url.searchParams.set('offset', String(offset));
     }
 
     const res = await fetch(url.toString(), {

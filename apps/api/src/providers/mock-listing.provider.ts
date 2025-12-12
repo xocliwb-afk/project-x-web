@@ -8,10 +8,9 @@ import { mockListings } from '../data/mockListings';
  */
 export class MockListingProvider implements ListingProvider {
   public async search(params: ListingSearchParams): Promise<NormalizedListing[]> {
-    // For now, ignore most filters and just return all mock listings mapped.
-    // Later we can add filtering by price, beds, etc.
     const mapped = mockListings.map((raw) => this.mapToListing(raw));
-    return mapped;
+    const filtered = mapped.filter((listing) => this.applyFilters(listing, params));
+    return filtered;
   }
 
   public async getById(id: string): Promise<NormalizedListing | null> {
@@ -29,29 +28,19 @@ export class MockListingProvider implements ListingProvider {
    * This is intentionally tolerant and uses fallback values for fields that may not exist in the mock.
    */
   private mapToListing(raw: any): NormalizedListing {
-    const listPrice: number = raw.listPrice ?? raw.listprice ?? 0;
+    const listPrice: number = raw.details?.price ?? raw.listPrice ?? raw.listprice ?? 0;
 
-    const rawFull =
-      raw.address?.full ??
-      raw.address ??
-      `${raw.streetName ?? ''} ${raw.streetNumber ?? ''}`.trim();
-
+    const streetPart = raw.address?.street ?? 'Unknown street';
+    const cityPart = raw.address?.city ?? 'Unknown City';
+    const statePart = raw.address?.state ?? 'XX';
+    const zipPart = raw.address?.zip ?? '00000';
     const fullAddress =
-      typeof rawFull === 'string' && rawFull.trim().length > 0
-        ? rawFull
-        : 'Unknown address';
-
-    // Very simple street/city/state/zip extraction for mock data.
-    // In real providers, this should use the actual address object.
-    const parts = fullAddress.split(',').map((s: string) => s.trim());
-    const streetPart = parts[0] ?? fullAddress;
-    const cityPart = parts[1] ?? 'Unknown City';
-    const stateZipPart = parts[2] ?? '';
-    const [statePart, zipPart] = stateZipPart.split(' ').map((s: string) => s.trim());
+      raw.address?.full ??
+      `${streetPart}, ${cityPart}, ${statePart} ${zipPart}`.trim();
 
     return {
       id: raw.listingId ?? raw.id ?? 'unknown-id',
-      mlsId: raw.mlsId ?? 'unknown-mls-id',
+      mlsId: raw.meta?.mlsId ?? raw.mlsId ?? 'unknown-mls-id',
       listPrice,
       listPriceFormatted: new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -60,36 +49,97 @@ export class MockListingProvider implements ListingProvider {
       }).format(listPrice),
       address: {
         full: fullAddress,
-        street: streetPart || fullAddress,
-        city: cityPart || 'Unknown City',
-        state: statePart || 'XX',
-        zip: zipPart || '00000',
-        lat: raw.geo?.lat ?? raw.latitude ?? 0,
-        lng: raw.geo?.lng ?? raw.longitude ?? 0,
+        street: streetPart,
+        city: cityPart,
+        state: statePart,
+        zip: zipPart,
+        lat: raw.coordinates?.lat ?? raw.geo?.lat ?? raw.latitude ?? 0,
+        lng: raw.coordinates?.lng ?? raw.geo?.lng ?? raw.longitude ?? 0,
       },
       media: {
-        photos: Array.isArray(raw.photos) ? raw.photos : [],
+        photos: Array.isArray(raw.media?.photos) ? raw.media.photos : [],
+        thumbnailUrl: Array.isArray(raw.media?.photos) ? raw.media.photos[0] ?? null : null,
       },
       details: {
-        beds: raw.property?.bedrooms ?? raw.bedrooms ?? null,
-        baths:
-          (raw.property?.bathsFull ?? raw.bathsFull ?? 0) +
-          (raw.property?.bathsHalf ?? raw.bathsHalf ?? 0) * 0.5,
-        sqft: raw.property?.area ?? raw.squareFeet ?? null,
-        lotSize: raw.property?.lotSizeArea ?? raw.lotSize ?? null,
-        yearBuilt: raw.property?.yearBuilt ?? raw.yearBuilt ?? null,
-        hoaFees: raw.association?.fee ?? raw.hoaFees ?? null,
-        basement:
-          Array.isArray(raw.property?.basement) && raw.property.basement.length > 0
-            ? raw.property.basement.join(', ')
-            : raw.basement ?? null,
-        propertyType: raw.property?.style ?? raw.property?.type ?? 'Unknown',
-        status: raw.mls?.status ?? raw.status ?? 'Active',
+        beds: raw.details?.beds ?? null,
+        baths: raw.details?.baths ?? null,
+        sqft: raw.details?.sqft ?? null,
+        lotSize: raw.details?.lotSize ?? null,
+        yearBuilt: raw.details?.yearBuilt ?? null,
+        hoaFees: raw.details?.hoaFees ?? null,
+        basement: raw.details?.basement ?? null,
+        propertyType: raw.details?.propertyType ?? null,
+        status: raw.details?.status ?? 'Unknown',
       },
       meta: {
-        daysOnMarket: raw.mls?.daysOnMarket ?? null,
-        mlsName: raw.mls?.isMls ?? 'Mock MLS',
+        daysOnMarket: raw.meta?.daysOnMarket ?? null,
+        mlsName: raw.meta?.mlsName ?? null,
       },
     };
+  }
+
+  private applyFilters(listing: NormalizedListing, params: ListingSearchParams): boolean {
+    if (params.q) {
+      const q = params.q.toLowerCase();
+      const haystack = `${listing.address.street} ${listing.address.city} ${listing.address.state} ${listing.address.zip}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+
+    if (params.bbox) {
+      const parts = params.bbox.split(',').map((p) => Number(p));
+      if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+        const [minLng, minLat, maxLng, maxLat] = parts;
+        const { lat, lng } = listing.address;
+        if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) return false;
+      }
+    }
+
+    if (params.minPrice != null && listing.listPrice < params.minPrice) return false;
+    if (params.maxPrice != null && listing.listPrice > params.maxPrice) return false;
+
+    if (params.beds != null) {
+      const beds = listing.details.beds ?? 0;
+      if (beds < params.beds) return false;
+    }
+
+    if (params.baths != null) {
+      const baths = listing.details.baths ?? 0;
+      if (baths < params.baths) return false;
+    }
+
+    if (params.propertyType && listing.details.propertyType) {
+      if (listing.details.propertyType !== params.propertyType) return false;
+    }
+
+    if (params.status?.length && listing.details.status) {
+      if (!params.status.includes(listing.details.status)) return false;
+    }
+
+    if (params.minSqft != null) {
+      const sqft = listing.details.sqft ?? 0;
+      if (sqft < params.minSqft) return false;
+    }
+
+    if (params.maxSqft != null) {
+      const sqft = listing.details.sqft ?? 0;
+      if (sqft > params.maxSqft) return false;
+    }
+
+    if (params.minYearBuilt != null) {
+      const year = listing.details.yearBuilt ?? 0;
+      if (year < params.minYearBuilt) return false;
+    }
+
+    if (params.maxYearBuilt != null) {
+      const year = listing.details.yearBuilt ?? 0;
+      if (year > params.maxYearBuilt) return false;
+    }
+
+    if (params.maxDaysOnMarket != null) {
+      const dom = listing.meta.daysOnMarket ?? 0;
+      if (dom > params.maxDaysOnMarket) return false;
+    }
+
+    return true;
   }
 }
