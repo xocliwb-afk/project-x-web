@@ -4,6 +4,7 @@ import { fetchListing } from '@/lib/api-client';
 import BackButton from '@/components/BackButton';
 import ListingImageGallery from '@/components/ListingImageGallery';
 import ContactAgentPanel from '@/components/listing-detail/ContactAgentPanel';
+import SiteFooter from '@/components/footer/SiteFooter';
 
 type ListingDetailPageProps = {
   params: {
@@ -16,6 +17,56 @@ const currency = new Intl.NumberFormat('en-US', {
   currency: 'USD',
   maximumFractionDigits: 0,
 });
+
+const formatLabel = (key: string) =>
+  key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\w/, (c) => c.toUpperCase());
+
+const formatValue = (value: unknown): string => {
+  if (value == null) return '';
+  if (Array.isArray(value)) return value.filter(Boolean).join(', ');
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString() : '';
+  if (typeof value === 'string') return value.trim();
+  return '';
+};
+
+function renderKeyValueSection(
+  title: string,
+  obj: Record<string, any> | null | undefined,
+  omitKeys: string[] = [],
+) {
+  if (!obj) return null;
+  const omit = new Set(omitKeys);
+  const items = Object.entries(obj)
+    .filter(([key]) => !omit.has(key))
+    .map(([key, value]) => {
+      const formatted = formatValue(value);
+      if (!formatted) return null;
+      return { key: formatLabel(key), value: formatted };
+    })
+    .filter(Boolean) as { key: string; value: string }[];
+
+  if (!items.length) return null;
+
+  return (
+    <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
+      <h2 className="text-xl font-semibold text-text-main">{title}</h2>
+      <dl className="mt-4 grid grid-cols-1 gap-4 text-sm text-text-main sm:grid-cols-2">
+        {items.map((item) => (
+          <div key={item.key} className="rounded-lg bg-surface-muted/60 p-3">
+            <dt className="text-[11px] uppercase tracking-wide text-text-muted">{item.key}</dt>
+            <dd className="mt-1 text-base font-semibold text-text-main">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
 
 const InlineMap = dynamic(() => import('@/components/Map'), { ssr: false });
 
@@ -111,6 +162,21 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               </dl>
             </section>
 
+            {renderKeyValueSection('Additional Details', listing.details, [
+              'beds',
+              'baths',
+              'sqft',
+              'lotSize',
+              'yearBuilt',
+              'hoaFees',
+              'basement',
+              'propertyType',
+              'status',
+              'description',
+            ])}
+
+            {renderKeyValueSection('Listing Meta', listing.meta, ['mlsName', 'daysOnMarket'])}
+
             <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
               <h2 className="text-xl font-semibold text-text-main">Description</h2>
               <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-text-muted">{description}</p>
@@ -145,6 +211,8 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
             <ContactAgentPanel listingId={listing.id} brokerId={brokerId} />
           </div>
         </div>
+
+        <SiteFooter />
       </div>
     </div>
   );

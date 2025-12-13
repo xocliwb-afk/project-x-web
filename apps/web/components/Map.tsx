@@ -6,6 +6,7 @@ import {
   type LayerProps,
   type LeafletContextInterface,
 } from "@react-leaflet/core";
+import { useRouter } from "next/navigation";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster";
@@ -19,6 +20,9 @@ import { useMapLensStore } from "@/stores/useMapLensStore";
 import { useMapLens } from "@/hooks/useMapLens";
 import { useLongPress } from "@/hooks/useLongPress";
 import type { LayerGroup, LeafletEvent, Map as LeafletMap } from "leaflet";
+import { MapLens } from "./map/MapLens";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import ListingPreviewModal from "./map/ListingPreviewModal";
 
 const iconUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png";
 const iconRetinaUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png";
@@ -85,8 +89,13 @@ export default function Map({
   const mapRef = useRef<LeafletMap | null>(null);
   const clusterRef = useRef<LayerGroup | null>(null);
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
+  const [previewListing, setPreviewListing] = useState<NormalizedListing | null>(null);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
+  const lensOpen = useMapLensStore((s) => Boolean(s.activeClusterData));
+  const router = useRouter();
   const { cancelHover, openImmediate } = useMapLens();
+  const isMobile = useIsMobile();
+  const overlayOpen = lensOpen || Boolean(previewListing);
   const longPressTargetRef = useRef<{
     listings: NormalizedListing[];
     position: { lat: number; lng: number };
@@ -134,6 +143,7 @@ export default function Map({
   const handleClusterMouseOut = (_e: LeafletEvent) => {};
 
   const handleClusterPointerDown = (e: any) => {
+    if (overlayOpen) return;
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     const listingsForCluster = getClusterListings(e.layer);
@@ -146,34 +156,31 @@ export default function Map({
   };
 
   const handleClusterPointerMove = (e: any) => {
+    if (overlayOpen) return;
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     longPressHandlers.onPointerMove(oe);
   };
 
   const handleClusterPointerUp = (e: any) => {
+    if (overlayOpen) return;
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     longPressHandlers.onPointerUp(oe);
     if (longPressTriggeredRef.current) {
       oe.stopPropagation();
       oe.preventDefault();
+      // do not reset here; click handler will consume and reset
+    } else {
+      longPressTargetRef.current = null;
     }
-    longPressTargetRef.current = null;
-    longPressTriggeredRef.current = false;
   };
 
   const handleClusterClick = (e: any) => {
-    console.log("[Map] clusterclick event", {
-      longPressTriggered: longPressTriggeredRef.current,
-      originalEvent: {
-        clientX: e.originalEvent?.clientX,
-        clientY: e.originalEvent?.clientY,
-        type: e.originalEvent?.type,
-      },
-    });
+    if (overlayOpen) return;
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
+      longPressTargetRef.current = null;
       e.originalEvent?.stopPropagation?.();
       e.originalEvent?.preventDefault?.();
       return;
@@ -183,7 +190,6 @@ export default function Map({
     const latLng = cluster.getLatLng();
 
     openImmediate(listingsForCluster, latLng);
-    console.log("[Map] clusterclick -> openImmediate called");
 
     e.originalEvent?.stopPropagation?.();
     e.originalEvent?.preventDefault?.();
@@ -242,6 +248,7 @@ export default function Map({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !onBoundsChange) return;
+
     const emitBounds = () => {
       const bounds = map.getBounds();
       const sw = bounds.getSouthWest();
@@ -264,21 +271,6 @@ export default function Map({
       map.off("zoomend", emitBounds);
     };
   }, [onBoundsChange]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const handleZoomStart = () => {
-      dismissLens();
-    };
-
-    map.on("zoomstart", handleZoomStart);
-
-    return () => {
-      map.off("zoomstart", handleZoomStart);
-    };
-  }, [dismissLens]);
 
   return (
     <div className="h-full w-full relative z-0">
@@ -342,57 +334,76 @@ export default function Map({
                   }}
                   eventHandlers={{
                     click: () => {
+                      if (overlayOpen) return;
+                      if (isMobile) {
+                        setPreviewListing(l);
+                        return;
+                      }
                       onSelectListing?.(l.id);
-                      mapRef.current?.flyTo(position, mapRef.current.getZoom());
+                      router.push(`/listing/${l.id}`);
                     },
                     popupopen: () => {
+                      if (overlayOpen) return;
                       onSelectListing?.(l.id);
                     },
                     mouseover: () => {
+                      if (overlayOpen) return;
                       onHoverListing?.(l.id);
                     },
                     mouseout: () => {
+                      if (overlayOpen) return;
                       (onHoverListing ?? onSelectListing)?.(null);
                     },
                   }}
                 >
-                  <Popup>
-                    <div className="w-64 p-2 text-xs font-sans">
-                      <div className="mb-2 w-full overflow-hidden rounded">
-                        <img
-                          src={mainPhoto}
-                          alt={l.address.street || fullAddress}
-                          className="h-28 w-full object-cover"
-                          loading="lazy"
-                        />
-                      </div>
+                  {!overlayOpen && !isMobile && (
+                    <Popup>
+                      <div className="w-64 p-2 text-xs font-sans">
+                        <div className="mb-2 w-full overflow-hidden rounded">
+                          <img
+                            src={mainPhoto}
+                            alt={l.address.street || fullAddress}
+                            className="h-28 w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
 
-                      <div className="mb-1 text-sm font-semibold text-gray-900">
-                        {priceLabel}
+                        <div className="mb-1 text-sm font-semibold text-gray-900">
+                          {priceLabel}
+                        </div>
+                        <div className="text-gray-600 text-xs leading-snug">
+                          {fullAddress}
+                          <br />
+                          {cityLine}
+                        </div>
+                        <div className="mt-1 text-[11px] text-gray-500">
+                          {beds} bds • {baths} ba •{" "}
+                          {typeof sqft === "number" && sqft > 0
+                            ? sqft.toLocaleString()
+                            : "—"}{" "}
+                          sqft
+                        </div>
                       </div>
-                      <div className="text-gray-600 text-xs leading-snug">
-                        {fullAddress}
-                        <br />
-                        {cityLine}
-                      </div>
-                      <div className="mt-1 text-[11px] text-gray-500">
-                        {beds} bds • {baths} ba •{" "}
-                        {typeof sqft === "number" && sqft > 0
-                          ? sqft.toLocaleString()
-                          : "—"}{" "}
-                        sqft
-                      </div>
-                    </div>
-                  </Popup>
+                    </Popup>
+                  )}
                 </Marker>
               );
             })}
         </MarkerClusterGroup>
       </MapContainer>
-      <MapLensPanePortal
-        map={mapInstance}
-        onHoverListing={onHoverListing}
-        onSelectListing={onSelectListing}
+      {isMobile ? (
+        <MapLens isMobile onHoverListing={onHoverListing} onSelectListing={onSelectListing} />
+      ) : (
+        <MapLensPanePortal
+          map={mapInstance}
+          onHoverListing={onHoverListing}
+          onSelectListing={onSelectListing}
+        />
+      )}
+      <ListingPreviewModal
+        listing={previewListing}
+        isOpen={Boolean(previewListing)}
+        onClose={() => setPreviewListing(null)}
       />
     </div>
   );

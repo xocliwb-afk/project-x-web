@@ -18,9 +18,10 @@ export type PaginatedListingsResponse = {
 };
 
 const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.API_BASE_URL ||
-  'http://localhost:3001';
+  'http://localhost:3002';
 
 /**
  * Fetches a paginated list of listings from the backend API.
