@@ -1,5 +1,11 @@
 import type { LeadPayload, ApiError } from '@project-x/shared-types';
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.API_BASE_URL ||
+  'http://localhost:3002';
+
 export type SubmitLeadResult = {
   success: boolean;
   message?: string;
@@ -7,7 +13,7 @@ export type SubmitLeadResult = {
 
 export async function submitLead(payload: LeadPayload): Promise<SubmitLeadResult> {
   try {
-    const res = await fetch('/api/leads', {
+    const res = await fetch(`${API_BASE_URL}/api/v1/leads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

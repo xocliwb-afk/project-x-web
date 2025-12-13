@@ -10,11 +10,26 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://192.168.4.197:3000",
+  "http://192.168.4.197:3001",
+];
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "*",
+    origin: (origin, callback) => {
+      const isDev = process.env.NODE_ENV !== "production";
+      if (!origin) return callback(null, true);
+      if (isDev) return callback(null, true);
+      return callback(null, allowedOrigins.includes(origin));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+app.options("*", cors());
 app.use(express.json());
 
 app.use("/api/listings", listingsRouter);

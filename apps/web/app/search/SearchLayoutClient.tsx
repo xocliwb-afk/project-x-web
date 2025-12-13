@@ -229,7 +229,7 @@ export default function SearchLayoutClient({
 
   return (
     <>
-      <main className="w-full">
+      <main className="w-full overflow-x-hidden">
         {/* Mobile Toggle */}
         <div className="border-b border-border p-2 md:hidden">
           <div className="grid grid-cols-2 gap-2 rounded-lg bg-surface-muted p-1">
@@ -239,7 +239,7 @@ export default function SearchLayoutClient({
         </div>
 
         {/* Main Content Area */}
-        <div className="w-full">
+        <div className="w-full overflow-x-hidden">
           {/* Mobile View */}
           <div className="h-full w-full md:hidden">
             {viewMode === 'map' && (
@@ -274,12 +274,12 @@ export default function SearchLayoutClient({
           {/* Desktop View (60/40 Split) */}
           {/* Desktop View (60/40 Split) */}
           <div
-            className={`hidden md:flex flex-row gap-4 ${
+            className={`hidden md:flex w-full flex-row gap-4 overflow-hidden ${
               mapSide === 'right' ? 'flex-row-reverse' : ''
             }`}
           >
             {/* Map Column */}
-            <div className={`relative ${mapPaneClass}`}>
+            <div className={`relative min-w-0 ${mapPaneClass}`}>
               <div className="sticky top-24 h-[calc(100vh-120px)] overflow-hidden rounded-lg border border-border">
                 <MapPanel
                   listings={listings}
@@ -292,7 +292,7 @@ export default function SearchLayoutClient({
             </div>
 
             {/* Listings Column */}
-            <div className={`h-[calc(100vh-120px)] overflow-y-auto ${listPaneClass}`}>
+            <div className={`h-[calc(100vh-120px)] overflow-y-auto min-w-0 ${listPaneClass}`}>
               <div className="flex h-full flex-col rounded-lg border border-border bg-surface">
                 <div className="flex items-end justify-between border-b border-border px-4 pt-3 pb-2">
                   <div>
