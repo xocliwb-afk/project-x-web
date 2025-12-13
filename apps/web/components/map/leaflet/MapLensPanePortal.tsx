@@ -44,17 +44,6 @@ export function MapLensPanePortal({
     // Desktop: only interactive while lens is open
     pane.style.pointerEvents = activeClusterData ? "auto" : "none";
 
-    if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEBUG_MAP === "1") {
-      const markerPane = map.getPanes().markerPane;
-      const overlayPane = map.getPanes().overlayPane;
-      const popupPane = map.getPanes().popupPane;
-      console.log("[MapLensPanePortal][debug] pane states", {
-        lensPane: { pointerEvents: pane.style.pointerEvents, zIndex: pane.style.zIndex },
-        markerPane: { pointerEvents: markerPane?.style.pointerEvents, zIndex: markerPane?.style.zIndex },
-        overlayPane: { pointerEvents: overlayPane?.style.pointerEvents, zIndex: overlayPane?.style.zIndex },
-        popupPane: { pointerEvents: popupPane?.style.pointerEvents, zIndex: popupPane?.style.zIndex },
-      });
-    }
   }, [map, isMobile, activeClusterData]);
 
   useEffect(() => {

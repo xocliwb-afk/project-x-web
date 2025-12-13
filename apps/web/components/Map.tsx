@@ -96,8 +96,6 @@ export default function Map({
   const { cancelHover, openImmediate } = useMapLens();
   const isMobile = useIsMobile();
   const overlayOpen = lensOpen || Boolean(previewListing);
-  const debugEnabled =
-    process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEBUG_MAP === "1";
   const longPressTargetRef = useRef<{
     listings: NormalizedListing[];
     position: { lat: number; lng: number };
@@ -259,32 +257,6 @@ export default function Map({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !onBoundsChange) return;
-    if (debugEnabled) {
-      const el = map.getContainer();
-      const logEvent = (ev: Event) => {
-        console.log("[Map][debug] container event", {
-          type: ev.type,
-          tag: (ev.target as HTMLElement | null)?.tagName,
-          className: (ev.target as HTMLElement | null)?.className,
-          coords: (ev as PointerEvent).clientX != null ? { x: (ev as PointerEvent).clientX, y: (ev as PointerEvent).clientY } : undefined,
-        });
-      };
-      el.addEventListener("pointerdown", logEvent, { capture: true });
-      el.addEventListener("pointerup", logEvent, { capture: true });
-      el.addEventListener("click", logEvent, { capture: true });
-
-      const centerEl = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) as HTMLElement | null;
-      console.log("[Map][debug] elementFromPoint center", {
-        tag: centerEl?.tagName,
-        className: centerEl?.className,
-      });
-
-      return () => {
-        el.removeEventListener("pointerdown", logEvent, { capture: true } as any);
-        el.removeEventListener("pointerup", logEvent, { capture: true } as any);
-        el.removeEventListener("click", logEvent, { capture: true } as any);
-      };
-    }
 
     const emitBounds = () => {
       const bounds = map.getBounds();
@@ -378,15 +350,6 @@ export default function Map({
                       }
                       onSelectListing?.(l.id);
                       router.push(`/listing/${l.id}`);
-                      if (debugEnabled) {
-                        console.log("[Map] marker click", {
-                          lensOpen,
-                          previewOpen: Boolean(previewListing),
-                          overlayOpen,
-                          isMobile,
-                          id: l.id,
-                        });
-                      }
                     },
                     popupopen: () => {
                       if (overlayOpen) return;
