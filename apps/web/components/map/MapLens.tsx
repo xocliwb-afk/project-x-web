@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 import { LensMiniMap } from "./LensMiniMap";
 import type { LatLngBounds } from "leaflet";
@@ -9,6 +11,7 @@ import type { LatLngBounds } from "leaflet";
 type MapLensProps = {
   onHoverListing?: (id: string | null) => void;
   onSelectListing?: (id: string | null) => void;
+  isMobile?: boolean;
 };
 
 const formatPriceCompact = (price: number | null | undefined) => {
@@ -19,34 +22,39 @@ const formatPriceCompact = (price: number | null | undefined) => {
   }).format(price);
 };
 
-export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
+export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensProps) {
   const activeClusterData = useMapLensStore((s) => s.activeClusterData);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const isLocked = useMapLensStore((s) => s.isLocked);
   const [visible, setVisible] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState<number>(
+    typeof window !== "undefined" ? window.innerWidth : 1024
+  );
   const focusedListingId = useMapLensStore((s) => s.focusedListingId);
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const lensRef = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
 
-  const visibleListings = activeClusterData?.listings.slice(0, 50) ?? [];
-  const sortedVisibleListings = useMemo(
+  const allClusterListings = activeClusterData?.listings ?? [];
+  const sortedAllListings = useMemo(
     () =>
-      [...visibleListings].sort((a, b) => {
+      [...allClusterListings].sort((a, b) => {
         const priceA =
           typeof a.listPrice === "number" ? a.listPrice : typeof a.listPrice === "string" ? Number(a.listPrice) : 0;
         const priceB =
           typeof b.listPrice === "number" ? b.listPrice : typeof b.listPrice === "string" ? Number(b.listPrice) : 0;
         return priceB - priceA;
       }),
-    [visibleListings]
+    [allClusterListings]
   );
+  const visibleListings = sortedAllListings.slice(0, 50);
 
   const clusterBounds = useMemo(() => {
     if (typeof window === "undefined" || !(window as any).L || !activeClusterData)
       return null;
     const L = (window as any).L;
     const bounds = L.latLngBounds([]);
-    activeClusterData.listings.forEach((l) => {
+    allClusterListings.forEach((l) => {
       if (
         typeof l.address?.lat === "number" &&
         typeof l.address?.lng === "number"
@@ -55,9 +63,12 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
       }
     });
     return bounds.isValid() ? (bounds as LatLngBounds) : null;
-  }, [activeClusterData]);
+  }, [activeClusterData, allClusterListings]);
 
-  const lensSizePx = 350; // Fixed size
+  const lensSizePx = useMemo(() => {
+    const base = viewportWidth * 0.78;
+    return Math.min(350, Math.max(240, base));
+  }, [viewportWidth]);
   const lensKey = useMemo(() => {
     if (!activeClusterData) return "lens-none";
     const { lat, lng } = activeClusterData.anchorLatLng;
@@ -67,6 +78,14 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
   useEffect(() => {
     setVisible(Boolean(activeClusterData));
   }, [activeClusterData]);
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
 
   const handleDismiss = useCallback(() => {
     setFocusedListingId(null);
@@ -91,22 +110,149 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
   }, [handleDismiss]);
 
   const focusedListing = useMemo(
-    () => sortedVisibleListings.find((l) => l.id === focusedListingId) ?? null,
-    [sortedVisibleListings, focusedListingId]
+    () => sortedAllListings.find((l) => l.id === focusedListingId) ?? null,
+    [sortedAllListings, focusedListingId]
   );
-
-  if (!activeClusterData || visibleListings.length === 0) {
-    return null;
-  }
-
-  // Simple heuristic to decide if the card should render above or below the lens
-  const shouldFlipCard = activeClusterData.anchorLatLng.lat < 35; 
 
   const lensTransitionClass =
     "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]";
   const lensVisibilityClass = visible
     ? "opacity-100 scale-100"
     : "opacity-0 scale-50";
+
+  const isMobileView = isMobile || viewportWidth <= 768;
+
+  useEffect(() => {
+    if (!isMobileView || !activeClusterData || typeof document === "undefined") return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflowX = html.style.overflowX;
+    const prevBodyOverflowX = body.style.overflowX;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    html.style.overflowX = "hidden";
+    body.style.overflowX = "hidden";
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.overflowX = prevHtmlOverflowX;
+      body.style.overflowX = prevBodyOverflowX;
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+    };
+  }, [isMobileView, activeClusterData]);
+
+  if (!activeClusterData || allClusterListings.length === 0) {
+    return null;
+  }
+
+  // Simple heuristic to decide if the card should render above or below the lens
+  const shouldFlipCard = activeClusterData.anchorLatLng.lat < 35; 
+
+  const goToListing = (id: string) => {
+    onSelectListing?.(id);
+    router.push(`/listing/${id}`);
+    handleDismiss();
+  };
+
+  if (isMobileView) {
+    const modal = (
+      <div className="fixed inset-0 z-[99999] pt-[env(safe-area-inset-top)]">
+        <div className="absolute inset-0 bg-black/40" onClick={handleDismiss} />
+        <div className="relative z-10 flex h-full flex-col gap-3 p-4">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              aria-label="Close lens"
+              className="rounded-full bg-white/90 px-3 py-1 text-lg font-semibold shadow"
+              onClick={handleDismiss}
+            >
+              ×
+            </button>
+          </div>
+          <div
+            className="flex-1 overflow-hidden rounded-2xl border border-border bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="h-64 border-b border-border">
+              <LensMiniMap
+                key={lensKey}
+                center={[
+                  activeClusterData.anchorLatLng?.lat,
+                  activeClusterData.anchorLatLng?.lng,
+                ]}
+                listings={sortedAllListings}
+                bounds={clusterBounds}
+                onMarkerClick={(listing) => {
+                  setFocusedListingId(listing.id);
+                  onHoverListing?.(listing.id);
+                }}
+              />
+            </div>
+            <div className="flex h-[calc(100%-16rem)] flex-col p-4 overflow-hidden">
+              {focusedListing ? (
+                <button
+                  type="button"
+                  onClick={() => goToListing(focusedListing.id)}
+                  className="flex w-full flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-white text-left shadow-sm transition active:scale-[0.99]"
+                >
+                  <div className="relative w-full overflow-hidden rounded-xl bg-slate-200 aspect-[16/9]">
+                    <Image
+                      src={
+                        focusedListing.media?.thumbnailUrl ??
+                        focusedListing.media?.photos?.[0] ??
+                        "/placeholder-house.jpg"
+                      }
+                      alt={focusedListing.address?.full ?? "Listing photo"}
+                      fill
+                      sizes="100vw"
+                      className="object-cover"
+                    />
+                  </div>
+
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-lg font-semibold leading-tight">
+                        {formatPriceCompact(
+                          typeof focusedListing.listPrice === "number"
+                            ? focusedListing.listPrice
+                            : null
+                        )}
+                      </div>
+                      <div className="text-sm text-slate-600 line-clamp-2">
+                        {focusedListing.address?.full || "Address unavailable"}
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        {(focusedListing.details?.beds ?? "—").toString()} bd •{" "}
+                        {(focusedListing.details?.baths ?? "—").toString()} ba
+                        {typeof focusedListing.details?.sqft === "number" &&
+                        focusedListing.details.sqft > 0
+                          ? ` • ${focusedListing.details.sqft.toLocaleString()} sqft`
+                          : ""}
+                      </div>
+                    </div>
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-lg">
+                      ☆
+                    </span>
+                  </div>
+
+                      <div className="text-xs text-text-secondary">
+                        Tap to open full listing
+                      </div>
+                </button>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-text-secondary">
+                  Select a pin to preview.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+    if (typeof document === "undefined") return modal;
+    return createPortal(modal, document.body);
+  }
 
   return (
     <div
@@ -131,7 +277,7 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
               activeClusterData.anchorLatLng?.lat,
               activeClusterData.anchorLatLng?.lng,
             ]}
-            listings={sortedVisibleListings}
+            listings={sortedAllListings}
             bounds={clusterBounds}
             onMarkerClick={(listing) => {
               setFocusedListingId(listing.id);

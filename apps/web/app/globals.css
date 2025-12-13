@@ -9,3 +9,8 @@
 .leaflet-top, .leaflet-bottom {
   z-index: 1000 !important;
 }
+
+html,
+body {
+  overflow-x: hidden;
+}

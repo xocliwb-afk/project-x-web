@@ -6,6 +6,7 @@ import {
   type LayerProps,
   type LeafletContextInterface,
 } from "@react-leaflet/core";
+import { useRouter } from "next/navigation";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster";
@@ -19,6 +20,8 @@ import { useMapLensStore } from "@/stores/useMapLensStore";
 import { useMapLens } from "@/hooks/useMapLens";
 import { useLongPress } from "@/hooks/useLongPress";
 import type { LayerGroup, LeafletEvent, Map as LeafletMap } from "leaflet";
+import { MapLens } from "./map/MapLens";
+import ListingPreviewModal from "./map/ListingPreviewModal";
 
 const iconUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png";
 const iconRetinaUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png";
@@ -85,8 +88,15 @@ export default function Map({
   const mapRef = useRef<LeafletMap | null>(null);
   const clusterRef = useRef<LayerGroup | null>(null);
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
+  const [previewListing, setPreviewListing] = useState<NormalizedListing | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
+  const lensOpen = useMapLensStore((s) => Boolean(s.activeClusterData));
+  const router = useRouter();
   const { cancelHover, openImmediate } = useMapLens();
+  const interactionsBlocked = lensOpen || Boolean(previewListing);
+  const debugEnabled =
+    process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEBUG_MAP === "1";
   const longPressTargetRef = useRef<{
     listings: NormalizedListing[];
     position: { lat: number; lng: number };
@@ -111,6 +121,19 @@ export default function Map({
 
   const firstWithCoords = listings.find((l) => l.address.lat && l.address.lng);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    mq.addListener?.(update);
+    return () => {
+      mq.removeEventListener?.("change", update);
+      mq.removeListener?.(update);
+    };
+  }, []);
+
   const center: [number, number] = firstWithCoords
     ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
     : defaultCenter;
@@ -134,6 +157,7 @@ export default function Map({
   const handleClusterMouseOut = (_e: LeafletEvent) => {};
 
   const handleClusterPointerDown = (e: any) => {
+    if (interactionsBlocked) return;
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     const listingsForCluster = getClusterListings(e.layer);
@@ -146,12 +170,14 @@ export default function Map({
   };
 
   const handleClusterPointerMove = (e: any) => {
+    if (interactionsBlocked) return;
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     longPressHandlers.onPointerMove(oe);
   };
 
   const handleClusterPointerUp = (e: any) => {
+    if (interactionsBlocked) return;
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     longPressHandlers.onPointerUp(oe);
@@ -164,14 +190,16 @@ export default function Map({
   };
 
   const handleClusterClick = (e: any) => {
-    console.log("[Map] clusterclick event", {
-      longPressTriggered: longPressTriggeredRef.current,
-      originalEvent: {
-        clientX: e.originalEvent?.clientX,
-        clientY: e.originalEvent?.clientY,
-        type: e.originalEvent?.type,
-      },
-    });
+    if (interactionsBlocked) return;
+    if (debugEnabled) {
+      console.log("[Map] clusterclick", {
+        longPressTriggered: longPressTriggeredRef.current,
+        interactionsBlocked,
+        lensOpen,
+        previewOpen: Boolean(previewListing),
+        isMobile,
+      });
+    }
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
       e.originalEvent?.stopPropagation?.();
@@ -242,6 +270,33 @@ export default function Map({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !onBoundsChange) return;
+    if (debugEnabled) {
+      const el = map.getContainer();
+      const logEvent = (ev: Event) => {
+        console.log("[Map][debug] container event", {
+          type: ev.type,
+          tag: (ev.target as HTMLElement | null)?.tagName,
+          className: (ev.target as HTMLElement | null)?.className,
+          coords: (ev as PointerEvent).clientX != null ? { x: (ev as PointerEvent).clientX, y: (ev as PointerEvent).clientY } : undefined,
+        });
+      };
+      el.addEventListener("pointerdown", logEvent, { capture: true });
+      el.addEventListener("pointerup", logEvent, { capture: true });
+      el.addEventListener("click", logEvent, { capture: true });
+
+      const centerEl = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) as HTMLElement | null;
+      console.log("[Map][debug] elementFromPoint center", {
+        tag: centerEl?.tagName,
+        className: centerEl?.className,
+      });
+
+      return () => {
+        el.removeEventListener("pointerdown", logEvent, { capture: true } as any);
+        el.removeEventListener("pointerup", logEvent, { capture: true } as any);
+        el.removeEventListener("click", logEvent, { capture: true } as any);
+      };
+    }
+
     const emitBounds = () => {
       const bounds = map.getBounds();
       const sw = bounds.getSouthWest();
@@ -327,58 +382,81 @@ export default function Map({
                   }}
                   eventHandlers={{
                     click: () => {
+                      if (interactionsBlocked) return;
+                      if (isMobile) {
+                        setPreviewListing(l);
+                        return;
+                      }
                       onSelectListing?.(l.id);
-                      mapRef.current?.flyTo(position, mapRef.current.getZoom());
+                      router.push(`/listing/${l.id}`);
+                      if (debugEnabled) {
+                        console.log("[Map] marker click", {
+                          lensOpen,
+                          previewOpen: Boolean(previewListing),
+                          interactionsBlocked,
+                          isMobile,
+                          id: l.id,
+                        });
+                      }
                     },
                     popupopen: () => {
+                      if (interactionsBlocked) return;
                       onSelectListing?.(l.id);
                     },
                     mouseover: () => {
+                      if (interactionsBlocked) return;
                       onHoverListing?.(l.id);
                     },
                     mouseout: () => {
+                      if (interactionsBlocked) return;
                       (onHoverListing ?? onSelectListing)?.(null);
                     },
                   }}
                 >
-                  <Popup>
-                    <div className="w-64 p-2 text-xs font-sans">
-                      <div className="mb-2 w-full overflow-hidden rounded">
-                        <img
-                          src={mainPhoto}
-                          alt={l.address.street || fullAddress}
-                          className="h-28 w-full object-cover"
-                          loading="lazy"
-                        />
-                      </div>
+                  {!interactionsBlocked && !isMobile && (
+                    <Popup>
+                      <div className="w-64 p-2 text-xs font-sans">
+                        <div className="mb-2 w-full overflow-hidden rounded">
+                          <img
+                            src={mainPhoto}
+                            alt={l.address.street || fullAddress}
+                            className="h-28 w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
 
-                      <div className="mb-1 text-sm font-semibold text-gray-900">
-                        {priceLabel}
+                        <div className="mb-1 text-sm font-semibold text-gray-900">
+                          {priceLabel}
+                        </div>
+                        <div className="text-gray-600 text-xs leading-snug">
+                          {fullAddress}
+                          <br />
+                          {cityLine}
+                        </div>
+                        <div className="mt-1 text-[11px] text-gray-500">
+                          {beds} bds • {baths} ba •{" "}
+                          {typeof sqft === "number" && sqft > 0
+                            ? sqft.toLocaleString()
+                            : "—"}{" "}
+                          sqft
+                        </div>
                       </div>
-                      <div className="text-gray-600 text-xs leading-snug">
-                        {fullAddress}
-                        <br />
-                        {cityLine}
-                      </div>
-                      <div className="mt-1 text-[11px] text-gray-500">
-                        {beds} bds • {baths} ba •{" "}
-                        {typeof sqft === "number" && sqft > 0
-                          ? sqft.toLocaleString()
-                          : "—"}{" "}
-                        sqft
-                      </div>
-                    </div>
-                  </Popup>
+                    </Popup>
+                  )}
                 </Marker>
               );
             })}
         </MarkerClusterGroup>
       </MapContainer>
-      <MapLensPanePortal
-        map={mapInstance}
-        onHoverListing={onHoverListing}
-        onSelectListing={onSelectListing}
-      />
+      {isMobile ? (
+        <MapLens isMobile onHoverListing={onHoverListing} onSelectListing={onSelectListing} />
+      ) : (
+        <MapLensPanePortal
+          map={mapInstance}
+          onHoverListing={onHoverListing}
+          onSelectListing={onSelectListing}
+        />
+      )}
     </div>
   );
 }

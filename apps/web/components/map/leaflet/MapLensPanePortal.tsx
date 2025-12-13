@@ -25,6 +25,36 @@ export function MapLensPanePortal({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const openedAtRef = useRef<number>(0);
   const [isAttached, setIsAttached] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (!map) return;
+
+    const paneName = "mapLensPane";
+    const pane = map.getPane(paneName) ?? map.createPane(paneName);
+    pane.style.zIndex = "1000";
+
+    // Never allow this pane to block touches on mobile modal
+    if (isMobile) {
+      pane.style.pointerEvents = "none";
+      return;
+    }
+
+    // Desktop: only interactive while lens is open
+    pane.style.pointerEvents = activeClusterData ? "auto" : "none";
+
+    if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEBUG_MAP === "1") {
+      const markerPane = map.getPanes().markerPane;
+      const overlayPane = map.getPanes().overlayPane;
+      const popupPane = map.getPanes().popupPane;
+      console.log("[MapLensPanePortal][debug] pane states", {
+        lensPane: { pointerEvents: pane.style.pointerEvents, zIndex: pane.style.zIndex },
+        markerPane: { pointerEvents: markerPane?.style.pointerEvents, zIndex: markerPane?.style.zIndex },
+        overlayPane: { pointerEvents: overlayPane?.style.pointerEvents, zIndex: overlayPane?.style.zIndex },
+        popupPane: { pointerEvents: popupPane?.style.pointerEvents, zIndex: popupPane?.style.zIndex },
+      });
+    }
+  }, [map, isMobile, activeClusterData]);
 
   useEffect(() => {
     if (activeClusterData) {
@@ -33,7 +63,30 @@ export function MapLensPanePortal({
   }, [activeClusterData]);
 
   useEffect(() => {
-    if (!map) return;
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    mq.addListener?.(update);
+    return () => {
+      mq.removeEventListener?.("change", update);
+      mq.removeListener?.(update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile || !map) return;
+    const pane = map.getPane("mapLensPane");
+    const container = containerRef.current;
+    if (pane && container && pane.contains(container)) {
+      pane.removeChild(container);
+    }
+    setIsAttached(false);
+  }, [isMobile, map]);
+
+  useEffect(() => {
+    if (!map || isMobile) return;
 
     if (!containerRef.current) {
       containerRef.current = L.DomUtil.create("div");
@@ -43,14 +96,15 @@ export function MapLensPanePortal({
         zIndex: "9999",
       });
       L.DomEvent.disableClickPropagation(containerRef.current);
-      L.DomEvent.disableScrollPropagation(containerRef.current);
+      L.DomEvent.on(containerRef.current, "wheel", L.DomEvent.stopPropagation);
+      L.DomEvent.on(containerRef.current, "touchmove", L.DomEvent.stopPropagation);
     }
 
     const container = containerRef.current;
     const paneName = "mapLensPane";
     const pane = map.getPane(paneName) ?? map.createPane(paneName);
     pane.style.zIndex = "1000";
-    pane.style.pointerEvents = "auto";
+    pane.style.pointerEvents = activeClusterData ? "auto" : "none";
 
     const updatePosition = () => {
       if (map && activeClusterData?.anchorLatLng) {
@@ -62,19 +116,23 @@ export function MapLensPanePortal({
       }
     };
 
-    const handleMapClick = () => {
+    const handlePointerDown = (event: PointerEvent) => {
       if (Date.now() - openedAtRef.current < 250) return;
+      if (!container) return;
+      if (container.contains(event.target as Node)) return;
       dismissLens();
     };
 
     if (activeClusterData) {
       pane.appendChild(container);
+      pane.style.pointerEvents = "auto";
       setIsAttached(true);
       map.on("move zoom", updatePosition);
-      map.on("click", handleMapClick);
+      map.getContainer().addEventListener("pointerdown", handlePointerDown, true);
       updatePosition(); // Initial position
     } else {
       setIsAttached(false);
+      pane.style.pointerEvents = "none";
       if (pane.contains(container)) {
         pane.removeChild(container);
       }
@@ -83,13 +141,17 @@ export function MapLensPanePortal({
     // Cleanup function
     return () => {
       map.off("move zoom", updatePosition);
-      map.off("click", handleMapClick);
+      map.getContainer().removeEventListener("pointerdown", handlePointerDown, true);
       setIsAttached(false);
       if (pane.contains(container)) {
         pane.removeChild(container);
       }
     };
-  }, [map, activeClusterData, dismissLens]);
+  }, [map, activeClusterData, dismissLens, isMobile]);
+
+  if (isMobile) {
+    return null;
+  }
 
   if (!activeClusterData || !containerRef.current || !isAttached) {
     return null;
