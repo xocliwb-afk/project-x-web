@@ -2,15 +2,13 @@
 
 import { useState, type FormEvent, type ChangeEvent } from "react";
 import type { LeadPayload } from "@project-x/shared-types";
+import { submitLead, type LeadSubmitPayload } from "@/lib/lead-api";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
-const DEFAULT_BROKER_ID =
-  process.env.NEXT_PUBLIC_BROKER_ID || "demo-broker";
+const DEFAULT_BROKER_ID = process.env.NEXT_PUBLIC_BROKER_ID || "demo-broker";
 const DEFAULT_AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || undefined;
 
 interface LeadFormProps {
-  listingId: string;
+  listingId?: string;
   listingAddress?: string;
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -47,8 +45,9 @@ export default function LeadForm({
     setStatus("loading");
     setErrorMessage(null);
 
-    const payload: LeadPayload = {
-      listingId,
+    const hasListing = Boolean(listingId);
+    const payload: LeadSubmitPayload = {
+      ...(hasListing ? { listingId } : {}),
       listingAddress,
       name: formState.name.trim(),
       email: formState.email.trim(),
@@ -56,21 +55,14 @@ export default function LeadForm({
       message: formState.message.trim() || undefined,
       brokerId: DEFAULT_BROKER_ID,
       agentId: DEFAULT_AGENT_ID,
-      source: "project-x-web",
+      source: hasListing ? "listing-pdp" : "global-cta",
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/leads`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await submitLead(payload);
 
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.message || "Failed to submit lead");
+      if (!response.success) {
+        throw new Error(response.message || "Failed to submit lead");
       }
 
       setStatus("success");

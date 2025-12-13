@@ -5,12 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "@/context/ThemeContext";
 import SearchFiltersBar from "@/components/SearchFiltersBar";
+import { useLeadModalStore } from "@/stores/useLeadModalStore";
 
 export default function Header() {
   const { mapSide, paneDominance, setMapSide, setPaneDominance } = useTheme();
   const pathname = usePathname();
   const isSearchPage = pathname?.startsWith("/search");
   const [menuOpen, setMenuOpen] = useState(false);
+  const openLeadModal = useLeadModalStore((s) => s.open);
 
   const navLinkClasses = (active: boolean) =>
     [
@@ -59,7 +61,15 @@ export default function Header() {
           </nav>
         </div>
 
-        <div className="relative">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => openLeadModal()}
+            className="hidden rounded-full bg-white px-4 py-2 text-sm font-semibold text-primary shadow-sm transition hover:brightness-95 md:inline-flex"
+          >
+            Plan a tour
+          </button>
+          <div className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((prev) => !prev)}
@@ -118,6 +128,7 @@ export default function Header() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
 

@@ -1,8 +1,7 @@
 'use client';
 
 import { Listing } from '@project-x/shared-types';
-import { useState } from 'react';
-import { LeadCaptureModal } from './LeadCaptureModal';
+import { useLeadModalStore } from '@/stores/useLeadModalStore';
 
 type DetailItemProps = {
   label: string;
@@ -30,8 +29,7 @@ type ListingInfoProps = {
 };
 
 export function ListingInfo({ listing }: ListingInfoProps) {
-  const [isModalOpen, setModalOpen] = useState(false);
-  const brokerId = process.env.NEXT_PUBLIC_BROKER_ID ?? 'demo-broker';
+  const openLeadModal = useLeadModalStore((s) => s.open);
 
   const numericPrice =
     typeof listing.listPrice === 'number' ? listing.listPrice : 0;
@@ -111,19 +109,17 @@ export function ListingInfo({ listing }: ListingInfoProps) {
       <div className="p-6 border-t border-slate-200 dark:border-slate-700 mt-auto">
         <button
           type="button"
-          onClick={() => setModalOpen(true)}
+          onClick={() =>
+            openLeadModal({
+              listingId: listing.id,
+              listingAddress: listing.address?.full ?? undefined,
+            })
+          }
           className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-300"
         >
           I&apos;m Interested
         </button>
       </div>
-
-      <LeadCaptureModal
-        listing={listing}
-        isOpen={isModalOpen}
-        onClose={() => setModalOpen(false)}
-        brokerId={brokerId}
-      />
     </>
   );
 }
