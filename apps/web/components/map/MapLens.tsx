@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 import { LensMiniMap } from "./LensMiniMap";
 import type { LatLngBounds } from "leaflet";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 
 type MapLensProps = {
   onHoverListing?: (id: string | null) => void;
@@ -34,6 +36,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const lensRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
+  const mobileDetected = useIsMobile();
 
   const allClusterListings = activeClusterData?.listings ?? [];
   const sortedAllListings = useMemo(
@@ -120,25 +123,13 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     ? "opacity-100 scale-100"
     : "opacity-0 scale-50";
 
-  const isMobileView = isMobile || viewportWidth <= 768;
+  const isMobileView = (isMobile ?? false) || mobileDetected;
 
   useEffect(() => {
-    if (!isMobileView || !activeClusterData || typeof document === "undefined") return;
-    const html = document.documentElement;
-    const body = document.body;
-    const prevHtmlOverflowX = html.style.overflowX;
-    const prevBodyOverflowX = body.style.overflowX;
-    const prevHtmlOverflow = html.style.overflow;
-    const prevBodyOverflow = body.style.overflow;
-    html.style.overflowX = "hidden";
-    body.style.overflowX = "hidden";
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
+    if (!isMobileView || !activeClusterData) return;
+    lockScroll();
     return () => {
-      html.style.overflowX = prevHtmlOverflowX;
-      body.style.overflowX = prevBodyOverflowX;
-      html.style.overflow = prevHtmlOverflow;
-      body.style.overflow = prevBodyOverflow;
+      unlockScroll();
     };
   }, [isMobileView, activeClusterData]);
 

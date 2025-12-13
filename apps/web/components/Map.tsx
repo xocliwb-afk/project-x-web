@@ -21,6 +21,7 @@ import { useMapLens } from "@/hooks/useMapLens";
 import { useLongPress } from "@/hooks/useLongPress";
 import type { LayerGroup, LeafletEvent, Map as LeafletMap } from "leaflet";
 import { MapLens } from "./map/MapLens";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import ListingPreviewModal from "./map/ListingPreviewModal";
 
 const iconUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png";
@@ -89,12 +90,12 @@ export default function Map({
   const clusterRef = useRef<LayerGroup | null>(null);
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
   const [previewListing, setPreviewListing] = useState<NormalizedListing | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const lensOpen = useMapLensStore((s) => Boolean(s.activeClusterData));
   const router = useRouter();
   const { cancelHover, openImmediate } = useMapLens();
-  const interactionsBlocked = lensOpen || Boolean(previewListing);
+  const isMobile = useIsMobile();
+  const overlayOpen = lensOpen || Boolean(previewListing);
   const debugEnabled =
     process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEBUG_MAP === "1";
   const longPressTargetRef = useRef<{
@@ -121,19 +122,6 @@ export default function Map({
 
   const firstWithCoords = listings.find((l) => l.address.lat && l.address.lng);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 768px)");
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener?.("change", update);
-    mq.addListener?.(update);
-    return () => {
-      mq.removeEventListener?.("change", update);
-      mq.removeListener?.(update);
-    };
-  }, []);
-
   const center: [number, number] = firstWithCoords
     ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
     : defaultCenter;
@@ -157,7 +145,7 @@ export default function Map({
   const handleClusterMouseOut = (_e: LeafletEvent) => {};
 
   const handleClusterPointerDown = (e: any) => {
-    if (interactionsBlocked) return;
+    if (overlayOpen) return;
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     const listingsForCluster = getClusterListings(e.layer);
@@ -170,31 +158,32 @@ export default function Map({
   };
 
   const handleClusterPointerMove = (e: any) => {
-    if (interactionsBlocked) return;
+    if (overlayOpen) return;
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     longPressHandlers.onPointerMove(oe);
   };
 
   const handleClusterPointerUp = (e: any) => {
-    if (interactionsBlocked) return;
+    if (overlayOpen) return;
     const oe = e.originalEvent as PointerEvent | undefined;
     if (!oe) return;
     longPressHandlers.onPointerUp(oe);
     if (longPressTriggeredRef.current) {
       oe.stopPropagation();
       oe.preventDefault();
+      // do not reset here; click handler will consume and reset
+    } else {
+      longPressTargetRef.current = null;
     }
-    longPressTargetRef.current = null;
-    longPressTriggeredRef.current = false;
   };
 
   const handleClusterClick = (e: any) => {
-    if (interactionsBlocked) return;
+    if (overlayOpen) return;
     if (debugEnabled) {
       console.log("[Map] clusterclick", {
         longPressTriggered: longPressTriggeredRef.current,
-        interactionsBlocked,
+        overlayOpen,
         lensOpen,
         previewOpen: Boolean(previewListing),
         isMobile,
@@ -202,6 +191,7 @@ export default function Map({
     }
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
+      longPressTargetRef.current = null;
       e.originalEvent?.stopPropagation?.();
       e.originalEvent?.preventDefault?.();
       return;
@@ -211,7 +201,6 @@ export default function Map({
     const latLng = cluster.getLatLng();
 
     openImmediate(listingsForCluster, latLng);
-    console.log("[Map] clusterclick -> openImmediate called");
 
     e.originalEvent?.stopPropagation?.();
     e.originalEvent?.preventDefault?.();
@@ -382,7 +371,7 @@ export default function Map({
                   }}
                   eventHandlers={{
                     click: () => {
-                      if (interactionsBlocked) return;
+                      if (overlayOpen) return;
                       if (isMobile) {
                         setPreviewListing(l);
                         return;
@@ -393,27 +382,27 @@ export default function Map({
                         console.log("[Map] marker click", {
                           lensOpen,
                           previewOpen: Boolean(previewListing),
-                          interactionsBlocked,
+                          overlayOpen,
                           isMobile,
                           id: l.id,
                         });
                       }
                     },
                     popupopen: () => {
-                      if (interactionsBlocked) return;
+                      if (overlayOpen) return;
                       onSelectListing?.(l.id);
                     },
                     mouseover: () => {
-                      if (interactionsBlocked) return;
+                      if (overlayOpen) return;
                       onHoverListing?.(l.id);
                     },
                     mouseout: () => {
-                      if (interactionsBlocked) return;
+                      if (overlayOpen) return;
                       (onHoverListing ?? onSelectListing)?.(null);
                     },
                   }}
                 >
-                  {!interactionsBlocked && !isMobile && (
+                  {!overlayOpen && !isMobile && (
                     <Popup>
                       <div className="w-64 p-2 text-xs font-sans">
                         <div className="mb-2 w-full overflow-hidden rounded">
@@ -457,6 +446,11 @@ export default function Map({
           onSelectListing={onSelectListing}
         />
       )}
+      <ListingPreviewModal
+        listing={previewListing}
+        isOpen={Boolean(previewListing)}
+        onClose={() => setPreviewListing(null)}
+      />
     </div>
   );
 }

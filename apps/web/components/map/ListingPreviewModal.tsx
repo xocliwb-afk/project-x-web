@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { Listing as NormalizedListing } from "@project-x/shared-types";
 import { useEffect } from "react";
+import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 
 type ListingPreviewModalProps = {
   listing: NormalizedListing | null;
@@ -25,21 +26,9 @@ export default function ListingPreviewModal({ listing, isOpen, onClose }: Listin
 
   useEffect(() => {
     if (!isOpen || typeof document === "undefined") return;
-    const html = document.documentElement;
-    const body = document.body;
-    const prevHtmlOverflowX = html.style.overflowX;
-    const prevBodyOverflowX = body.style.overflowX;
-    const prevHtmlOverflow = html.style.overflow;
-    const prevBodyOverflow = body.style.overflow;
-    html.style.overflowX = "hidden";
-    body.style.overflowX = "hidden";
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
+    lockScroll();
     return () => {
-      html.style.overflowX = prevHtmlOverflowX;
-      body.style.overflowX = prevBodyOverflowX;
-      html.style.overflow = prevHtmlOverflow;
-      body.style.overflow = prevBodyOverflow;
+      unlockScroll();
     };
   }, [isOpen]);
 

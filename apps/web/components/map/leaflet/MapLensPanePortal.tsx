@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import L from "leaflet";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 import { MapLens } from "../MapLens";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface MapLensPanePortalProps {
   map: L.Map | null;
@@ -25,7 +26,7 @@ export function MapLensPanePortal({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const openedAtRef = useRef<number>(0);
   const [isAttached, setIsAttached] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!map) return;
@@ -61,19 +62,6 @@ export function MapLensPanePortal({
       openedAtRef.current = Date.now();
     }
   }, [activeClusterData]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 768px)");
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener?.("change", update);
-    mq.addListener?.(update);
-    return () => {
-      mq.removeEventListener?.("change", update);
-      mq.removeListener?.(update);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isMobile || !map) return;
