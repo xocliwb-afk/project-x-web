@@ -178,15 +178,6 @@ export default function Map({
 
   const handleClusterClick = (e: any) => {
     if (overlayOpen) return;
-    if (debugEnabled) {
-      console.log("[Map] clusterclick", {
-        longPressTriggered: longPressTriggeredRef.current,
-        overlayOpen,
-        lensOpen,
-        previewOpen: Boolean(previewListing),
-        isMobile,
-      });
-    }
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
       longPressTargetRef.current = null;
