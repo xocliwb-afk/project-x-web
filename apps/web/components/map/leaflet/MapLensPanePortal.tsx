@@ -24,7 +24,7 @@ export function MapLensPanePortal({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const openedAtRef = useRef<number>(0);
-  const [ready, setReady] = useState(false);
+  const [isAttached, setIsAttached] = useState(false);
 
   useEffect(() => {
     if (activeClusterData) {
@@ -44,11 +44,13 @@ export function MapLensPanePortal({
       });
       L.DomEvent.disableClickPropagation(containerRef.current);
       L.DomEvent.disableScrollPropagation(containerRef.current);
-      setReady(true);
     }
 
     const container = containerRef.current;
-    const overlayPane = map.getPanes().overlayPane;
+    const paneName = "mapLensPane";
+    const pane = map.getPane(paneName) ?? map.createPane(paneName);
+    pane.style.zIndex = "1000";
+    pane.style.pointerEvents = "auto";
 
     const updatePosition = () => {
       if (map && activeClusterData?.anchorLatLng) {
@@ -66,13 +68,15 @@ export function MapLensPanePortal({
     };
 
     if (activeClusterData) {
-      overlayPane.appendChild(container);
+      pane.appendChild(container);
+      setIsAttached(true);
       map.on("move zoom", updatePosition);
       map.on("click", handleMapClick);
       updatePosition(); // Initial position
     } else {
-      if (overlayPane.contains(container)) {
-        overlayPane.removeChild(container);
+      setIsAttached(false);
+      if (pane.contains(container)) {
+        pane.removeChild(container);
       }
     }
 
@@ -80,13 +84,14 @@ export function MapLensPanePortal({
     return () => {
       map.off("move zoom", updatePosition);
       map.off("click", handleMapClick);
-      if (overlayPane.contains(container)) {
-        overlayPane.removeChild(container);
+      setIsAttached(false);
+      if (pane.contains(container)) {
+        pane.removeChild(container);
       }
     };
   }, [map, activeClusterData, dismissLens]);
 
-  if (!ready || !activeClusterData || !containerRef.current) {
+  if (!activeClusterData || !containerRef.current || !isAttached) {
     return null;
   }
 

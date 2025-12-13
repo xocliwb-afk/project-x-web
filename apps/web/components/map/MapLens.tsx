@@ -24,7 +24,8 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const isLocked = useMapLensStore((s) => s.isLocked);
   const [visible, setVisible] = useState(false);
-  const [focusedListingId, setFocusedListingId] = useState<string | null>(null);
+  const focusedListingId = useMapLensStore((s) => s.focusedListingId);
+  const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const lensRef = useRef<HTMLDivElement | null>(null);
 
   const visibleListings = activeClusterData?.listings.slice(0, 50) ?? [];
@@ -40,7 +41,7 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
     [visibleListings]
   );
 
-    const clusterBounds = useMemo(() => {
+  const clusterBounds = useMemo(() => {
     if (typeof window === "undefined" || !(window as any).L || !activeClusterData)
       return null;
     const L = (window as any).L;
@@ -57,6 +58,11 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
   }, [activeClusterData]);
 
   const lensSizePx = 350; // Fixed size
+  const lensKey = useMemo(() => {
+    if (!activeClusterData) return "lens-none";
+    const { lat, lng } = activeClusterData.anchorLatLng;
+    return `lens-${lat.toFixed(5)}-${lng.toFixed(5)}-${activeClusterData.listings.length}`;
+  }, [activeClusterData]);
 
   useEffect(() => {
     setVisible(Boolean(activeClusterData));
@@ -120,6 +126,7 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
           }}
         >
           <LensMiniMap
+            key={lensKey}
             center={[
               activeClusterData.anchorLatLng?.lat,
               activeClusterData.anchorLatLng?.lng,
@@ -129,7 +136,6 @@ export function MapLens({ onHoverListing, onSelectListing }: MapLensProps) {
             onMarkerClick={(listing) => {
               setFocusedListingId(listing.id);
               onHoverListing?.(listing.id);
-              onSelectListing?.(listing.id);
             }}
           />
         </div>
