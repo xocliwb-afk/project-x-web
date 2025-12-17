@@ -118,24 +118,27 @@ export default function SearchLayoutClient({
     }
 
     const parsed: FetchListingsParams = JSON.parse(paramsKey);
-    let cancelled = false;
+    const controller = new AbortController();
 
     fetchTimeoutRef.current = setTimeout(async () => {
       if (hasCompletedInitialFetch.current) {
         setIsLoading(true);
       }
       try {
-        const { results, pagination: newPagination } = await fetchListings(parsed);
-        if (cancelled) return;
+        const { results, pagination: newPagination } = await fetchListings(
+          parsed,
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
         setListings(results);
         setPagination(newPagination);
         setError(null);
       } catch (err) {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         console.error('[SearchLayoutClient] failed to fetch listings', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch listings');
       } finally {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setIsLoading(false);
           hasCompletedInitialFetch.current = true;
         }
@@ -143,7 +146,7 @@ export default function SearchLayoutClient({
     }, 400);
 
     return () => {
-      cancelled = true;
+      controller.abort();
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }

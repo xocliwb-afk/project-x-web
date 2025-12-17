@@ -17,11 +17,9 @@ export type PaginatedListingsResponse = {
   };
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.API_BASE_URL ||
-  'http://localhost:3002';
+import { getApiBaseUrl } from "./getApiBaseUrl";
+
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Fetches a paginated list of listings from the backend API.
@@ -29,6 +27,7 @@ const API_BASE_URL =
  */
 export async function fetchListings(
   params: FetchListingsParams = {},
+  signal?: AbortSignal,
 ): Promise<PaginatedListingsResponse> {
   const searchParams = new URLSearchParams();
 
@@ -70,6 +69,7 @@ export async function fetchListings(
   const res = await fetch(url, {
     // Always fetch fresh data for search
     cache: 'no-store',
+    signal,
   });
 
   if (!res.ok) {
