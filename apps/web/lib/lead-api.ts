@@ -1,29 +1,44 @@
-import type { LeadPayload, ApiError } from '@project-x/shared-types';
-
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.API_BASE_URL ||
-  'http://localhost:3002';
+  'http://localhost:3001';
+
+export type LeadSubmitPayload = {
+  listingId?: string;
+  listingAddress?: string;
+  message?: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  brokerId: string;
+  agentId?: string;
+  source?: string;
+};
 
 export type SubmitLeadResult = {
   success: boolean;
   message?: string;
 };
 
-export async function submitLead(payload: LeadPayload): Promise<SubmitLeadResult> {
+export async function submitLead(payload: LeadSubmitPayload): Promise<SubmitLeadResult> {
+  const normalizedPayload: LeadSubmitPayload = {
+    ...payload,
+    source: payload.source ?? 'project-x-web',
+  };
+
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/leads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizedPayload),
     });
 
     if (!res.ok) {
       let errorMessage = 'Failed to submit lead';
 
       try {
-        const errorData = (await res.json()) as ApiError;
+        const errorData = (await res.json()) as { message?: string };
         if (errorData?.message) {
           errorMessage = errorData.message;
         }

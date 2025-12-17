@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import type { Listing, LeadPayload } from '@project-x/shared-types';
-import { submitLead } from '@/lib/lead-api';
+import type { Listing } from '@project-x/shared-types';
+import { submitLead, type LeadSubmitPayload } from '@/lib/lead-api';
 
 type LeadCaptureModalProps = {
   listing: Listing;
@@ -40,7 +40,7 @@ export function LeadCaptureModal({
     setIsLoading(true);
     setError(null);
 
-    const payload: LeadPayload = {
+    const payload: LeadSubmitPayload = {
       listingId: listing.id,
       name,
       email,

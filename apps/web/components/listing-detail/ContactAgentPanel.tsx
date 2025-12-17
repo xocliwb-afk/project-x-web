@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { LeadPayload } from '@project-x/shared-types';
-import { submitLead } from '@/lib/lead-api';
+import { submitLead, type LeadSubmitPayload } from '@/lib/lead-api';
 
 type ContactAgentPanelProps = {
   listingId: string;
@@ -23,7 +22,7 @@ export default function ContactAgentPanel({ listingId, brokerId }: ContactAgentP
     setError(null);
     setIsLoading(true);
 
-    const payload: LeadPayload = {
+    const payload: LeadSubmitPayload = {
       listingId,
       name,
       email,

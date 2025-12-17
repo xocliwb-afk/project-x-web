@@ -1,43 +1,91 @@
-import {
-  CRMConfig,
-  LeadPayload,
-} from '@project-x/shared-types';
-import { getCrmProvider } from '../providers/crm/crm-provider.factory';
+import { getLeadProvider } from "../providers/lead/lead-provider.factory";
+import type { LeadResult } from "../providers/lead/lead-provider.interface";
+import type { LeadRequest, NormalizedLead } from "../types/lead";
+
+type LeadServiceResult = LeadResult & { status?: number };
 
 export class LeadService {
-  async submitLead(payload: LeadPayload): Promise<void> {
-    const config = this.resolveConfig(payload.brokerId);
-    const provider = getCrmProvider(config);
+  async submitLead(payload: LeadRequest): Promise<LeadServiceResult> {
+    const validationError = this.validate(payload);
+    if (validationError) {
+      return validationError;
+    }
 
-    await provider.createLead(payload, config);
-    this.logLeadEvent(payload, config);
-  }
+    const normalized = this.normalize(payload);
+    const { provider, name: providerName } = getLeadProvider();
+    const result = await provider.sendLead(normalized);
 
-  private resolveConfig(brokerId: string): CRMConfig {
-    const fallbackUrl = process.env.DEFAULT_LEAD_WEBHOOK_URL;
+    this.logLeadEvent(normalized, providerName, result.success);
 
-    if (fallbackUrl) {
-      return {
-        brokerId,
-        crmType: 'webhook',
-        webhookUrl: fallbackUrl,
-        webhookSecret: process.env.DEFAULT_LEAD_WEBHOOK_SECRET,
-      };
+    let status: number | undefined;
+    if (!result.success) {
+      if (result.message?.includes("not configured")) {
+        status = 503;
+      } else if (providerName === "gohighlevel") {
+        status = 502;
+      } else {
+        status = 500;
+      }
     }
 
     return {
-      brokerId,
-      crmType: 'null',
+      ...result,
+      provider: providerName,
+      status,
     };
   }
 
-  private logLeadEvent(payload: LeadPayload, config: CRMConfig): void {
-    console.log('[LeadService] Lead processed', {
+  private validate(payload: LeadRequest): LeadServiceResult | null {
+    const missing: string[] = [];
+    if (!payload?.name?.trim()) missing.push("name");
+    if (!payload?.brokerId?.trim()) missing.push("brokerId");
+
+    const hasEmail = Boolean(payload?.email?.trim());
+    const hasPhone = Boolean(payload?.phone?.trim());
+    if (!hasEmail && !hasPhone) missing.push("email or phone");
+
+    if (missing.length > 0) {
+      return {
+        success: false,
+        provider: "validation",
+        status: 400,
+        message: `Missing required fields: ${missing.join(", ")}`,
+      };
+    }
+
+    return null;
+  }
+
+  private normalize(payload: LeadRequest): NormalizedLead {
+    const trimmed = (value?: string) => value?.trim() || undefined;
+    const normalizePhone = (value?: string) => {
+      if (!value) return undefined;
+      const digits = value.replace(/[^\d+]/g, "");
+      return digits || undefined;
+    };
+
+    return {
+      listingId: trimmed(payload.listingId),
+      listingAddress: trimmed(payload.listingAddress),
+      message: trimmed(payload.message),
+      name: trimmed(payload.name)!,
+      email: trimmed(payload.email),
+      phone: normalizePhone(payload.phone),
+      brokerId: trimmed(payload.brokerId)!,
+      agentId: trimmed(payload.agentId),
+      source: trimmed(payload.source) || "project-x-web",
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  private logLeadEvent(lead: NormalizedLead, provider: string, success: boolean): void {
+    console.log("[LeadService] Lead processed", {
       timestamp: new Date().toISOString(),
-      brokerId: payload.brokerId,
-      listingId: payload.listingId,
-      source: payload.source,
-      crmType: config.crmType,
+      brokerId: lead.brokerId,
+      listingId: lead.listingId,
+      source: lead.source,
+      provider,
+      success,
     });
   }
 }
