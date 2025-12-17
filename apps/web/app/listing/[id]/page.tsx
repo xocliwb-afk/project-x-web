@@ -84,7 +84,6 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const { listing } = listingResponse;
   const photos = listing.media?.photos ?? [];
 
-  const brokerId = process.env.NEXT_PUBLIC_BROKER_ID || 'demo-broker';
   const beds = listing.details?.beds ?? null;
   const baths = listing.details?.baths ?? null;
   const sqft = listing.details?.sqft ?? null;
@@ -109,6 +108,10 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     ...listing,
     id: listing.id,
   };
+
+  const listingAddressFull =
+    listing.address?.full ??
+    `${listing.address.street}, ${listing.address.city}, ${listing.address.state} ${listing.address.zip}`;
 
   return (
     <div className="min-h-screen w-full bg-surface">
@@ -208,7 +211,10 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
           </div>
 
           <div className="order-1 space-y-4 lg:order-2 lg:sticky lg:top-24">
-            <ContactAgentPanel listingId={listing.id} brokerId={brokerId} />
+            <ContactAgentPanel
+              listingId={listing.id}
+              listingAddress={listingAddressFull}
+            />
           </div>
         </div>
 

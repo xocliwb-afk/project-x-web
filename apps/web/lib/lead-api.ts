@@ -6,12 +6,19 @@ const API_BASE_URL =
   process.env.API_BASE_URL ||
   'http://localhost:3002';
 
+export type LeadSubmitPayload =
+  | LeadPayload
+  | (Omit<LeadPayload, 'listingId' | 'source'> & {
+      listingId?: string;
+      source: string;
+    });
+
 export type SubmitLeadResult = {
   success: boolean;
   message?: string;
 };
 
-export async function submitLead(payload: LeadPayload): Promise<SubmitLeadResult> {
+export async function submitLead(payload: LeadSubmitPayload): Promise<SubmitLeadResult> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/leads`, {
       method: 'POST',
