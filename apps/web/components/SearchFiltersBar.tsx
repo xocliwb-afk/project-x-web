@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useTransition,
+  useCallback,
   type MutableRefObject,
   type CSSProperties,
 } from "react";
@@ -128,19 +129,6 @@ export default function SearchFiltersBar() {
   const debouncedText = useDebounce(text, 500);
 
   useEffect(() => {
-    const q = searchParams.get("q") || "";
-    if (q !== text && q !== debouncedText) {
-      setText(q);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const currentQ = searchParams.get("q") || "";
-    if (debouncedText === currentQ) return;
-    updateParams({ q: debouncedText });
-  }, [debouncedText]);
-
-  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (barRef.current && !barRef.current.contains(e.target as Node)) {
         setActiveFilter(null);
@@ -150,21 +138,74 @@ export default function SearchFiltersBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const updateParams = (updates: Record<string, string | null>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value && value !== "") {
-        params.set(key, value);
-      } else {
-        params.delete(key);
-      }
-    });
+  const updateParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value && value !== "") {
+          params.set(key, value);
+        } else {
+          params.delete(key);
+        }
+      });
 
-    startTransition(() => {
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname);
-    });
-  };
+      startTransition(() => {
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+      });
+    },
+    [pathname, router, searchParams, startTransition],
+  );
+
+  useEffect(() => {
+    const nextText = searchParams.get("q") || "";
+    if (nextText !== text) setText(nextText);
+    const nextMinPrice = searchParams.get("minPrice") || "";
+    if (nextMinPrice !== minPrice) setMinPrice(nextMinPrice);
+    const nextMaxPrice = searchParams.get("maxPrice") || "";
+    if (nextMaxPrice !== maxPrice) setMaxPrice(nextMaxPrice);
+    const nextMinBeds = searchParams.get("beds") || "";
+    if (nextMinBeds !== minBeds) setMinBeds(nextMinBeds);
+    const nextMinBaths = searchParams.get("baths") || "";
+    if (nextMinBaths !== minBaths) setMinBaths(nextMinBaths);
+    const nextPropertyType = searchParams.get("propertyType") || "";
+    if (nextPropertyType !== propertyType) setPropertyType(nextPropertyType);
+    const nextSort = searchParams.get("sort") || "";
+    if (nextSort !== sort) setSort(nextSort);
+    const nextMinSqft = searchParams.get("minSqft") || "";
+    if (nextMinSqft !== minSqft) setMinSqft(nextMinSqft);
+    const nextMaxSqft = searchParams.get("maxSqft") || "";
+    if (nextMaxSqft !== maxSqft) setMaxSqft(nextMaxSqft);
+    const nextMinYearBuilt = searchParams.get("minYearBuilt") || "";
+    if (nextMinYearBuilt !== minYearBuilt) setMinYearBuilt(nextMinYearBuilt);
+    const nextMaxYearBuilt = searchParams.get("maxYearBuilt") || "";
+    if (nextMaxYearBuilt !== maxYearBuilt) setMaxYearBuilt(nextMaxYearBuilt);
+    const nextMaxDom = searchParams.get("maxDaysOnMarket") || "";
+    if (nextMaxDom !== maxDaysOnMarket) setMaxDaysOnMarket(nextMaxDom);
+    const nextKeywords = searchParams.get("keywords") || "";
+    if (nextKeywords !== keywords) setKeywords(nextKeywords);
+  }, [
+    keywords,
+    maxDaysOnMarket,
+    maxPrice,
+    maxSqft,
+    maxYearBuilt,
+    minBaths,
+    minBeds,
+    minPrice,
+    minSqft,
+    minYearBuilt,
+    propertyType,
+    searchParams,
+    sort,
+    text,
+  ]);
+
+  useEffect(() => {
+    const currentQ = searchParams.get("q") || "";
+    if (debouncedText === currentQ) return;
+    updateParams({ q: debouncedText });
+  }, [debouncedText, searchParams, updateParams]);
 
   const openFilter = (filter: ActiveFilter, chipKey: string) => {
     if (activeFilter === filter) {

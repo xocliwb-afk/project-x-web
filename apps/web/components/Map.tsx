@@ -13,7 +13,7 @@ import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { Listing as NormalizedListing } from "@project-x/shared-types";
-import { useEffect, useRef, useState, type PropsWithChildren } from "react";
+import { useCallback, useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { createClusterIcon } from "./map/MapClusterMarker";
 import { MapLensPanePortal } from "./map/leaflet/MapLensPanePortal";
 import { useMapLensStore } from "@/stores/useMapLensStore";
@@ -93,7 +93,7 @@ export default function Map({
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const lensOpen = useMapLensStore((s) => Boolean(s.activeClusterData));
   const router = useRouter();
-  const { cancelHover, openImmediate } = useMapLens();
+  const { cancelHover, openImmediate, scheduleHover } = useMapLens();
   const isMobile = useIsMobile();
   const overlayOpen = lensOpen || Boolean(previewListing);
   const longPressTargetRef = useRef<{
@@ -123,77 +123,112 @@ export default function Map({
   const center: [number, number] = firstWithCoords
     ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
     : defaultCenter;
-  const getClusterListings = (cluster: L.MarkerCluster): NormalizedListing[] =>
-    cluster
-      .getAllChildMarkers()
-      .map((m: any) => m.options?.listingData as NormalizedListing)
-      .filter(Boolean);
+  const getClusterListings = useCallback(
+    (cluster: L.MarkerCluster): NormalizedListing[] =>
+      cluster
+        .getAllChildMarkers()
+        .map((m: any) => m.options?.listingData as NormalizedListing)
+        .filter(Boolean),
+    [],
+  );
 
-  const handleClusterMouseOver = (_e: LeafletEvent) => {};
-
-  const handleClusterPointerLeave = (e?: any) => {
-    const oe = e?.originalEvent as PointerEvent | undefined;
-    if (oe) {
-      longPressHandlers.onPointerLeave(oe);
-    }
-    longPressTargetRef.current = null;
-    longPressTriggeredRef.current = false;
-  };
-
-  const handleClusterMouseOut = (_e: LeafletEvent) => {};
-
-  const handleClusterPointerDown = (e: any) => {
-    if (overlayOpen) return;
-    const oe = e.originalEvent as PointerEvent | undefined;
-    if (!oe) return;
-    const listingsForCluster = getClusterListings(e.layer);
-    longPressTargetRef.current = {
-      listings: listingsForCluster,
-      position: e.layer.getLatLng(),
-    };
-    longPressTriggeredRef.current = false;
-    longPressHandlers.onPointerDown(oe);
-  };
-
-  const handleClusterPointerMove = (e: any) => {
-    if (overlayOpen) return;
-    const oe = e.originalEvent as PointerEvent | undefined;
-    if (!oe) return;
-    longPressHandlers.onPointerMove(oe);
-  };
-
-  const handleClusterPointerUp = (e: any) => {
-    if (overlayOpen) return;
-    const oe = e.originalEvent as PointerEvent | undefined;
-    if (!oe) return;
-    longPressHandlers.onPointerUp(oe);
-    if (longPressTriggeredRef.current) {
-      oe.stopPropagation();
-      oe.preventDefault();
-      // do not reset here; click handler will consume and reset
-    } else {
+  const handleClusterMouseOver = useCallback(
+    (e: LeafletEvent) => {
+      if (overlayOpen) return;
+      const cluster = e.layer as L.MarkerCluster;
+      const listingsForCluster = getClusterListings(cluster);
+      const latLng = cluster.getLatLng();
       longPressTargetRef.current = null;
-    }
-  };
-
-  const handleClusterClick = (e: any) => {
-    if (overlayOpen) return;
-    if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
+      scheduleHover(listingsForCluster, latLng);
+    },
+    [getClusterListings, overlayOpen, scheduleHover],
+  );
+
+  const handleClusterPointerLeave = useCallback(
+    (e?: any) => {
+      const oe = e?.originalEvent as PointerEvent | undefined;
+      if (oe) {
+        longPressHandlers.onPointerLeave(oe);
+      }
       longPressTargetRef.current = null;
+      longPressTriggeredRef.current = false;
+      cancelHover(true);
+    },
+    [cancelHover, longPressHandlers],
+  );
+
+  const handleClusterMouseOut = useCallback(
+    (_e: LeafletEvent) => {
+      handleClusterPointerLeave();
+    },
+    [handleClusterPointerLeave],
+  );
+
+  const handleClusterPointerDown = useCallback(
+    (e: any) => {
+      if (overlayOpen) return;
+      const oe = e.originalEvent as PointerEvent | undefined;
+      if (!oe) return;
+      const listingsForCluster = getClusterListings(e.layer);
+      longPressTargetRef.current = {
+        listings: listingsForCluster,
+        position: e.layer.getLatLng(),
+      };
+      longPressTriggeredRef.current = false;
+      longPressHandlers.onPointerDown(oe);
+    },
+    [getClusterListings, longPressHandlers, overlayOpen],
+  );
+
+  const handleClusterPointerMove = useCallback(
+    (e: any) => {
+      if (overlayOpen) return;
+      const oe = e.originalEvent as PointerEvent | undefined;
+      if (!oe) return;
+      longPressHandlers.onPointerMove(oe);
+    },
+    [longPressHandlers, overlayOpen],
+  );
+
+  const handleClusterPointerUp = useCallback(
+    (e: any) => {
+      if (overlayOpen) return;
+      const oe = e.originalEvent as PointerEvent | undefined;
+      if (!oe) return;
+      longPressHandlers.onPointerUp(oe);
+      if (longPressTriggeredRef.current) {
+        oe.stopPropagation();
+        oe.preventDefault();
+        // do not reset here; click handler will consume and reset
+      } else {
+        longPressTargetRef.current = null;
+      }
+    },
+    [longPressHandlers, overlayOpen],
+  );
+
+  const handleClusterClick = useCallback(
+    (e: any) => {
+      if (overlayOpen) return;
+      if (longPressTriggeredRef.current) {
+        longPressTriggeredRef.current = false;
+        longPressTargetRef.current = null;
+        e.originalEvent?.stopPropagation?.();
+        e.originalEvent?.preventDefault?.();
+        return;
+      }
+      const cluster = e.layer as L.MarkerCluster;
+      const listingsForCluster = getClusterListings(cluster);
+      const latLng = cluster.getLatLng();
+
+      openImmediate(listingsForCluster, latLng);
+
       e.originalEvent?.stopPropagation?.();
       e.originalEvent?.preventDefault?.();
-      return;
-    }
-    const cluster = e.layer as L.MarkerCluster;
-    const listingsForCluster = getClusterListings(cluster);
-    const latLng = cluster.getLatLng();
-
-    openImmediate(listingsForCluster, latLng);
-
-    e.originalEvent?.stopPropagation?.();
-    e.originalEvent?.preventDefault?.();
-  };
+    },
+    [getClusterListings, openImmediate, overlayOpen],
+  );
 
   useEffect(() => {
     const map = mapRef.current;
