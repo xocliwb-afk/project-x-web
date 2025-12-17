@@ -28,7 +28,7 @@ export async function submitLead(payload: LeadSubmitPayload): Promise<SubmitLead
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/leads`, {
+    const res = await fetch(`${API_BASE_URL}/api/leads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(normalizedPayload),
