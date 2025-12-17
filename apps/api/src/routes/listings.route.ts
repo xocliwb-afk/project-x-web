@@ -80,7 +80,7 @@ router.get('/', async (req, res) => {
  *
  * Returns a single listing by ID or a 404 error if not found.
  */
-router.get('/:id', async (req, res) => {
+const getListingById = async (req: any, res: any) => {
   try {
     const provider = getListingProvider();
     const { id } = req.params;
@@ -107,6 +107,8 @@ router.get('/:id', async (req, res) => {
     };
     res.status(500).json(error);
   }
-});
+};
+
+router.get('/:id', getListingById);
 
 export default router;
