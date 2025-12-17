@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, type FormEvent, type ChangeEvent } from "react";
-import type { LeadPayload } from "@project-x/shared-types";
 import { submitLead, type LeadSubmitPayload } from "@/lib/lead-api";
 
-const DEFAULT_BROKER_ID = process.env.NEXT_PUBLIC_BROKER_ID || "demo-broker";
+const DEFAULT_BROKER_ID =
+  process.env.NEXT_PUBLIC_BROKER_ID || "demo-broker";
 const DEFAULT_AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || undefined;
 
 interface LeadFormProps {

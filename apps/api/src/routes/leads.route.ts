@@ -1,54 +1,34 @@
-import { Router, Request, Response } from 'express';
-import { LeadPayload, ApiError, LeadResponse } from '@project-x/shared-types';
-import { LeadService } from '../services/lead.service';
+import { Router, Request, Response } from "express";
+import { LeadService } from "../services/lead.service";
+import type { LeadRequest } from "../types/lead";
 
 const router = Router();
 const leadService = new LeadService();
 
-const requiredFields: Array<keyof LeadPayload> = [
-  'listingId',
-  'name',
-  'email',
-  'brokerId',
-  'source',
-];
-
 const createLeadHandler = async (req: Request, res: Response) => {
-  const payload = req.body as LeadPayload;
-  const normalizedPayload: LeadPayload = {
-    ...payload,
-    source: payload.source ?? 'project-x-web',
-  };
+  const payload = req.body as LeadRequest;
 
   try {
-    const missing = requiredFields.filter((field) => !normalizedPayload?.[field]);
-    if (missing.length > 0) {
-      const error: ApiError = {
-        error: true,
-        message: `Missing required fields: ${missing.join(', ')}`,
-        code: 'VALIDATION_ERROR',
-        status: 400,
-      };
-      return res.status(400).json(error);
+    const result = await leadService.submitLead(payload);
+
+    if (result.success) {
+      return res.status(201).json({ success: true });
     }
 
-    await leadService.submitLead(normalizedPayload);
-
-    const response: LeadResponse = { success: true };
-    res.status(201).json(response);
+    const status = result.status ?? 400;
+    return res.status(status).json({
+      success: false,
+      message: result.message ?? "Failed to submit lead",
+    });
   } catch (err: any) {
-    const status = err?.message?.includes('not configured') ? 503 : 500;
-    const error: ApiError = {
-      error: true,
-      message: err?.message ?? 'Failed to submit lead',
-      code: status === 503 ? 'CONFIGURATION_ERROR' : 'INTERNAL_ERROR',
-      status,
-    };
-    res.status(status).json(error);
+    res.status(500).json({
+      success: false,
+      message: err?.message ?? "Failed to submit lead",
+    });
   }
 };
 
-router.post('/v1/leads', createLeadHandler);
-router.post('/leads', createLeadHandler);
+router.post("/v1/leads", createLeadHandler);
+router.post("/leads", createLeadHandler);
 
 export default router;
