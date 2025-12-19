@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@project-x/shared-types": "workspace:*",
-    "@react-leaflet/core": "^3.0.0",
+    "@react-leaflet/core": "^2.1.0",
     "clsx": "^2.1.0",
     "immer": "^11.0.1",
     "leaflet": "^1.9.4",
