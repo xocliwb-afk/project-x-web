@@ -150,8 +150,8 @@ export function mapSimplyRetsListing(
     listPriceFormatted: priceFormatter.format(listPrice),
     address: {
       ...address,
-      lat: hasCoords ? (lat as number) : 0,
-      lng: hasCoords ? (lng as number) : 0,
+      lat: hasCoords ? (lat as number) : null,
+      lng: hasCoords ? (lng as number) : null,
     },
     media: {
       photos,

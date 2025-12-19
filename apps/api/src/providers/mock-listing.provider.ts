@@ -7,6 +7,11 @@ import { ListingSearchParams, NormalizedListing } from '@project-x/shared-types'
 import { mockListings } from '../data/mockListings';
 
 const DEFAULT_LIMIT = 20;
+const toNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
 
 /**
  * MockListingProvider uses static in-repo data and maps it into the NormalizedListing shape.
@@ -19,7 +24,14 @@ export class MockListingProvider implements ListingProvider {
       params.limit && params.limit > 0 ? Math.min(params.limit, 50) : DEFAULT_LIMIT;
 
     // For now, ignore most filters and just return all mock listings mapped.
-    const mapped = mockListings.map((raw) => this.mapToListing(raw)).filter(Boolean);
+    const mapped = mockListings
+      .map((raw) => this.mapToListing(raw))
+      .filter(
+        (item): item is NormalizedListing =>
+          Boolean(item) &&
+          item.address.lat !== null &&
+          item.address.lng !== null,
+      );
 
     const total = mapped.length;
     const start = (page - 1) * limit;
@@ -85,8 +97,8 @@ export class MockListingProvider implements ListingProvider {
         city: cityPart || 'Unknown City',
         state: statePart || 'XX',
         zip: zipPart || '00000',
-        lat: raw.geo?.lat ?? raw.latitude ?? 0,
-        lng: raw.geo?.lng ?? raw.longitude ?? 0,
+        lat: toNumber(raw.geo?.lat ?? raw.latitude),
+        lng: toNumber(raw.geo?.lng ?? raw.longitude),
       },
       media: {
         photos: Array.isArray(raw.photos) ? raw.photos : [],
@@ -106,7 +118,7 @@ export class MockListingProvider implements ListingProvider {
           Array.isArray(raw.property?.basement) && raw.property.basement.length > 0
             ? raw.property.basement.join(', ')
             : raw.basement ?? null,
-        propertyType: raw.property?.style ?? raw.property?.type ?? 'Unknown',
+        propertyType: raw.property?.style ?? raw.property?.type ?? null,
         status: raw.mls?.status ?? raw.status ?? 'Active',
       },
       meta: {

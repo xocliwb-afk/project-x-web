@@ -84,7 +84,7 @@ function computePagination(
   const parsedTotal = totalHeader ? Number(totalHeader) : NaN;
   const total = Number.isFinite(parsedTotal)
     ? parsedTotal
-    : offset + resultCount + (hasMore ? limit : 0);
+    : offset + resultCount + (hasMore ? 1 : 0);
 
   return {
     page,
@@ -104,12 +104,13 @@ export class SimplyRetsListingProvider implements ListingProvider {
     const offset = (page - 1) * limit;
     const bbox = parseBbox(params.bbox);
 
-    const query: Record<string, string | number | undefined> = {
-      limit,
-      offset,
-    };
+  const query: Record<string, string | number | undefined> = {
+    limit,
+    offset,
+  };
 
-    if (bbox) query.bbox = bbox;
+  // SimplyRETS supports bbox in trial feeds; if unsupported on some MLS feeds, translate to points/radius here.
+  if (bbox) query.bbox = bbox;
     if (params.q || params.keywords) query.q = params.keywords ?? params.q;
     if (params.minPrice != null) query.minprice = params.minPrice;
     if (params.maxPrice != null) query.maxprice = params.maxPrice;

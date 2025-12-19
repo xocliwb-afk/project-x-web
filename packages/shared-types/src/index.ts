@@ -13,8 +13,8 @@ export type NormalizedListing = {
     city: string;
     state: string;
     zip: string;
-    lat: number;
-    lng: number;
+    lat: number | null;
+    lng: number | null;
   };
   media: {
     photos: string[];
@@ -54,7 +54,7 @@ export type ListingPagination = {
   total: number;
   hasMore: boolean;
   /**
-   * Optional legacy field kept for backward compatibility with older clients.
+   * LEGACY: count of results in this response page (not total pages).
    * New consumers should rely on `total` + `hasMore`.
    */
   pageCount?: number;

@@ -74,9 +74,8 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * GET /api/listings/:id
- *
- * Returns a single listing by ID or a 404 error if not found.
+ * Listing detail handler (canonical mount: /api/listing/:id).
+ * Also used as an explicit alias when mounted at /api/listings/:id.
  */
 const getListingById = async (req: any, res: any) => {
   try {
