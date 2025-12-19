@@ -1,4 +1,10 @@
-import { Listing, ListingSearchParams, PlanTourRequest, PlannedTour } from '@project-x/shared-types';
+import {
+  Listing,
+  ListingSearchParams,
+  ListingSearchResponse,
+  PlanTourRequest,
+  PlannedTour,
+} from '@project-x/shared-types';
 
 export type FetchListingsParams = ListingSearchParams & {
   swLat?: number;
@@ -7,15 +13,7 @@ export type FetchListingsParams = ListingSearchParams & {
   neLng?: number;
 };
 
-export type PaginatedListingsResponse = {
-  results: Listing[];
-  pagination: {
-    page: number;
-    limit: number;
-    pageCount: number;
-    hasMore: boolean;
-  };
-};
+export type PaginatedListingsResponse = ListingSearchResponse;
 
 import { getApiBaseUrl } from "./getApiBaseUrl";
 

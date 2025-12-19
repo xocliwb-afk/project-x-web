@@ -58,6 +58,10 @@ export default function SearchLayoutClient({
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const resultCount =
+    pagination?.total ??
+    pagination?.pageCount ??
+    listings.length;
 
   const parsedParams = useMemo<FetchListingsParams>(() => {
     const getNumber = (key: string) => {
@@ -303,9 +307,7 @@ export default function SearchLayoutClient({
                       Homes for sale
                     </h2>
                     <p className="text-sm text-text-main/70">
-                      {isLoading
-                        ? 'Loading...'
-                        : `${(pagination.pageCount ?? listings.length).toLocaleString()} results`}
+                      {isLoading ? 'Loading...' : `${resultCount.toLocaleString()} results`}
                     </p>
                     {error && (
                       <p className="text-xs text-red-500">
