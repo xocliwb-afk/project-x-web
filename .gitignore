@@ -3,6 +3,8 @@ node_modules
 dist
 .next
 .turbo
+build
+out
 .env
 .env.*
 .DS_Store
