@@ -1,17 +1,38 @@
-import { ListingProvider } from './listing-provider.interface';
+import {
+  ListingSearchPagination,
+  ListingProvider,
+  ListingSearchResult,
+} from './listing-provider.interface';
 import { ListingSearchParams, NormalizedListing } from '@project-x/shared-types';
 import { mockListings } from '../data/mockListings';
+
+const DEFAULT_LIMIT = 20;
 
 /**
  * MockListingProvider uses static in-repo data and maps it into the NormalizedListing shape.
  * This is used for local development and demos without hitting a real IDX/MLS provider.
  */
 export class MockListingProvider implements ListingProvider {
-  public async search(params: ListingSearchParams): Promise<NormalizedListing[]> {
+  public async search(params: ListingSearchParams): Promise<ListingSearchResult> {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const limit =
+      params.limit && params.limit > 0 ? Math.min(params.limit, 50) : DEFAULT_LIMIT;
+
     // For now, ignore most filters and just return all mock listings mapped.
-    // Later we can add filtering by price, beds, etc.
-    const mapped = mockListings.map((raw) => this.mapToListing(raw));
-    return mapped;
+    const mapped = mockListings.map((raw) => this.mapToListing(raw)).filter(Boolean);
+
+    const total = mapped.length;
+    const start = (page - 1) * limit;
+    const pageResults = mapped.slice(start, start + limit);
+    const pagination: ListingSearchPagination = {
+      page,
+      limit,
+      total,
+      hasMore: start + pageResults.length < total,
+      pageCount: pageResults.length,
+    };
+
+    return { results: pageResults, pagination };
   }
 
   public async getById(id: string): Promise<NormalizedListing | null> {
@@ -69,12 +90,14 @@ export class MockListingProvider implements ListingProvider {
       },
       media: {
         photos: Array.isArray(raw.photos) ? raw.photos : [],
+        thumbnailUrl:
+          Array.isArray(raw.photos) && raw.photos.length > 0 ? raw.photos[0] : null,
       },
       details: {
         beds: raw.property?.bedrooms ?? raw.bedrooms ?? null,
         baths:
           (raw.property?.bathsFull ?? raw.bathsFull ?? 0) +
-          (raw.property?.bathsHalf ?? raw.bathsHalf ?? 0) * 0.5,
+            (raw.property?.bathsHalf ?? raw.bathsHalf ?? 0) * 0.5 || null,
         sqft: raw.property?.area ?? raw.squareFeet ?? null,
         lotSize: raw.property?.lotSizeArea ?? raw.lotSize ?? null,
         yearBuilt: raw.property?.yearBuilt ?? raw.yearBuilt ?? null,

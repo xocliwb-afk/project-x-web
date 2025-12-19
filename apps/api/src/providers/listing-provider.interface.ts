@@ -1,4 +1,9 @@
-import { ListingSearchParams, NormalizedListing } from '@project-x/shared-types';
+import {
+  ListingPagination,
+  ListingSearchParams,
+  ListingSearchResponse,
+  NormalizedListing,
+} from '@project-x/shared-types';
 
 /**
  * ListingProvider abstracts the underlying data source (mock, SimplyRETS, etc.)
@@ -8,9 +13,9 @@ export interface ListingProvider {
   /**
    * Searches for listings based on a set of criteria.
    * @param params - The search parameters (bbox, price range, beds, baths, etc.).
-   * @returns A promise that resolves to an array of normalized listings.
+   * @returns A promise that resolves to normalized listings plus pagination metadata.
    */
-  search(params: ListingSearchParams): Promise<NormalizedListing[]>;
+  search(params: ListingSearchParams): Promise<ListingSearchResponse>;
 
   /**
    * Retrieves a single listing by its unique ID.
@@ -19,3 +24,6 @@ export interface ListingProvider {
    */
   getById(id: string): Promise<NormalizedListing | null>;
 }
+
+export type ListingSearchResult = ListingSearchResponse;
+export type ListingSearchPagination = ListingPagination;

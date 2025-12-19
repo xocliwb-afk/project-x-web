@@ -1,6 +1,6 @@
 import { ListingProvider } from '../providers/listing-provider.interface';
 import { MockListingProvider } from '../providers/mock-listing.provider';
-import { SimplyRetsListingProvider } from '../providers/simplyrets.provider';
+import { SimplyRetsListingProvider } from '../providers/simplyrets/SimplyRetsListingProvider';
 
 const mockProvider = new MockListingProvider();
 let simplyRetsProvider: SimplyRetsListingProvider | null = null;

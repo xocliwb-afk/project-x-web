@@ -23,7 +23,7 @@ export type NormalizedListing = {
   attribution?: {
     mlsName: string;
     disclaimer: string;
-    logoUrl?: string;
+    logoUrl?: string | null;
   };
   details: {
     beds: number | null;
@@ -47,6 +47,23 @@ export type NormalizedListing = {
  * Existing code that imports `Listing` should now receive the normalized shape.
  */
 export type Listing = NormalizedListing;
+
+export type ListingPagination = {
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+  /**
+   * Optional legacy field kept for backward compatibility with older clients.
+   * New consumers should rely on `total` + `hasMore`.
+   */
+  pageCount?: number;
+};
+
+export type ListingSearchResponse = {
+  results: NormalizedListing[];
+  pagination: ListingPagination;
+};
 
 /**
  * Defines the available query parameters for searching listings.

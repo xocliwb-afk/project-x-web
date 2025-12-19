@@ -1,10 +1,12 @@
 import express from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
+import path from "path";
 import listingsRouter from "./routes/listings.route";
 import leadsRouter from "./routes/leads.route";
 import toursRouter from "./routes/tours.route";
 
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 dotenv.config();
 
 const app = express();
