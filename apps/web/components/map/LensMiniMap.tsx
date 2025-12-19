@@ -38,17 +38,17 @@ function FitBounds({ bounds }: { bounds?: L.LatLngBounds | null }) {
 }
 
 export function LensMiniMap({ center, listings, bounds, onMarkerClick }: LensMiniMapProps) {
-  const hasListingsWithCoords = listings.some(
-    (l) => typeof l.address?.lat === "number" && typeof l.address?.lng === "number",
+  const listingsWithCoords = listings.filter(
+    (l): l is NormalizedListing & { address: { lat: number; lng: number } } =>
+      Number.isFinite(l.address?.lat) && Number.isFinite(l.address?.lng),
   );
 
-  const firstWithCoords = listings.find(
-    (l) => typeof l.address?.lat === "number" && typeof l.address?.lng === "number",
-  );
+  const firstWithCoords = listingsWithCoords[0];
 
-  const effectiveCenter: [number, number] = hasListingsWithCoords
-    ? [firstWithCoords!.address.lat as number, firstWithCoords!.address.lng as number]
-    : center;
+  const effectiveCenter: [number, number] =
+    listingsWithCoords.length > 0 && firstWithCoords
+      ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
+      : center;
 
   return (
     <MapContainer
@@ -65,18 +65,16 @@ export function LensMiniMap({ center, listings, bounds, onMarkerClick }: LensMin
     >
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       {bounds && <FitBounds bounds={bounds} />}
-      {listings
-        .filter((l) => typeof l.address?.lat === "number" && typeof l.address?.lng === "number")
-        .map((listing) => (
-          <Marker
-            key={listing.id}
-            position={[listing.address.lat as number, listing.address.lng as number]}
-            icon={DefaultIcon}
-            eventHandlers={{
-              click: () => onMarkerClick(listing),
-            }}
-          />
-        ))}
+      {listingsWithCoords.map((listing) => (
+        <Marker
+          key={listing.id}
+          position={[listing.address.lat, listing.address.lng]}
+          icon={DefaultIcon}
+          eventHandlers={{
+            click: () => onMarkerClick(listing),
+          }}
+        />
+      ))}
     </MapContainer>
   );
 }

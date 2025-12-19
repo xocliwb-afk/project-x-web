@@ -82,7 +82,7 @@ export async function fetchListings(
  * Intended to be called from server components.
  */
 export async function fetchListing(id: string): Promise<{ listing: Listing }> {
-  const url = `${API_BASE_URL}/api/listings/${encodeURIComponent(id)}`;
+  const url = `${API_BASE_URL}/api/listing/${encodeURIComponent(id)}`;
 
   const res = await fetch(url, {
     cache: 'no-store',

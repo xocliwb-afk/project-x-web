@@ -32,10 +32,17 @@ function RecenterMap({ center }: { center: [number, number] }) {
 }
 
 export default function MapPanel({ listings, isDark = true, onListingSelect }: MapPanelProps) {
-  const center: [number, number] = listings.length > 0
+  const listingsWithCoords = listings.filter(
+    (l): l is Listing & { lat: number; lng: number } =>
+      Number.isFinite(l.lat) && Number.isFinite(l.lng),
+  );
+
+  const center: [number, number] = listingsWithCoords.length > 0
     ? [
-        listings.reduce((sum, l) => sum + l.lat, 0) / listings.length,
-        listings.reduce((sum, l) => sum + l.lng, 0) / listings.length,
+        listingsWithCoords.reduce((sum, l) => sum + l.lat, 0) /
+          listingsWithCoords.length,
+        listingsWithCoords.reduce((sum, l) => sum + l.lng, 0) /
+          listingsWithCoords.length,
       ]
     : [42.96, -85.66]; // Default Grand Rapids
 
@@ -56,7 +63,7 @@ export default function MapPanel({ listings, isDark = true, onListingSelect }: M
       <TileLayer url={tileUrl} attribution={attribution} />
       <RecenterMap center={center} />
 
-      {listings.map((l) => (
+      {listingsWithCoords.map((l) => (
         <Marker 
           key={l.id} 
           position={[l.lat, l.lng]} 

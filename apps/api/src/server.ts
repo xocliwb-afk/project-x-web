@@ -2,12 +2,62 @@ import express from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import listingsRouter from "./routes/listings.route";
 import leadsRouter from "./routes/leads.route";
 import toursRouter from "./routes/tours.route";
 
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
-dotenv.config();
+function findRepoRoot(startDir: string): string | null {
+  let dir = startDir;
+  while (true) {
+    const pnpmWorkspace = path.join(dir, "pnpm-workspace.yaml");
+    const pkgJsonPath = path.join(dir, "package.json");
+
+    if (fs.existsSync(pnpmWorkspace)) {
+      return dir;
+    }
+
+    if (fs.existsSync(pkgJsonPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+        if (pkg?.workspaces) {
+          return dir;
+        }
+      } catch {
+        // ignore parse errors and continue upward
+      }
+    }
+
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return null;
+}
+
+function loadEnv() {
+  const cwd = process.cwd();
+  const repoRoot = findRepoRoot(cwd);
+  const candidates = [
+    path.join(cwd, ".env"),
+    path.join(cwd, "apps", "api", ".env"),
+    repoRoot ? path.join(repoRoot, ".env") : null,
+    repoRoot ? path.join(repoRoot, "apps", "api", ".env") : null,
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      dotenv.config({ path: candidate });
+      console.log(`[API] Loaded env from ${candidate}`);
+      return;
+    }
+  }
+
+  dotenv.config();
+}
+
+loadEnv();
 
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
@@ -68,7 +118,7 @@ app.get("/health", (req, res) => {
 app.listen(PORT, () => {
   console.log(`[API] Server running on http://localhost:${PORT}`);
   console.log(
-    `[API] Routes exposed: GET /health, GET /api/listings, GET /api/listings/:id, GET /api/listing/:id (alias), POST /api/leads, POST /api/v1/leads`
+    `[API] Routes exposed: GET /health, GET /api/listings, GET /api/listing/:id (canonical), GET /api/listings/:id (alias), POST /api/leads, POST /api/v1/leads`
   );
   if (allowedOrigins) {
     console.log(`[API] CORS: ALLOWED_ORIGINS set (${allowedOrigins.length} origins)`);

@@ -12,8 +12,8 @@ export interface Listing {
   beds: number;
   baths: number;
   sqft: number;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   photoUrl: string;
   status: "FOR_SALE" | "PENDING" | "SOLD";
   daysOnMarket: number;

@@ -26,15 +26,24 @@ L.Marker.prototype.options.icon = DefaultIcon;
 export default function MapClient({ listings }: { listings: Listing[] }) {
   // Center roughly on Grand Rapids
   const center: [number, number] = [42.9634, -85.6681];
+  const listingsWithCoords = listings.filter(
+    (l): l is Listing & { address: { lat: number; lng: number } } =>
+      Number.isFinite(l.address.lat) && Number.isFinite(l.address.lng),
+  );
+  const firstWithCoords = listingsWithCoords[0];
+  const effectiveCenter: [number, number] =
+    firstWithCoords?.address?.lat != null && firstWithCoords?.address?.lng != null
+      ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
+      : center;
 
   return (
     <div className="h-full w-full relative z-0">
-      <MapContainer center={center} zoom={11} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={effectiveCenter} zoom={11} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {listings.map((l) => (
+        {listingsWithCoords.map((l) => (
           <Marker key={l.id} position={[l.address.lat, l.address.lng]}>
             <Popup>
               <div className="text-sm font-sans">

@@ -13,7 +13,7 @@ import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { Listing as NormalizedListing } from "@project-x/shared-types";
-import { useCallback, useEffect, useRef, useState, type PropsWithChildren } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react";
 import { createClusterIcon } from "./map/MapClusterMarker";
 import { MapLensPanePortal } from "./map/leaflet/MapLensPanePortal";
 import { useMapLensStore } from "@/stores/useMapLensStore";
@@ -118,7 +118,16 @@ export default function Map({
   });
   const defaultCenter: [number, number] = [42.9634, -85.6681];
 
-  const firstWithCoords = listings.find((l) => l.address.lat && l.address.lng);
+  const listingsWithCoords = useMemo(
+    () =>
+      listings.filter(
+        (l): l is NormalizedListing & { address: { lat: number; lng: number } } =>
+          Number.isFinite(l.address.lat) && Number.isFinite(l.address.lng),
+      ),
+    [listings],
+  );
+
+  const firstWithCoords = listingsWithCoords[0];
 
   const center: [number, number] = firstWithCoords
     ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
@@ -337,9 +346,7 @@ export default function Map({
             clusterRef.current = layer;
           }}
         >
-          {listings
-            .filter((l) => l.address.lat && l.address.lng)
-            .map((l) => {
+          {listingsWithCoords.map((l) => {
               const isSelected =
                 l.id === selectedListingId || l.id === hoveredListingId;
               const position: [number, number] = [l.address.lat, l.address.lng];

@@ -11,8 +11,8 @@ export interface Listing {
   baths: number;
   sqft: number;
   photoUrl: string;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   status: NormalizedListing["details"]["status"];
   propertyType: string | null;
   daysOnMarket: number | null;
@@ -31,8 +31,8 @@ export function mapNormalizedToListing(l: NormalizedListing): Listing {
     baths: l.details.baths ?? 0,
     sqft: l.details.sqft ?? 0,
     photoUrl: "",
-    lat: l.address.lat,
-    lng: l.address.lng,
+    lat: l.address.lat ?? null,
+    lng: l.address.lng ?? null,
     status: l.details.status,
     propertyType: l.details.propertyType,
     daysOnMarket: l.meta.daysOnMarket,

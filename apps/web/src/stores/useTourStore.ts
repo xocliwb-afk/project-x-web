@@ -41,6 +41,10 @@ export const useTourStore = create<TourStoreState>((set, get) => ({
     const { stops, showingDurationMinutes } = get();
     const exists = stops.some((stop) => stop.listingId === listing.id);
     if (exists) return;
+    if (listing.address.lat == null || listing.address.lng == null) {
+      set({ error: 'Listing is missing coordinates.', plannedTour: null });
+      return;
+    }
     const nextStop: TourStopInput = {
       listingId: listing.id,
       address: listing.address.full,
