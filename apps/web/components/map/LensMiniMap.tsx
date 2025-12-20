@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { NormalizedListing } from "@project-x/shared-types";
+import { useMapLensStore } from "@/stores/useMapLensStore";
 
 type LensMiniMapProps = {
   center: [number, number];
@@ -38,6 +39,8 @@ function FitBounds({ bounds }: { bounds?: L.LatLngBounds | null }) {
 }
 
 export function LensMiniMap({ center, listings, bounds, onMarkerClick }: LensMiniMapProps) {
+  const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
+
   const listingsWithCoords = listings.filter(
     (l): l is NormalizedListing & { address: { lat: number; lng: number } } =>
       Number.isFinite(l.address?.lat) && Number.isFinite(l.address?.lng),
@@ -71,7 +74,10 @@ export function LensMiniMap({ center, listings, bounds, onMarkerClick }: LensMin
           position={[listing.address.lat, listing.address.lng]}
           icon={DefaultIcon}
           eventHandlers={{
-            click: () => onMarkerClick(listing),
+            click: () => {
+              setFocusedListingId(listing.id);
+              onMarkerClick(listing);
+            },
           }}
         />
       ))}
