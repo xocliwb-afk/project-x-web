@@ -60,7 +60,7 @@ function loadEnv(): string | null {
 const loadedEnvPath = loadEnv();
 
 const app = express();
-const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3002;
 const resolvedProvider = process.env.DATA_PROVIDER?.toLowerCase() ?? "mock";
 
 const parseAllowedOrigins = () => {
