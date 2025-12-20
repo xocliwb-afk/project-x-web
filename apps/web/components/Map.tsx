@@ -76,6 +76,7 @@ interface MapProps {
     neLng: number;
     bbox?: string;
   }) => void;
+  mapSide?: "left" | "right";
 }
 
 export default function Map({
@@ -85,6 +86,7 @@ export default function Map({
   onSelectListing,
   onHoverListing,
   onBoundsChange,
+  mapSide,
 }: MapProps) {
   const mapRef = useRef<LeafletMap | null>(null);
   const clusterRef = useRef<LayerGroup | null>(null);
@@ -106,7 +108,8 @@ export default function Map({
       const target = longPressTargetRef.current;
       if (target) {
         longPressTriggeredRef.current = true;
-        openImmediate(target.listings, target.position);
+        const overlayData = computeLensOverlayData(target.listings, mapRef.current);
+        openImmediate(target.listings, target.position, overlayData);
       }
     },
     onCancel: () => {
@@ -132,6 +135,58 @@ export default function Map({
   const center: [number, number] = firstWithCoords
     ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
     : defaultCenter;
+
+  const computeLensOverlayData = useCallback(
+    (
+      clusterListings: NormalizedListing[],
+      map: LeafletMap | null,
+    ): {
+      lensDiameter?: number;
+      bounds?:
+        | {
+            swLat: number;
+            swLng: number;
+            neLat: number;
+            neLng: number;
+          }
+        | undefined;
+    } => {
+      if (!map || !clusterListings.length) {
+        return {};
+      }
+
+      const coords = clusterListings
+        .map((l) => l.address)
+        .filter((addr) => Number.isFinite(addr?.lat) && Number.isFinite(addr?.lng))
+        .map((addr) => [addr!.lat as number, addr!.lng as number] as [number, number]);
+
+      const bounds = L.latLngBounds(coords);
+
+      if (!bounds.isValid()) {
+        return {};
+      }
+
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      const boundsData = {
+        swLat: sw.lat,
+        swLng: sw.lng,
+        neLat: ne.lat,
+        neLng: ne.lng,
+      };
+
+      const padding = 28;
+      const swPoint = map.latLngToContainerPoint(sw);
+      const nePoint = map.latLngToContainerPoint(ne);
+      const width = Math.abs(nePoint.x - swPoint.x) + padding * 2;
+      const height = Math.abs(swPoint.y - nePoint.y) + padding * 2;
+      const diameter = Math.max(width, height);
+      const lensDiameter = Math.max(220, Math.min(520, diameter));
+
+      return { lensDiameter, bounds: boundsData };
+    },
+    [],
+  );
   const getClusterListings = useCallback(
     (cluster: L.MarkerCluster): NormalizedListing[] =>
       cluster
@@ -211,8 +266,9 @@ export default function Map({
       const cluster = e.layer as L.MarkerCluster;
       const listingsForCluster = getClusterListings(cluster);
       const latLng = cluster.getLatLng();
+      const overlayData = computeLensOverlayData(listingsForCluster, mapRef.current);
 
-      openImmediate(listingsForCluster, latLng);
+      openImmediate(listingsForCluster, latLng, overlayData);
 
       e.originalEvent?.stopPropagation?.();
       e.originalEvent?.preventDefault?.();
@@ -407,12 +463,18 @@ export default function Map({
         </MarkerClusterGroup>
       </MapContainer>
       {isMobile ? (
-        <MapLens isMobile onHoverListing={onHoverListing} onSelectListing={onSelectListing} />
+        <MapLens
+          isMobile
+          onHoverListing={onHoverListing}
+          onSelectListing={onSelectListing}
+          mapSide={mapSide}
+        />
       ) : (
         <MapLensPanePortal
           map={mapInstance}
           onHoverListing={onHoverListing}
           onSelectListing={onSelectListing}
+          mapSide={mapSide}
         />
       )}
       <ListingPreviewModal

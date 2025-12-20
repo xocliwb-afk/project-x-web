@@ -7,6 +7,13 @@ type MapLensState = {
   activeClusterData: null | {
     listings: NormalizedListing[];
     anchorLatLng: { lat: number; lng: number };
+    lensDiameter?: number;
+    bounds?: {
+      swLat: number;
+      swLng: number;
+      neLat: number;
+      neLng: number;
+    };
   };
   activateLens: (data: NonNullable<MapLensState["activeClusterData"]>) => void;
   dismissLens: () => void;

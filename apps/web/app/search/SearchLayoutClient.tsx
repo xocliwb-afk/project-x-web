@@ -316,6 +316,7 @@ export default function SearchLayoutClient({
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
+                  mapSide={mapSide}
                 />
               </div>
             )}
@@ -353,6 +354,7 @@ export default function SearchLayoutClient({
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
+                  mapSide={mapSide}
                 />
               </div>
             </div>

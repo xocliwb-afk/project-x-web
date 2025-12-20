@@ -6,6 +6,7 @@ import { useMapLensStore } from "@/stores/useMapLensStore";
 
 type MapPosition = { lat: number; lng: number };
 type LatLngLike = MapPosition | [number, number];
+type LensExtras = Partial<NonNullable<ReturnType<typeof useMapLensStore.getState>["activeClusterData"]>>;
 
 export function useMapLens() {
   const activateLens = useMapLensStore((s) => s.activateLens);
@@ -16,11 +17,13 @@ export function useMapLens() {
   const openLens = useCallback(
     (
       listings: NormalizedListing[],
-      position: LatLngLike
+      position: LatLngLike,
+      extras?: LensExtras
     ) => {
       console.log("[useMapLens] openLens()", {
         listingsCount: listings.length,
         position,
+        extras,
       });
 
       const anchorLatLng = Array.isArray(position)
@@ -33,6 +36,7 @@ export function useMapLens() {
       activateLens({
         listings,
         anchorLatLng,
+        ...extras,
       });
     },
     [activateLens]
@@ -74,14 +78,16 @@ export function useMapLens() {
     (
       listings: NormalizedListing[],
       position: LatLngLike,
+      extras?: LensExtras,
     ) => {
       console.log("[useMapLens] openImmediate()", {
         listingsCount: listings.length,
         position,
+        extras,
       });
       useMapLensStore.setState({ isLocked: true });
       cancelHover(false);
-      openLens(listings, position);
+      openLens(listings, position, extras);
     },
     [cancelHover, openLens]
   );

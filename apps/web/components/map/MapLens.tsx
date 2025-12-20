@@ -9,11 +9,13 @@ import { LensMiniMap } from "./LensMiniMap";
 import type { LatLngBounds } from "leaflet";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
+import { LensPreviewPanel } from "./LensPreviewPanel";
 
 type MapLensProps = {
   onHoverListing?: (id: string | null) => void;
   onSelectListing?: (id: string | null) => void;
   isMobile?: boolean;
+  mapSide?: "left" | "right";
 };
 
 const formatPriceCompact = (price: number | null | undefined) => {
@@ -24,7 +26,7 @@ const formatPriceCompact = (price: number | null | undefined) => {
   }).format(price);
 };
 
-export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensProps) {
+export function MapLens({ onHoverListing, onSelectListing, isMobile, mapSide = "left" }: MapLensProps) {
   const activeClusterData = useMapLensStore((s) => s.activeClusterData);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const isLocked = useMapLensStore((s) => s.isLocked);
@@ -32,6 +34,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const [viewportWidth, setViewportWidth] = useState<number>(
     typeof window !== "undefined" ? window.innerWidth : 1024
   );
+  const [anchorCenter, setAnchorCenter] = useState<{ x: number; y: number } | null>(null);
   const focusedListingId = useMapLensStore((s) => s.focusedListingId);
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const lensRef = useRef<HTMLDivElement | null>(null);
@@ -56,6 +59,16 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     if (typeof window === "undefined" || !(window as any).L || !activeClusterData)
       return null;
     const L = (window as any).L;
+    if (activeClusterData.bounds) {
+      const { swLat, swLng, neLat, neLng } = activeClusterData.bounds;
+      const manualBounds = L.latLngBounds(
+        [swLat, swLng],
+        [neLat, neLng],
+      );
+      if (manualBounds.isValid()) {
+        return manualBounds as LatLngBounds;
+      }
+    }
     const bounds = L.latLngBounds([]);
     allClusterListings.forEach((l) => {
       if (
@@ -72,6 +85,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     const base = viewportWidth * 0.78;
     return Math.min(350, Math.max(240, base));
   }, [viewportWidth]);
+  const lensDiameter = activeClusterData?.lensDiameter ?? lensSizePx;
   const lensKey = useMemo(() => {
     if (!activeClusterData) return "lens-none";
     const { lat, lng } = activeClusterData.anchorLatLng;
@@ -89,6 +103,28 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
       window.removeEventListener("resize", onResize);
     };
   }, []);
+
+  useEffect(() => {
+    if (!visible || !lensRef.current) return;
+    const updateAnchor = () => {
+      if (!lensRef.current) return;
+      const rect = lensRef.current.getBoundingClientRect();
+      setAnchorCenter({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    };
+    let frame = 0;
+    const loop = () => {
+      updateAnchor();
+      frame = window.requestAnimationFrame(loop);
+    };
+    loop();
+    window.addEventListener("resize", updateAnchor);
+    return () => {
+      window.removeEventListener("resize", updateAnchor);
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [visible, lensDiameter]);
 
   const handleDismiss = useCallback(() => {
     setFocusedListingId(null);
@@ -116,6 +152,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     () => sortedAllListings.find((l) => l.id === focusedListingId) ?? null,
     [sortedAllListings, focusedListingId]
   );
+  const previewListing = focusedListing ?? sortedAllListings[0] ?? null;
 
   const lensTransitionClass =
     "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]";
@@ -136,9 +173,6 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   if (!activeClusterData || allClusterListings.length === 0) {
     return null;
   }
-
-  // Simple heuristic to decide if the card should render above or below the lens
-  const shouldFlipCard = activeClusterData.anchorLatLng.lat < 35; 
 
   const goToListing = (id: string) => {
     onSelectListing?.(id);
@@ -253,7 +287,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     >
       <div className="relative flex flex-col items-center">
         <div
-          style={{ width: lensSizePx, height: lensSizePx }}
+          style={{ width: lensDiameter, height: lensDiameter }}
           className="relative rounded-full overflow-hidden border-2 border-border/70 bg-surface/10 shadow-2xl backdrop-blur-lg"
           onClick={(e) => {
             e.stopPropagation();
@@ -277,68 +311,17 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
           />
         </div>
 
-        {focusedListing && (
-          <div
-            className={`absolute left-1/2 ${
-              shouldFlipCard ? "bottom-full mb-3" : "top-full mt-3"
-            } -translate-x-1/2`}
-          >
-            <div
-              className={`w-80 max-w-sm rounded-2xl bg-white shadow-lg border border-border/60 p-4 transition-all duration-200 ease-out ${
-                focusedListing
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-3"
-              }`}
-            >
-              <div className="flex flex-col gap-3 w-full">
-                <div className="relative w-full overflow-hidden rounded-xl bg-slate-200 aspect-[4/3]">
-                  <Image
-                    src={
-                      focusedListing.media?.thumbnailUrl ??
-                      (focusedListing.media?.photos?.[0] ??
-                        "/placeholder-house.jpg")
-                    }
-                    alt={focusedListing.address?.full ?? "Listing photo"}
-                    fill
-                    sizes="(min-width: 1024px) 320px, 80vw"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex flex-col gap-1 text-text-main">
-                  <div className="text-lg font-semibold leading-tight">
-                    {formatPriceCompact(
-                      typeof focusedListing.listPrice === "number"
-                        ? focusedListing.listPrice
-                        : null
-                    )}
-                  </div>
-                  <div className="text-sm text-slate-600 line-clamp-2">
-                    {focusedListing.address?.full || "Address unavailable"}
-                  </div>
-                  <div className="text-xs text-slate-600">
-                    {(focusedListing.details?.beds ?? "—").toString()} bd •{" "}
-                    {(focusedListing.details?.baths ?? "—").toString()} ba
-                    {typeof focusedListing.details?.sqft === "number" &&
-                    focusedListing.details.sqft > 0
-                      ? ` • ${focusedListing.details.sqft.toLocaleString()} sqft`
-                      : ""}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="inline-flex items-center self-start rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition hover:brightness-95"
-                      onClick={() => {
-                        onSelectListing?.(focusedListing.id);
-                        handleDismiss();
-                      }}
-                    >
-                      View details
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        {previewListing && anchorCenter && (
+          <LensPreviewPanel
+            listing={previewListing}
+            anchor={anchorCenter}
+            lensDiameter={lensDiameter}
+            mapSide={mapSide}
+            onViewDetails={() => {
+              onSelectListing?.(previewListing.id);
+              goToListing(previewListing.id);
+            }}
+          />
         )}
         {isLocked && (
           <div className="mt-2 text-[11px] text-text-secondary">
