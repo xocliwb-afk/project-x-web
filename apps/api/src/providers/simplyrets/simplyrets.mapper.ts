@@ -150,6 +150,9 @@ export function mapSimplyRetsListing(
     virtualTourRaw && virtualTourRaw.length > 0 && /^https?:\/\//i.test(virtualTourRaw)
       ? virtualTourRaw
       : null;
+  const hoaAmenitiesRaw =
+    typeof raw?.association?.amenities === 'string' ? raw.association.amenities.trim() : null;
+  const hoaAmenities = hoaAmenitiesRaw && hoaAmenitiesRaw.length > 0 ? hoaAmenitiesRaw : null;
 
   return {
     id: String(id),
@@ -158,6 +161,7 @@ export function mapSimplyRetsListing(
     listPriceFormatted: priceFormatter.format(listPrice),
     description: description && description.length > 0 ? description : null,
     virtualTourUrl,
+    hoaAmenities,
     address: {
       ...address,
       lat: hasCoords ? (lat as number) : null,

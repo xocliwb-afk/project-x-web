@@ -56,6 +56,10 @@ export function ListingInfo({ listing }: ListingInfoProps) {
     listing.virtualTourUrl.trim().toLowerCase().startsWith('http')
       ? listing.virtualTourUrl.trim()
       : null;
+  const hoaAmenities =
+    typeof listing.hoaAmenities === 'string' && listing.hoaAmenities.trim().length > 0
+      ? listing.hoaAmenities.trim()
+      : null;
 
   return (
     <>
@@ -135,6 +139,22 @@ export function ListingInfo({ listing }: ListingInfoProps) {
             <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line dark:text-slate-300">
               {description}
             </p>
+          </div>
+        )}
+
+        {(listing.details?.hoaFees != null || hoaAmenities) && (
+          <div className="mt-6">
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">
+              HOA
+            </h2>
+            <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+              {typeof listing.details?.hoaFees === 'number' && (
+                <p>
+                  Fees: ${listing.details.hoaFees.toLocaleString()}
+                </p>
+              )}
+              {hoaAmenities && <p>Amenities: {hoaAmenities}</p>}
+            </div>
           </div>
         )}
       </div>
