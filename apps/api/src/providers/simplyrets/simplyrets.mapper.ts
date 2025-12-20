@@ -142,12 +142,15 @@ export function mapSimplyRetsListing(
   const photos = Array.isArray(raw.photos) ? raw.photos.filter(Boolean) : [];
 
   const address = normalizeAddress(raw);
+  const description =
+    typeof raw?.remarks === 'string' ? raw.remarks.trim() : null;
 
   return {
     id: String(id),
     mlsId: String(raw.mlsId ?? id),
     listPrice,
     listPriceFormatted: priceFormatter.format(listPrice),
+    description: description && description.length > 0 ? description : null,
     address: {
       ...address,
       lat: hasCoords ? (lat as number) : null,

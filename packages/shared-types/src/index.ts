@@ -7,6 +7,7 @@ export type NormalizedListing = {
   mlsId: string;
   listPrice: number;
   listPriceFormatted: string;
+  description?: string | null;
   address: {
     full: string;
     street: string;

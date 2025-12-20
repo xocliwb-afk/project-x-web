@@ -33,6 +33,14 @@ export function ListingCard({
     listing.listPriceFormatted.trim().length > 0
       ? listing.listPriceFormatted
       : `$${numericPrice.toLocaleString()}`;
+  const description =
+    typeof listing.description === 'string' && listing.description.trim().length > 0
+      ? listing.description.trim()
+      : null;
+  const excerpt =
+    description && description.length > 160
+      ? `${description.slice(0, 160).trimEnd()}…`
+      : description;
 
   const beds = listing.details?.beds ?? 0;
   const baths = listing.details?.baths ?? 0;
@@ -165,6 +173,12 @@ export function ListingCard({
               </>
             )}
           </div>
+
+          {excerpt && (
+            <p className="text-sm text-slate-700 line-clamp-3 dark:text-slate-300">
+              {excerpt}
+            </p>
+          )}
         </div>
 
         <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-300">

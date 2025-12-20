@@ -47,6 +47,10 @@ export function ListingInfo({ listing }: ListingInfoProps) {
 
   const { beds, baths, sqft, lotSize, yearBuilt, propertyType, status } =
     listing.details ?? {};
+  const description =
+    typeof listing.description === 'string' && listing.description.trim().length > 0
+      ? listing.description.trim()
+      : null;
 
   return (
     <>
@@ -104,6 +108,17 @@ export function ListingInfo({ listing }: ListingInfoProps) {
             />
           </div>
         </div>
+
+        {description && (
+          <div className="mt-6">
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">
+              Description
+            </h2>
+            <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line dark:text-slate-300">
+              {description}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="p-6 border-t border-slate-200 dark:border-slate-700 mt-auto">

@@ -95,10 +95,9 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const status = listing.details?.status ?? null;
   const mlsName = listing.meta?.mlsName ?? null;
   const description =
-    (listing as any)?.description ||
-    (listing as any)?.remarks ||
-    (listing.details as any)?.description ||
-    'Property description coming soon.';
+    typeof listing.description === 'string' && listing.description.trim().length > 0
+      ? listing.description.trim()
+      : null;
   const priceLabel =
     typeof listing.listPriceFormatted === 'string' && listing.listPriceFormatted.trim().length > 0
       ? listing.listPriceFormatted
@@ -182,7 +181,9 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
             <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
               <h2 className="text-xl font-semibold text-text-main">Description</h2>
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-text-muted">{description}</p>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-text-muted">
+                {description ?? 'Property description coming soon.'}
+              </p>
             </section>
 
             {listing.address?.lat != null && listing.address?.lng != null && (
