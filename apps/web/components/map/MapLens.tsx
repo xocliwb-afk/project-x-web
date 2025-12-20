@@ -357,18 +357,6 @@ export function MapLens({
             }}
           />
         </div>
-        {!isMobileView && (
-          <button
-            type="button"
-            className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-sm font-bold text-text-main shadow hover:brightness-95"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDismiss();
-            }}
-          >
-            ×
-          </button>
-        )}
 
         {previewListing && anchorCenter && (
           <LensPreviewPanel
