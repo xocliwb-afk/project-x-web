@@ -1,6 +1,12 @@
 import { setTimeout as delay } from 'timers/promises';
 
-type QueryValue = string | number | boolean | undefined | null;
+type QueryValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | null
+  | Array<string | number | boolean>;
 
 type RequestOptions = {
   searchParams?: Record<string, QueryValue>;
@@ -41,7 +47,11 @@ function buildUrl(path: string, searchParams?: Record<string, QueryValue>): stri
   if (searchParams) {
     Object.entries(searchParams).forEach(([key, value]) => {
       if (value === undefined || value === null) return;
-      url.searchParams.set(key, String(value));
+      if (Array.isArray(value)) {
+        value.forEach((v) => url.searchParams.append(key, String(v)));
+      } else {
+        url.searchParams.set(key, String(value));
+      }
     });
   }
 

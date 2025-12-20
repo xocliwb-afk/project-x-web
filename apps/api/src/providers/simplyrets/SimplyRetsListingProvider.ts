@@ -33,14 +33,14 @@ function clampLimit(limit?: number): number {
   return Math.min(Math.floor(limit), MAX_LIMIT);
 }
 
-function parseBbox(bbox?: string): string | null {
+function parseBbox(bbox?: string): [number, number, number, number] | null {
   if (!bbox) return null;
   const parts = bbox.split(',').map((p) => Number(p.trim()));
   if (parts.length !== 4 || parts.some((p) => !Number.isFinite(p))) {
     return null;
   }
-  const [minLng, minLat, maxLng, maxLat] = parts;
-  return `${minLng},${minLat},${maxLng},${maxLat}`;
+  const [minLng, minLat, maxLng, maxLat] = parts as [number, number, number, number];
+  return [minLng, minLat, maxLng, maxLat];
 }
 
 function mapStatusFilters(status?: string[]): string | undefined {
@@ -104,13 +104,21 @@ export class SimplyRetsListingProvider implements ListingProvider {
     const offset = (page - 1) * limit;
     const bbox = parseBbox(params.bbox);
 
-  const query: Record<string, string | number | undefined> = {
-    limit,
-    offset,
-  };
+    const query: Record<string, string | number | string[] | undefined> = {
+      limit,
+      offset,
+    };
 
-  // SimplyRETS supports bbox in trial feeds; if unsupported on some MLS feeds, translate to points/radius here.
-  if (bbox) query.bbox = bbox;
+    // Some MLS feeds ignore bbox; translate to polygon points for consistent geo filtering.
+    if (bbox) {
+      const [minLng, minLat, maxLng, maxLat] = bbox;
+      query.points = [
+        `${minLat},${minLng}`,
+        `${minLat},${maxLng}`,
+        `${maxLat},${maxLng}`,
+        `${maxLat},${minLng}`,
+      ];
+    }
     if (params.q || params.keywords) query.q = params.keywords ?? params.q;
     if (params.minPrice != null) query.minprice = params.minPrice;
     if (params.maxPrice != null) query.maxprice = params.maxPrice;
