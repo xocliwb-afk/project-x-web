@@ -300,6 +300,19 @@ export function MapLens({
             }
           }}
         >
+          {process.env.NODE_ENV !== "production" && (
+            <div className="absolute left-2 top-2 z-10 rounded bg-black/40 px-2 py-1 text-[11px] text-white leading-tight pointer-events-none">
+              <div>clusterListings: {sortedAllListings.length}</div>
+              {activeClusterData.bounds && (
+                <div className="mt-0.5">
+                  bounds: {activeClusterData.bounds.swLng?.toFixed(4)},
+                  {activeClusterData.bounds.swLat?.toFixed(4)} →{" "}
+                  {activeClusterData.bounds.neLng?.toFixed(4)},
+                  {activeClusterData.bounds.neLat?.toFixed(4)}
+                </div>
+              )}
+            </div>
+          )}
           <LensMiniMap
             key={lensKey}
             center={[

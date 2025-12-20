@@ -70,6 +70,22 @@ export function LensPreviewPanel({
 
     let left = Math.max(minLeft, Math.min(maxLeft, desiredLeft));
 
+    if (process.env.NODE_ENV !== "production") {
+      const crossesMapSide =
+        (mapSide === "left" && left < minLeft) ||
+        (mapSide === "right" && left + previewWidth > maxLeft + previewWidth - overlapAllowance);
+      if (crossesMapSide) {
+        console.warn("[LensPreviewPanel] clamped to list side", {
+          mapSide,
+          split,
+          desiredLeft,
+          left,
+          minLeft,
+          maxLeft,
+        });
+      }
+    }
+
     let top = anchor.y - previewHeight / 2;
     const minTop = 8;
     const maxTop = viewport.height - previewHeight - 8;
