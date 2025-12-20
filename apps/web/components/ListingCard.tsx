@@ -191,7 +191,7 @@ export function ListingCard({
           </div>
 
           {excerpt && (
-            <p className="text-sm text-slate-700 line-clamp-3 dark:text-slate-300">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
               {excerpt}
             </p>
           )}
