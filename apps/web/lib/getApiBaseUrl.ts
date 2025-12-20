@@ -5,6 +5,7 @@ function stripTrailingSlash(url: string): string {
 }
 
 let loggedDefault = false;
+let loggedChoice = false;
 
 export function getApiBaseUrl(): string {
   const isDev = process.env.NODE_ENV !== "production";
@@ -12,6 +13,10 @@ export function getApiBaseUrl(): string {
   const legacy = process.env.NEXT_PUBLIC_API_URL?.trim();
 
   if (explicit) {
+    if (isDev && !loggedChoice) {
+      console.log(`[api-client] Using NEXT_PUBLIC_API_BASE_URL=${stripTrailingSlash(explicit)}`);
+      loggedChoice = true;
+    }
     return stripTrailingSlash(explicit);
   }
 
@@ -20,6 +25,10 @@ export function getApiBaseUrl(): string {
       console.warn(
         "[api-client] NEXT_PUBLIC_API_URL is deprecated. Set NEXT_PUBLIC_API_BASE_URL instead."
       );
+      if (!loggedChoice) {
+        console.log(`[api-client] Using NEXT_PUBLIC_API_URL=${stripTrailingSlash(legacy)}`);
+        loggedChoice = true;
+      }
     }
     return stripTrailingSlash(legacy);
   }

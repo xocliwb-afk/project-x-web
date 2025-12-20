@@ -28,6 +28,8 @@ router.get('/', async (req, res) => {
     const isDev = process.env.NODE_ENV !== 'production';
     const fallbackEnabled = process.env.DEV_FALLBACK_TO_MOCK === 'true';
     const canFallback = fallbackEnabled && providerName === 'simplyrets' && isDev;
+    let providerUsed = providerName;
+    let fallbackUsed = false;
 
     // req.query is an untyped object; cast carefully into ListingSearchParams
     const params: ListingSearchParams = {
@@ -65,6 +67,8 @@ router.get('/', async (req, res) => {
         try {
           const fallback = new MockListingProvider();
           providerResults = await fallback.search(params);
+          providerUsed = 'fallback-mock';
+          fallbackUsed = true;
           console.error(
             `[API] SimplyRETS provider failed (${providerErr?.message ?? providerErr}). Served mock listings instead because DEV_FALLBACK_TO_MOCK=true.`
           );
@@ -83,6 +87,12 @@ router.get('/', async (req, res) => {
       pageCount: pagination.pageCount ?? results.length,
     };
 
+    if (isDev) {
+      res.setHeader('X-Data-Provider', providerUsed);
+      if (fallbackUsed) {
+        res.setHeader('X-Data-Provider-Fallback', 'true');
+      }
+    }
     res.json({
       results,
       pagination: responsePagination,
@@ -110,6 +120,8 @@ const getListingById = async (req: any, res: any) => {
     const fallbackEnabled = process.env.DEV_FALLBACK_TO_MOCK === 'true';
     const canFallback = fallbackEnabled && providerName === 'simplyrets' && isDev;
     const { id } = req.params;
+    let providerUsed = providerName;
+    let fallbackUsed = false;
 
     const loadFromMock = async () => {
       const fallback = new MockListingProvider();
@@ -126,6 +138,8 @@ const getListingById = async (req: any, res: any) => {
           `[API] SimplyRETS detail fetch failed (${providerErr?.message ?? providerErr}); falling back to mock listing ${id} because DEV_FALLBACK_TO_MOCK=true.`
         );
         listing = await loadFromMock();
+        providerUsed = 'fallback-mock';
+        fallbackUsed = true;
       } else {
         throw providerErr;
       }
@@ -133,6 +147,10 @@ const getListingById = async (req: any, res: any) => {
 
     if (!listing && canFallback) {
       listing = await loadFromMock();
+      if (listing) {
+        providerUsed = 'fallback-mock';
+        fallbackUsed = true;
+      }
     }
 
     if (!listing) {
@@ -145,6 +163,12 @@ const getListingById = async (req: any, res: any) => {
       return res.status(404).json(error);
     }
 
+    if (isDev) {
+      res.setHeader('X-Data-Provider', providerUsed);
+      if (fallbackUsed) {
+        res.setHeader('X-Data-Provider-Fallback', 'true');
+      }
+    }
     res.json({ listing });
   } catch (err: any) {
     const error: ApiError = {
