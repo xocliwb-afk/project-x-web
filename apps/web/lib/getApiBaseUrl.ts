@@ -1,5 +1,5 @@
 const DEFAULT_API_BASE_URL = "";
-const DEFAULT_API_PROXY_TARGET = "http://localhost:3002";
+export const DEFAULT_API_PROXY_TARGET = "http://localhost:3002";
 
 function stripTrailingSlash(url: string): string {
   return url.endsWith("/") ? url.slice(0, -1) : url;
@@ -22,16 +22,19 @@ export function getApiBaseUrl(): string {
   const isServer = typeof window === "undefined";
   const explicit = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   const legacy = process.env.NEXT_PUBLIC_API_URL?.trim();
-  const proxyTarget = process.env.API_PROXY_TARGET?.trim();
+  const proxyTarget = stripTrailingSlash(
+    process.env.API_PROXY_TARGET?.trim() || DEFAULT_API_PROXY_TARGET
+  );
 
   if (explicit) {
+    const cleaned = stripTrailingSlash(explicit);
     if (isDev && !loggedChoice) {
-      console.log(`[api-client] Using NEXT_PUBLIC_API_BASE_URL=${stripTrailingSlash(explicit)}`);
+      console.log(`[api-client] Using NEXT_PUBLIC_API_BASE_URL=${cleaned}`);
       loggedChoice = true;
     }
     if (isDev && !isServer && !warnedRemoteMismatch) {
       try {
-        const url = new URL(stripTrailingSlash(explicit), window.location.origin);
+        const url = new URL(cleaned, window.location.origin);
         const browserHost = window.location.hostname;
         if (isLocalhost(browserHost) && !isLocalhost(url.hostname)) {
           console.warn(
@@ -43,33 +46,31 @@ export function getApiBaseUrl(): string {
         // ignore invalid URLs and do not block rendering
       }
     }
-    return stripTrailingSlash(explicit);
+    return cleaned;
   }
 
   if (legacy) {
+    const cleaned = stripTrailingSlash(legacy);
     if (isDev) {
       console.warn(
         "[api-client] NEXT_PUBLIC_API_URL is deprecated. Set NEXT_PUBLIC_API_BASE_URL instead."
       );
       if (!loggedChoice) {
-        console.log(`[api-client] Using NEXT_PUBLIC_API_URL=${stripTrailingSlash(legacy)}`);
+        console.log(`[api-client] Using NEXT_PUBLIC_API_URL=${cleaned}`);
         loggedChoice = true;
       }
     }
-    return stripTrailingSlash(legacy);
+    return cleaned;
   }
 
   if (isServer) {
-    const target = stripTrailingSlash(
-      proxyTarget || DEFAULT_API_PROXY_TARGET
-    );
     if (isDev && !loggedDefault) {
       console.log(
-        `[api-client] Using server API base URL ${target} (proxy target)`
+        `[api-client] Using server API base URL ${proxyTarget} (proxy target)`
       );
       loggedDefault = true;
     }
-    return target;
+    return proxyTarget;
   }
 
   if (isDev && !loggedDefault) {
