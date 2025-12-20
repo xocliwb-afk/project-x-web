@@ -13,6 +13,7 @@ interface MapLensPanePortalProps {
   onSelectListing?: (id: string | null) => void;
   mapSide?: "left" | "right";
   mapSplitX?: number;
+  uiTop?: number;
 }
 
 export function MapLensPanePortal({
@@ -21,6 +22,7 @@ export function MapLensPanePortal({
   onSelectListing,
   mapSide,
   mapSplitX,
+  uiTop,
 }: MapLensPanePortalProps) {
   const { activeClusterData, dismissLens } = useMapLensStore((s) => ({
     activeClusterData: s.activeClusterData,
@@ -145,6 +147,7 @@ export function MapLensPanePortal({
       onSelectListing={onSelectListing}
       mapSide={mapSide}
       mapSplitX={mapSplitX}
+      uiTop={uiTop}
     />,
     containerRef.current
   );

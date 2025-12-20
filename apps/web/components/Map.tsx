@@ -78,6 +78,7 @@ interface MapProps {
   }) => void;
   mapSide?: "left" | "right";
   mapSplitX?: number;
+  mapTopY?: number;
 }
 
 export default function Map({
@@ -89,6 +90,7 @@ export default function Map({
   onBoundsChange,
   mapSide,
   mapSplitX,
+  mapTopY,
 }: MapProps) {
   const mapRef = useRef<LeafletMap | null>(null);
   const clusterRef = useRef<LayerGroup | null>(null);
@@ -471,6 +473,7 @@ export default function Map({
           onSelectListing={onSelectListing}
           mapSide={mapSide}
           mapSplitX={mapSplitX}
+          uiTop={mapTopY}
         />
       ) : (
         <MapLensPanePortal
@@ -479,6 +482,7 @@ export default function Map({
           onSelectListing={onSelectListing}
           mapSide={mapSide}
           mapSplitX={mapSplitX}
+          uiTop={mapTopY}
         />
       )}
       <ListingPreviewModal

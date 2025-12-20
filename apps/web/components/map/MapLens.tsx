@@ -17,6 +17,7 @@ type MapLensProps = {
   isMobile?: boolean;
   mapSide?: "left" | "right";
   mapSplitX?: number;
+  uiTop?: number;
 };
 
 const formatPriceCompact = (price: number | null | undefined) => {
@@ -33,6 +34,7 @@ export function MapLens({
   isMobile,
   mapSide = "left",
   mapSplitX,
+  uiTop,
 }: MapLensProps) {
   const activeClusterData = useMapLensStore((s) => s.activeClusterData);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
@@ -162,7 +164,7 @@ export function MapLens({
     () => sortedAllListings.find((l) => l.id === focusedListingId) ?? null,
     [sortedAllListings, focusedListingId]
   );
-  const previewListing = focusedListing ?? sortedAllListings[0] ?? null;
+  const previewListing = focusedListing ?? null;
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" && previewListing) {
@@ -173,9 +175,29 @@ export function MapLens({
     }
   }, [focusedListingId, previewListing]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const updateAnchor = () => {
+      if (!lensRef.current) return;
+      const rect = lensRef.current.getBoundingClientRect();
+      setAnchorCenter({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
+    };
+    updateAnchor();
+    window.addEventListener("resize", updateAnchor);
+    window.addEventListener("scroll", updateAnchor, true);
+    return () => {
+      window.removeEventListener("resize", updateAnchor);
+      window.removeEventListener("scroll", updateAnchor, true);
+    };
+  }, [visible, lensDiameter, activeClusterData]);
+
   const previewWidth = 320;
   const previewHeight = 240;
   const gutter = 12;
+  const [anchorCenter, setAnchorCenter] = useState<{ x: number; y: number } | null>(null);
   const lensTransitionClass =
     "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]";
   const lensVisibilityClass = visible
@@ -341,29 +363,27 @@ export function MapLens({
           />
         </div>
 
-        {previewListing && (
-          <LensPreviewPanel
-            listing={previewListing}
-            lensDiameter={lensDiameter}
-            mapSide={mapSide}
-            mapSplitX={mapSplitX}
-            panelRef={previewRef}
-            mode="attached"
-            attachedOffset={{
-              left:
-                mapSide === "left"
-                  ? lensDiameter / 2 + gutter
-                  : -(lensDiameter / 2 + gutter + previewWidth),
-              top: -(previewHeight / 2),
-            }}
-            previewWidth={previewWidth}
-            previewHeight={previewHeight}
-            onViewDetails={() => {
-              onSelectListing?.(previewListing.id);
-              goToListing(previewListing.id);
-            }}
-          />
-        )}
+        {previewListing &&
+          anchorCenter &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <LensPreviewPanel
+              listing={previewListing}
+              anchor={anchorCenter}
+              lensDiameter={lensDiameter}
+              mapSide={mapSide}
+              mapSplitX={mapSplitX}
+              panelRef={previewRef}
+              minTop={uiTop != null ? uiTop + 8 : 8}
+              previewWidth={previewWidth}
+              previewHeight={previewHeight}
+              onViewDetails={() => {
+                onSelectListing?.(previewListing.id);
+                goToListing(previewListing.id);
+              }}
+            />,
+            document.body
+          )}
         {isLocked && (
           <div className="mt-2 text-[11px] text-text-secondary">
             {focusedListing

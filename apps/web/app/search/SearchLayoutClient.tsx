@@ -56,6 +56,7 @@ export default function SearchLayoutClient({
   );
   const mapPaneRef = useRef<HTMLDivElement | null>(null);
   const [mapSplitX, setMapSplitX] = useState<number | null>(null);
+  const [mapTopY, setMapTopY] = useState<number | null>(null);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
   const activeControllerRef = useRef<AbortController | null>(null);
@@ -282,6 +283,7 @@ export default function SearchLayoutClient({
       const rect = mapPaneRef.current.getBoundingClientRect();
       const splitX = mapSide === 'left' ? rect.right : rect.left;
       setMapSplitX(splitX);
+      setMapTopY(rect.top);
     };
     updateSplit();
     window.addEventListener('resize', updateSplit);
@@ -377,6 +379,7 @@ export default function SearchLayoutClient({
                   onBoundsChange={handleBoundsChange}
                   mapSide={mapSide}
                   mapSplitX={mapSplitX ?? undefined}
+                  mapTopY={mapTopY ?? undefined}
                 />
               </div>
             </div>

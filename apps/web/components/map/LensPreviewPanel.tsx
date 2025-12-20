@@ -14,6 +14,7 @@ type LensPreviewPanelProps = {
   attachedOffset?: { left: number; top: number };
   previewWidth?: number;
   previewHeight?: number;
+  minTop?: number;
 };
 
 const formatPriceCompact = (price: number | null | undefined) => {
@@ -36,6 +37,7 @@ export function LensPreviewPanel({
   attachedOffset,
   previewWidth = 320,
   previewHeight = 240,
+  minTop = 8,
 }: LensPreviewPanelProps) {
   const [viewport, setViewport] = useState<{ width: number; height: number }>({
     width: typeof window !== "undefined" ? window.innerWidth : 1440,
@@ -106,7 +108,6 @@ export function LensPreviewPanel({
     }
 
     let top = (anchor?.y ?? 0) - previewHeight / 2;
-    const minTop = 8;
     const maxTop = viewport.height - previewHeight - 8;
     top = Math.max(minTop, Math.min(maxTop, top));
 
@@ -138,7 +139,7 @@ export function LensPreviewPanel({
   return (
     <div
       ref={panelRef as any}
-      className={`${mode === "attached" ? "absolute" : "fixed"} z-[1050] overflow-hidden rounded-2xl border border-border/60 bg-white shadow-2xl`}
+      className={`${mode === "attached" ? "absolute" : "fixed"} z-[9999] overflow-hidden rounded-2xl border border-border/60 bg-white shadow-2xl`}
       style={style}
       onClick={(e) => e.stopPropagation()}
     >
