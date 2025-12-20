@@ -117,6 +117,23 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     listing.address?.full ??
     `${listing.address.street}, ${listing.address.city}, ${listing.address.state} ${listing.address.zip}`;
 
+  const propertyFacts = [
+    { label: 'Annual Taxes', value: listing.taxAnnualAmount != null ? `$${listing.taxAnnualAmount.toLocaleString()}` : '' },
+    { label: 'Tax Year', value: listing.taxYear },
+    { label: 'Cooling', value: listing.cooling },
+    { label: 'Heating', value: listing.heating },
+    { label: 'Parking', value: listing.parking },
+    { label: 'Garage Spaces', value: listing.garageSpaces },
+    { label: 'School District', value: listing.schoolDistrict },
+    { label: 'Elementary School', value: listing.elementarySchool },
+    { label: 'Middle School', value: listing.middleSchool },
+    { label: 'High School', value: listing.highSchool },
+    { label: 'County', value: listing.county },
+  ].filter((item) => {
+    const formatted = formatValue(item.value);
+    return formatted && formatted.length > 0;
+  });
+
   return (
     <div className="min-h-screen w-full bg-surface">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
@@ -202,6 +219,24 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 {description ?? 'Property description coming soon.'}
               </p>
             </section>
+
+            {propertyFacts.length > 0 && (
+              <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
+                <h2 className="text-xl font-semibold text-text-main">Property Facts</h2>
+                <dl className="mt-4 grid grid-cols-1 gap-4 text-sm text-text-main sm:grid-cols-2">
+                  {propertyFacts.map((item) => {
+                    const value = formatValue(item.value);
+                    if (!value) return null;
+                    return (
+                      <div key={item.label} className="rounded-lg bg-surface-muted/60 p-3">
+                        <dt className="text-[11px] uppercase tracking-wide text-text-muted">{item.label}</dt>
+                        <dd className="mt-1 text-base font-semibold text-text-main">{value}</dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              </section>
+            )}
 
             {listing.address?.lat != null && listing.address?.lng != null && (
               <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">

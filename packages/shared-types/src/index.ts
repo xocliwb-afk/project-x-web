@@ -10,6 +10,17 @@ export type NormalizedListing = {
   description?: string | null;
   virtualTourUrl?: string | null;
   hoaAmenities?: string | null;
+  taxAnnualAmount?: number | null;
+  taxYear?: number | null;
+  cooling?: string | null;
+  heating?: string | null;
+  parking?: string | null;
+  garageSpaces?: number | null;
+  schoolDistrict?: string | null;
+  elementarySchool?: string | null;
+  middleSchool?: string | null;
+  highSchool?: string | null;
+  county?: string | null;
   address: {
     full: string;
     street: string;

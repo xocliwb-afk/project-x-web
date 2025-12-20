@@ -60,6 +60,50 @@ export function ListingInfo({ listing }: ListingInfoProps) {
     typeof listing.hoaAmenities === 'string' && listing.hoaAmenities.trim().length > 0
       ? listing.hoaAmenities.trim()
       : null;
+  const taxAnnualAmount =
+    typeof listing.taxAnnualAmount === 'number' && Number.isFinite(listing.taxAnnualAmount)
+      ? listing.taxAnnualAmount
+      : null;
+  const taxYear =
+    typeof listing.taxYear === 'number' && Number.isFinite(listing.taxYear)
+      ? listing.taxYear
+      : null;
+  const cooling =
+    typeof listing.cooling === 'string' && listing.cooling.trim().length > 0
+      ? listing.cooling.trim()
+      : null;
+  const heating =
+    typeof listing.heating === 'string' && listing.heating.trim().length > 0
+      ? listing.heating.trim()
+      : null;
+  const parking =
+    typeof listing.parking === 'string' && listing.parking.trim().length > 0
+      ? listing.parking.trim()
+      : null;
+  const garageSpaces =
+    typeof listing.garageSpaces === 'number' && Number.isFinite(listing.garageSpaces)
+      ? listing.garageSpaces
+      : null;
+  const schoolDistrict =
+    typeof listing.schoolDistrict === 'string' && listing.schoolDistrict.trim().length > 0
+      ? listing.schoolDistrict.trim()
+      : null;
+  const elementarySchool =
+    typeof listing.elementarySchool === 'string' && listing.elementarySchool.trim().length > 0
+      ? listing.elementarySchool.trim()
+      : null;
+  const middleSchool =
+    typeof listing.middleSchool === 'string' && listing.middleSchool.trim().length > 0
+      ? listing.middleSchool.trim()
+      : null;
+  const highSchool =
+    typeof listing.highSchool === 'string' && listing.highSchool.trim().length > 0
+      ? listing.highSchool.trim()
+      : null;
+  const county =
+    typeof listing.county === 'string' && listing.county.trim().length > 0
+      ? listing.county.trim()
+      : null;
 
   return (
     <>
@@ -154,6 +198,42 @@ export function ListingInfo({ listing }: ListingInfoProps) {
                 </p>
               )}
               {hoaAmenities && <p>Amenities: {hoaAmenities}</p>}
+            </div>
+          </div>
+        )}
+
+        {(taxAnnualAmount ||
+          taxYear ||
+          cooling ||
+          heating ||
+          parking ||
+          garageSpaces ||
+          schoolDistrict ||
+          elementarySchool ||
+          middleSchool ||
+          highSchool ||
+          county) && (
+          <div className="mt-6">
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">
+              Property Facts
+            </h2>
+            <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm text-slate-700 dark:text-slate-300">
+              <DetailItem
+                label="Annual Taxes"
+                value={
+                  taxAnnualAmount != null ? `$${taxAnnualAmount.toLocaleString()}` : null
+                }
+              />
+              <DetailItem label="Tax Year" value={taxYear} />
+              <DetailItem label="Cooling" value={cooling} />
+              <DetailItem label="Heating" value={heating} />
+              <DetailItem label="Parking" value={parking} />
+              <DetailItem label="Garage Spaces" value={garageSpaces} />
+              <DetailItem label="School District" value={schoolDistrict} />
+              <DetailItem label="Elementary School" value={elementarySchool} />
+              <DetailItem label="Middle School" value={middleSchool} />
+              <DetailItem label="High School" value={highSchool} />
+              <DetailItem label="County" value={county} />
             </div>
           </div>
         )}

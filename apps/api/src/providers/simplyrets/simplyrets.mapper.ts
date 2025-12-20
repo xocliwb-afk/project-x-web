@@ -153,6 +153,26 @@ export function mapSimplyRetsListing(
   const hoaAmenitiesRaw =
     typeof raw?.association?.amenities === 'string' ? raw.association.amenities.trim() : null;
   const hoaAmenities = hoaAmenitiesRaw && hoaAmenitiesRaw.length > 0 ? hoaAmenitiesRaw : null;
+  const taxAnnualAmount = toNumber(raw?.tax?.taxAnnualAmount);
+  const taxYear = toNumber(raw?.tax?.taxYear);
+  const normalizeString = (value: unknown): string | null => {
+    if (Array.isArray(value)) {
+      const joined = value.filter(Boolean).map((v) => String(v).trim()).filter(Boolean).join(', ');
+      return joined.length ? joined : null;
+    }
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+  const cooling = normalizeString(raw?.property?.cooling);
+  const heating = normalizeString(raw?.property?.heating);
+  const parking = normalizeString(raw?.property?.parking?.description);
+  const garageSpaces = toNumber(raw?.property?.garageSpaces);
+  const schoolDistrict = normalizeString(raw?.school?.district);
+  const elementarySchool = normalizeString(raw?.school?.elementarySchool);
+  const middleSchool = normalizeString(raw?.school?.middleSchool);
+  const highSchool = normalizeString(raw?.school?.highSchool);
+  const county = normalizeString(raw?.geo?.county);
 
   return {
     id: String(id),
@@ -162,6 +182,17 @@ export function mapSimplyRetsListing(
     description: description && description.length > 0 ? description : null,
     virtualTourUrl,
     hoaAmenities,
+    taxAnnualAmount,
+    taxYear,
+    cooling,
+    heating,
+    parking,
+    garageSpaces,
+    schoolDistrict,
+    elementarySchool,
+    middleSchool,
+    highSchool,
+    county,
     address: {
       ...address,
       lat: hasCoords ? (lat as number) : null,
