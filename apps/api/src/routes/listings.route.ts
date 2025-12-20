@@ -80,7 +80,30 @@ router.get('/', async (req, res) => {
       }
     }
 
-    const { results, pagination } = providerResults;
+    const bboxValues =
+      typeof params.bbox === 'string'
+        ? params.bbox.split(',').map((val) => Number(val.trim()))
+        : [];
+    const hasValidBbox =
+      bboxValues.length === 4 && bboxValues.every((val) => Number.isFinite(val));
+
+    let { results, pagination } = providerResults;
+
+    if (hasValidBbox) {
+      const [minLng, minLat, maxLng, maxLat] = bboxValues;
+      results = results.filter((listing) => {
+        const lat = listing.address?.lat;
+        const lng = listing.address?.lng;
+        if (lat == null || lng == null) return false;
+        return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
+      });
+      pagination = {
+        ...pagination,
+        total: results.length,
+        pageCount: results.length,
+        hasMore: false,
+      };
+    }
 
     const responsePagination: ListingPagination = {
       ...pagination,
