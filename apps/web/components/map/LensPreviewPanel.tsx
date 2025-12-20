@@ -69,55 +69,39 @@ export function LensPreviewPanel({
       };
     }
 
-    const split = mapSplitX ?? viewport.width / 2;
-
     let desiredLeft =
       mapSide === "left"
         ? (anchor?.x ?? 0) + radius + gutter
         : (anchor?.x ?? 0) - radius - gutter - previewWidth;
 
-    let minLeft: number;
-    let maxLeft: number;
+    let left = Math.max(padding, Math.min(viewport.width - previewWidth - padding, desiredLeft));
 
-    if (mapSide === "left") {
-      // list on the right
-      minLeft = split - overlapAllowance;
-      maxLeft = viewport.width - previewWidth - padding;
-    } else {
-      // list on the left
-      minLeft = padding;
-      maxLeft = split - previewWidth + overlapAllowance;
-    }
+    const desiredTop = (anchor?.y ?? 0) - previewHeight / 2;
 
-    let left = Math.max(minLeft, Math.min(maxLeft, desiredLeft));
+    let top = desiredTop;
+    const maxTop = viewport.height - previewHeight - padding;
+    top = Math.max(minTop ?? padding, Math.min(maxTop, top));
 
-    if (process.env.NODE_ENV !== "production") {
-      const crossesMapSide =
-        (mapSide === "left" && left < minLeft) ||
-        (mapSide === "right" && left + previewWidth > maxLeft + previewWidth - overlapAllowance);
-      if (crossesMapSide) {
-        console.warn("[LensPreviewPanel] clamped to list side", {
-          mapSide,
-          split,
-          desiredLeft,
-          left,
-          minLeft,
-          maxLeft,
-        });
-      }
-    }
-
-    let top = (anchor?.y ?? 0) - previewHeight / 2;
-    const maxTop = viewport.height - previewHeight - 8;
-    top = Math.max(minTop, Math.min(maxTop, top));
-
-    return {
+    const finalStyle = {
       position: "fixed" as const,
       left,
       top,
       width: previewWidth,
       height: previewHeight,
     };
+
+    if (process.env.NODE_ENV !== "production" && (left !== desiredLeft || top !== desiredTop)) {
+      console.log("[LensPreviewPanel] clamped", {
+        mapSide,
+        desiredLeft,
+        desiredTop,
+        left,
+        top,
+        minTop,
+      });
+    }
+
+    return finalStyle;
   }, [
     anchor,
     attachedOffset,
