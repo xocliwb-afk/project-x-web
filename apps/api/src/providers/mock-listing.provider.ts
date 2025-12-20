@@ -97,8 +97,8 @@ export class MockListingProvider implements ListingProvider {
         city: cityPart || 'Unknown City',
         state: statePart || 'XX',
         zip: zipPart || '00000',
-        lat: toNumber(raw.geo?.lat ?? raw.latitude),
-        lng: toNumber(raw.geo?.lng ?? raw.longitude),
+        lat: toNumber(raw.geo?.lat ?? raw.coordinates?.lat ?? raw.latitude),
+        lng: toNumber(raw.geo?.lng ?? raw.coordinates?.lng ?? raw.longitude),
       },
       media: {
         photos: Array.isArray(raw.photos) ? raw.photos : [],
