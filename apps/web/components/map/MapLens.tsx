@@ -41,7 +41,6 @@ export function MapLens({
   const [viewportWidth, setViewportWidth] = useState<number>(
     typeof window !== "undefined" ? window.innerWidth : 1024
   );
-  const [anchorCenter, setAnchorCenter] = useState<{ x: number; y: number } | null>(null);
   const focusedListingId = useMapLensStore((s) => s.focusedListingId);
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const lensRef = useRef<HTMLDivElement | null>(null);
@@ -112,25 +111,6 @@ export function MapLens({
     };
   }, []);
 
-  useEffect(() => {
-    if (!visible) return;
-    const updateAnchor = () => {
-      if (!lensRef.current) return;
-      window.requestAnimationFrame(() => {
-        if (!lensRef.current) return;
-        const rect = lensRef.current.getBoundingClientRect();
-        setAnchorCenter({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-      });
-    };
-    updateAnchor();
-    window.addEventListener("resize", updateAnchor);
-    window.addEventListener("scroll", updateAnchor, true);
-    return () => {
-      window.removeEventListener("resize", updateAnchor);
-      window.removeEventListener("scroll", updateAnchor, true);
-    };
-  }, [visible, lensDiameter, activeClusterData]);
-
   const handleDismiss = useCallback(() => {
     setFocusedListingId(null);
     dismissLens();
@@ -193,6 +173,9 @@ export function MapLens({
     }
   }, [focusedListingId, previewListing]);
 
+  const previewWidth = 320;
+  const previewHeight = 240;
+  const gutter = 12;
   const lensTransitionClass =
     "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]";
   const lensVisibilityClass = visible
@@ -321,7 +304,7 @@ export function MapLens({
   return (
     <div
       ref={lensRef}
-      className={`pointer-events-auto ${lensTransitionClass} ${lensVisibilityClass}`}
+      className={`pointer-events-auto relative ${lensTransitionClass} ${lensVisibilityClass}`}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="relative flex flex-col items-center">
@@ -358,14 +341,23 @@ export function MapLens({
           />
         </div>
 
-        {previewListing && anchorCenter && (
+        {previewListing && (
           <LensPreviewPanel
             listing={previewListing}
-            anchor={anchorCenter}
             lensDiameter={lensDiameter}
             mapSide={mapSide}
             mapSplitX={mapSplitX}
             panelRef={previewRef}
+            mode="attached"
+            attachedOffset={{
+              left:
+                mapSide === "left"
+                  ? lensDiameter / 2 + gutter
+                  : -(lensDiameter / 2 + gutter + previewWidth),
+              top: -(previewHeight / 2),
+            }}
+            previewWidth={previewWidth}
+            previewHeight={previewHeight}
             onViewDetails={() => {
               onSelectListing?.(previewListing.id);
               goToListing(previewListing.id);

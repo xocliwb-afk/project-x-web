@@ -4,12 +4,16 @@ import type { NormalizedListing } from "@project-x/shared-types";
 
 type LensPreviewPanelProps = {
   listing: NormalizedListing;
-  anchor: { x: number; y: number };
-  lensDiameter: number;
+  anchor?: { x: number; y: number };
+  lensDiameter?: number;
   mapSide?: "left" | "right";
   mapSplitX?: number;
   onViewDetails: () => void;
   panelRef?: React.RefObject<HTMLDivElement>;
+  mode?: "fixed" | "attached";
+  attachedOffset?: { left: number; top: number };
+  previewWidth?: number;
+  previewHeight?: number;
 };
 
 const formatPriceCompact = (price: number | null | undefined) => {
@@ -28,6 +32,10 @@ export function LensPreviewPanel({
   mapSplitX,
   onViewDetails,
   panelRef,
+  mode = "fixed",
+  attachedOffset,
+  previewWidth = 320,
+  previewHeight = 240,
 }: LensPreviewPanelProps) {
   const [viewport, setViewport] = useState<{ width: number; height: number }>({
     width: typeof window !== "undefined" ? window.innerWidth : 1440,
@@ -44,18 +52,27 @@ export function LensPreviewPanel({
   }, []);
 
   const style = useMemo(() => {
-    const previewWidth = 320;
-    const previewHeight = 240;
     const gutter = 12;
     const overlapAllowance = 32;
     const padding = 8;
-    const radius = lensDiameter / 2;
+    const radius = (lensDiameter ?? 0) / 2;
+
+    if (mode === "attached" && attachedOffset) {
+      return {
+        position: "absolute" as const,
+        left: attachedOffset.left,
+        top: attachedOffset.top,
+        width: previewWidth,
+        height: previewHeight,
+      };
+    }
+
     const split = mapSplitX ?? viewport.width / 2;
 
     let desiredLeft =
       mapSide === "left"
-        ? anchor.x + radius + gutter
-        : anchor.x - radius - gutter - previewWidth;
+        ? (anchor?.x ?? 0) + radius + gutter
+        : (anchor?.x ?? 0) - radius - gutter - previewWidth;
 
     let minLeft: number;
     let maxLeft: number;
@@ -88,18 +105,30 @@ export function LensPreviewPanel({
       }
     }
 
-    let top = anchor.y - previewHeight / 2;
+    let top = (anchor?.y ?? 0) - previewHeight / 2;
     const minTop = 8;
     const maxTop = viewport.height - previewHeight - 8;
     top = Math.max(minTop, Math.min(maxTop, top));
 
     return {
+      position: "fixed" as const,
       left,
       top,
       width: previewWidth,
       height: previewHeight,
     };
-  }, [anchor, lensDiameter, mapSide, viewport.height, viewport.width]);
+  }, [
+    anchor,
+    attachedOffset,
+    lensDiameter,
+    mapSide,
+    mapSplitX,
+    mode,
+    previewHeight,
+    previewWidth,
+    viewport.height,
+    viewport.width,
+  ]);
 
   const primaryPhoto =
     listing.media?.thumbnailUrl ??
@@ -109,7 +138,7 @@ export function LensPreviewPanel({
   return (
     <div
       ref={panelRef as any}
-      className="fixed z-[1050] overflow-hidden rounded-2xl border border-border/60 bg-white shadow-2xl"
+      className={`${mode === "attached" ? "absolute" : "fixed"} z-[1050] overflow-hidden rounded-2xl border border-border/60 bg-white shadow-2xl`}
       style={style}
       onClick={(e) => e.stopPropagation()}
     >
