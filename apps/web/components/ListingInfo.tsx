@@ -51,6 +51,11 @@ export function ListingInfo({ listing }: ListingInfoProps) {
     typeof listing.description === 'string' && listing.description.trim().length > 0
       ? listing.description.trim()
       : null;
+  const virtualTourUrl =
+    typeof listing.virtualTourUrl === 'string' &&
+    listing.virtualTourUrl.trim().toLowerCase().startsWith('http')
+      ? listing.virtualTourUrl.trim()
+      : null;
 
   return (
     <>
@@ -92,6 +97,19 @@ export function ListingInfo({ listing }: ListingInfoProps) {
             <p className="text-xs text-slate-500">Sqft</p>
           </div>
         </div>
+
+        {virtualTourUrl && (
+          <div className="mt-4">
+            <a
+              href={virtualTourUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              Virtual Tour
+            </a>
+          </div>
+        )}
 
         <div className="mt-6">
           <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">

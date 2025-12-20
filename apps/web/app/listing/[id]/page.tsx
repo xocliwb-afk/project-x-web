@@ -98,6 +98,11 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     typeof listing.description === 'string' && listing.description.trim().length > 0
       ? listing.description.trim()
       : null;
+  const virtualTourUrl =
+    typeof listing.virtualTourUrl === 'string' &&
+    listing.virtualTourUrl.trim().toLowerCase().startsWith('http')
+      ? listing.virtualTourUrl.trim()
+      : null;
   const priceLabel =
     typeof listing.listPriceFormatted === 'string' && listing.listPriceFormatted.trim().length > 0
       ? listing.listPriceFormatted
@@ -143,6 +148,18 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               <p className="text-xs uppercase tracking-wide text-text-muted">
                 Listing courtesy of {mlsName}
               </p>
+            )}
+            {virtualTourUrl && (
+              <div>
+                <a
+                  href={virtualTourUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition hover:brightness-95"
+                >
+                  Virtual Tour
+                </a>
+              </div>
             )}
           </div>
         </div>

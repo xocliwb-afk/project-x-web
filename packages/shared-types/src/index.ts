@@ -8,6 +8,7 @@ export type NormalizedListing = {
   listPrice: number;
   listPriceFormatted: string;
   description?: string | null;
+  virtualTourUrl?: string | null;
   address: {
     full: string;
     street: string;

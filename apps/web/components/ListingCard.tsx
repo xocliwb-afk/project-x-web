@@ -41,6 +41,11 @@ export function ListingCard({
     description && description.length > 160
       ? `${description.slice(0, 160).trimEnd()}…`
       : description;
+  const virtualTourUrl =
+    typeof listing.virtualTourUrl === 'string' &&
+    listing.virtualTourUrl.trim().toLowerCase().startsWith('http')
+      ? listing.virtualTourUrl.trim()
+      : null;
 
   const beds = listing.details?.beds ?? 0;
   const baths = listing.details?.baths ?? 0;
@@ -149,6 +154,17 @@ export function ListingCard({
               <p className="mt-1 line-clamp-2 text-sm text-slate-700 dark:text-slate-300">
                 {fullAddress}
               </p>
+              {virtualTourUrl && (
+                <a
+                  href={virtualTourUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Virtual Tour ↗
+                </a>
+              )}
             </div>
             <div className="flex flex-col items-end gap-2">
               <Link

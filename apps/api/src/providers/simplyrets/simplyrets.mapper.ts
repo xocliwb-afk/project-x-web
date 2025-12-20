@@ -144,6 +144,12 @@ export function mapSimplyRetsListing(
   const address = normalizeAddress(raw);
   const description =
     typeof raw?.remarks === 'string' ? raw.remarks.trim() : null;
+  const virtualTourRaw =
+    typeof raw?.virtualTourUrl === 'string' ? raw.virtualTourUrl.trim() : null;
+  const virtualTourUrl =
+    virtualTourRaw && virtualTourRaw.length > 0 && /^https?:\/\//i.test(virtualTourRaw)
+      ? virtualTourRaw
+      : null;
 
   return {
     id: String(id),
@@ -151,6 +157,7 @@ export function mapSimplyRetsListing(
     listPrice,
     listPriceFormatted: priceFormatter.format(listPrice),
     description: description && description.length > 0 ? description : null,
+    virtualTourUrl,
     address: {
       ...address,
       lat: hasCoords ? (lat as number) : null,
