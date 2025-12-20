@@ -18,6 +18,7 @@ export type PaginatedListingsResponse = ListingSearchResponse;
 import { getApiBaseUrl } from "./getApiBaseUrl";
 
 const API_BASE_URL = getApiBaseUrl();
+const isDev = process.env.NODE_ENV !== 'production';
 
 /**
  * Fetches a paginated list of listings from the backend API.
@@ -64,17 +65,47 @@ export async function fetchListings(
   const qs = searchParams.toString();
   const url = `${API_BASE_URL}/api/listings${qs ? `?${qs}` : ''}`;
 
-  const res = await fetch(url, {
-    // Always fetch fresh data for search
-    cache: 'no-store',
-    signal,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch listings: ${res.status} ${res.statusText}`);
+  if (isDev) {
+    console.log(`[api-client] GET ${url}`);
   }
 
-  return (await res.json()) as PaginatedListingsResponse;
+  let loggedError = false;
+
+  try {
+    const res = await fetch(url, {
+      // Always fetch fresh data for search
+      cache: 'no-store',
+      signal,
+    });
+
+    if (!res.ok) {
+      let bodySnippet = '';
+      try {
+        const rawBody = await res.text();
+        bodySnippet = rawBody.slice(0, 200);
+      } catch {
+        bodySnippet = '<unable to read body>';
+      }
+
+      if (isDev) {
+        console.error(
+          `[api-client] listings request failed ${res.status} ${res.statusText} for ${url}. Body: ${bodySnippet}`,
+        );
+        loggedError = true;
+      }
+      throw new Error(`Failed to fetch listings: ${res.status} ${res.statusText}`);
+    }
+
+    return (await res.json()) as PaginatedListingsResponse;
+  } catch (err: any) {
+    if (isDev && !loggedError) {
+      console.error(
+        `[api-client] listings request error for ${url}:`,
+        err?.message ?? err,
+      );
+    }
+    throw err;
+  }
 }
 
 /**

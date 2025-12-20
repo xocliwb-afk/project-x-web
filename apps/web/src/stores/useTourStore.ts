@@ -7,6 +7,7 @@ import {
   PlannedTour,
   TourStopInput,
 } from '@project-x/shared-types';
+import { getApiBaseUrl } from '@/lib/getApiBaseUrl';
 
 type TourStoreState = {
   stops: TourStopInput[];
@@ -24,10 +25,7 @@ type TourStoreState = {
   clearTour: () => void;
 };
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.API_BASE_URL ||
-  'http://localhost:3001';
+const API_BASE = getApiBaseUrl();
 
 export const useTourStore = create<TourStoreState>((set, get) => ({
   stops: [],

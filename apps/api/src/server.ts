@@ -36,7 +36,7 @@ function findRepoRoot(startDir: string): string | null {
   return null;
 }
 
-function loadEnv() {
+function loadEnv(): string | null {
   const cwd = process.cwd();
   const repoRoot = findRepoRoot(cwd);
   const candidates = [
@@ -49,18 +49,19 @@ function loadEnv() {
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
       dotenv.config({ path: candidate });
-      console.log(`[API] Loaded env from ${candidate}`);
-      return;
+      return candidate;
     }
   }
 
   dotenv.config();
+  return null;
 }
 
-loadEnv();
+const loadedEnvPath = loadEnv();
 
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
+const resolvedProvider = process.env.DATA_PROVIDER?.toLowerCase() ?? "mock";
 
 const parseAllowedOrigins = () => {
   const raw = process.env.ALLOWED_ORIGINS;
@@ -117,6 +118,12 @@ app.get("/health", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`[API] Server running on http://localhost:${PORT}`);
+  console.log(
+    `[API] Env source: ${
+      loadedEnvPath ?? "process environment (no .env file found)"
+    }`
+  );
+  console.log(`[API] Data provider: ${resolvedProvider}`);
   console.log(
     `[API] Routes exposed: GET /health, GET /api/listings, GET /api/listing/:id (canonical), GET /api/listings/:id (alias), POST /api/leads, POST /api/v1/leads`
   );

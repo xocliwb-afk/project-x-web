@@ -5,7 +5,9 @@ import {
   ListingSearchParams,
   NormalizedListing,
   ApiError,
+  ListingSearchResponse,
 } from '@project-x/shared-types';
+import { MockListingProvider } from '../providers/mock-listing.provider';
 
 const router = Router();
 
@@ -22,6 +24,10 @@ router.get('/', async (req, res) => {
 
   try {
     const provider = getListingProvider();
+    const providerName = process.env.DATA_PROVIDER?.toLowerCase() ?? 'mock';
+    const isDev = process.env.NODE_ENV !== 'production';
+    const fallbackEnabled = process.env.DEV_FALLBACK_TO_MOCK === 'true';
+    const canFallback = fallbackEnabled && providerName === 'simplyrets' && isDev;
 
     // req.query is an untyped object; cast carefully into ListingSearchParams
     const params: ListingSearchParams = {
@@ -41,8 +47,8 @@ router.get('/', async (req, res) => {
       status: Array.isArray(req.query.status)
         ? (req.query.status as string[])
         : typeof req.query.status === 'string'
-        ? (req.query.status as string).split(',').filter(Boolean)
-        : undefined,
+          ? (req.query.status as string).split(',').filter(Boolean)
+          : undefined,
       minSqft: parseNumber(req.query.minSqft),
       maxSqft: parseNumber(req.query.maxSqft),
       minYearBuilt: parseNumber(req.query.minYearBuilt),
@@ -51,7 +57,26 @@ router.get('/', async (req, res) => {
       keywords: typeof req.query.keywords === 'string' ? req.query.keywords : undefined,
     };
 
-    const { results, pagination } = await provider.search(params);
+    let providerResults: ListingSearchResponse;
+    try {
+      providerResults = await provider.search(params);
+    } catch (providerErr: any) {
+      if (canFallback) {
+        try {
+          const fallback = new MockListingProvider();
+          providerResults = await fallback.search(params);
+          console.error(
+            `[API] SimplyRETS provider failed (${providerErr?.message ?? providerErr}). Served mock listings instead because DEV_FALLBACK_TO_MOCK=true.`
+          );
+        } catch {
+          throw providerErr;
+        }
+      } else {
+        throw providerErr;
+      }
+    }
+
+    const { results, pagination } = providerResults;
 
     const responsePagination: ListingPagination = {
       ...pagination,
@@ -80,9 +105,35 @@ router.get('/', async (req, res) => {
 const getListingById = async (req: any, res: any) => {
   try {
     const provider = getListingProvider();
+    const providerName = process.env.DATA_PROVIDER?.toLowerCase() ?? 'mock';
+    const isDev = process.env.NODE_ENV !== 'production';
+    const fallbackEnabled = process.env.DEV_FALLBACK_TO_MOCK === 'true';
+    const canFallback = fallbackEnabled && providerName === 'simplyrets' && isDev;
     const { id } = req.params;
 
-    const listing: NormalizedListing | null = await provider.getById(id);
+    const loadFromMock = async () => {
+      const fallback = new MockListingProvider();
+      return fallback.getById(id);
+    };
+
+    let listing: NormalizedListing | null = null;
+
+    try {
+      listing = await provider.getById(id);
+    } catch (providerErr: any) {
+      if (canFallback) {
+        console.error(
+          `[API] SimplyRETS detail fetch failed (${providerErr?.message ?? providerErr}); falling back to mock listing ${id} because DEV_FALLBACK_TO_MOCK=true.`
+        );
+        listing = await loadFromMock();
+      } else {
+        throw providerErr;
+      }
+    }
+
+    if (!listing && canFallback) {
+      listing = await loadFromMock();
+    }
 
     if (!listing) {
       const error: ApiError = {
