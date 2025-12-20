@@ -87,16 +87,18 @@ router.get('/', async (req, res) => {
       pageCount: pagination.pageCount ?? results.length,
     };
 
+    const responseBody = {
+      results,
+      pagination: responsePagination,
+    };
+
     if (isDev) {
       res.setHeader('X-Data-Provider', providerUsed);
       if (fallbackUsed) {
         res.setHeader('X-Data-Provider-Fallback', 'true');
       }
     }
-    res.json({
-      results,
-      pagination: responsePagination,
-    });
+    res.json(responseBody);
   } catch (err: any) {
     const error: ApiError = {
       error: true,
@@ -163,13 +165,15 @@ const getListingById = async (req: any, res: any) => {
       return res.status(404).json(error);
     }
 
+    const responseBody = { listing };
+
     if (isDev) {
       res.setHeader('X-Data-Provider', providerUsed);
       if (fallbackUsed) {
         res.setHeader('X-Data-Provider-Fallback', 'true');
       }
     }
-    res.json({ listing });
+    res.json(responseBody);
   } catch (err: any) {
     const error: ApiError = {
       error: true,
