@@ -263,7 +263,7 @@ export default function Map({
   ]);
 
   useEffect(() => {
-    const map = mapRef.current;
+    const map = mapInstance || mapRef.current;
     if (!map || !onBoundsChange) return;
 
     const emitBounds = () => {
@@ -287,7 +287,7 @@ export default function Map({
       map.off("moveend", emitBounds);
       map.off("zoomend", emitBounds);
     };
-  }, [onBoundsChange]);
+  }, [mapInstance, onBoundsChange]);
 
   return (
     <div className="h-full w-full relative z-0">

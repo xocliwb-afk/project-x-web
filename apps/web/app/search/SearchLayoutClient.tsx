@@ -47,11 +47,16 @@ export default function SearchLayoutClient({
   const [listings, setListings] = useState<Listing[]>(initialListings);
   const [pagination, setPagination] =
     useState<PaginatedListingsResponse['pagination']>(initialPagination);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [isAwaitingBounds, setIsAwaitingBounds] = useState<boolean>(
+    () => !Boolean(searchParams.get('bbox')),
+  );
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasCompletedInitialFetch = useRef(false);
+  const requestIdRef = useRef(0);
+  const activeControllerRef = useRef<AbortController | null>(null);
 
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
@@ -62,6 +67,7 @@ export default function SearchLayoutClient({
     pagination?.total ??
     pagination?.pageCount ??
     listings.length;
+  const effectiveLoading = isLoading || isAwaitingBounds || !hasFetchedOnce;
 
   const parsedParams = useMemo<FetchListingsParams>(() => {
     const getNumber = (key: string) => {
@@ -117,42 +123,92 @@ export default function SearchLayoutClient({
   );
 
   useEffect(() => {
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
+    const parsed: FetchListingsParams = JSON.parse(paramsKey);
+    const hasBbox =
+      Boolean(parsed.bbox) ||
+      (parsed.swLat != null &&
+        parsed.swLng != null &&
+        parsed.neLat != null &&
+        parsed.neLng != null);
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[SearchLayoutClient] fetch effect params', {
+        parsed,
+        hasBbox,
+      });
     }
 
-    const parsed: FetchListingsParams = JSON.parse(paramsKey);
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+      fetchTimeoutRef.current = null;
+    }
+
+    if (!hasBbox) {
+      setIsAwaitingBounds(true);
+      if (activeControllerRef.current) {
+        activeControllerRef.current.abort();
+        activeControllerRef.current = null;
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    setIsAwaitingBounds(false);
+    setIsLoading(true);
+
+    if (activeControllerRef.current) {
+      activeControllerRef.current.abort();
+    }
+
     const controller = new AbortController();
+    const requestId = ++requestIdRef.current;
+    activeControllerRef.current = controller;
 
     fetchTimeoutRef.current = setTimeout(async () => {
-      if (hasCompletedInitialFetch.current) {
-        setIsLoading(true);
-      }
+      setIsLoading(true);
       try {
         const { results, pagination: newPagination } = await fetchListings(
           parsed,
           controller.signal,
         );
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || requestId !== requestIdRef.current) return;
         setListings(results);
         setPagination(newPagination);
         setError(null);
+
+        if (process.env.NODE_ENV !== 'production') {
+          const derivedBbox =
+            parsed.bbox ??
+            (parsed.swLng != null &&
+            parsed.swLat != null &&
+            parsed.neLng != null &&
+            parsed.neLat != null
+              ? `${parsed.swLng},${parsed.swLat},${parsed.neLng},${parsed.neLat}`
+              : 'n/a');
+          console.log(
+            `[SearchLayoutClient] fetched ${results.length} listings for bbox=${derivedBbox}`,
+          );
+        }
       } catch (err) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || requestId !== requestIdRef.current) return;
         console.error('[SearchLayoutClient] failed to fetch listings', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch listings');
       } finally {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && requestId === requestIdRef.current) {
           setIsLoading(false);
-          hasCompletedInitialFetch.current = true;
+          setHasFetchedOnce(true);
         }
       }
     }, 400);
 
     return () => {
       controller.abort();
+      if (activeControllerRef.current === controller) {
+        activeControllerRef.current = null;
+      }
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
+        fetchTimeoutRef.current = null;
       }
     };
   }, [paramsKey]);
@@ -184,6 +240,9 @@ export default function SearchLayoutClient({
   const listPaneClass = mapSide === 'left' ? rightPaneClass : leftPaneClass;
 
   const handleBoundsChange = useCallback((bounds: MapBounds) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[SearchLayoutClient] handleBoundsChange', bounds);
+    }
     setMapBounds((prev) => {
       if (
         prev &&
@@ -264,7 +323,7 @@ export default function SearchLayoutClient({
               <div className="h-full overflow-y-auto px-4 pt-4 pb-6">
                 <ListingsList
                   listings={listings}
-                  isLoading={isLoading}
+                  isLoading={effectiveLoading}
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
                   onHoverListing={(id) => setHoveredListingId(id)}
@@ -307,11 +366,18 @@ export default function SearchLayoutClient({
                       Homes for sale
                     </h2>
                     <p className="text-sm text-text-main/70">
-                      {isLoading ? 'Loading...' : `${resultCount.toLocaleString()} results`}
+                      {effectiveLoading
+                        ? 'Loading...'
+                        : `${resultCount.toLocaleString()} results`}
                     </p>
                     {error && (
                       <p className="text-xs text-red-500">
                         Unable to refresh listings. Please try again.
+                      </p>
+                    )}
+                    {isAwaitingBounds && (
+                      <p className="text-xs text-text-main/70">
+                        Move the map to load listings.
                       </p>
                     )}
                   </div>
@@ -320,7 +386,7 @@ export default function SearchLayoutClient({
                 <div className="flex-1 p-4">
                   <ListingsList
                     listings={listings}
-                    isLoading={isLoading}
+                    isLoading={effectiveLoading}
                     selectedListingId={selectedListingId}
                     hoveredListingId={hoveredListingId}
                     onHoverListing={(id) => setHoveredListingId(id)}
