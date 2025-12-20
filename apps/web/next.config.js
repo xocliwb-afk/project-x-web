@@ -22,6 +22,16 @@ const nextConfig = {
         hostname: 's3-us-west-2.amazonaws.com',
         pathname: '/cdn.simplyrets.com/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'cdn.photos.sparkplatform.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.simplyrets.com',
+        pathname: '/**',
+      },
     ],
   },
   async rewrites() {
