@@ -7,6 +7,15 @@ function stripTrailingSlash(url: string): string {
 
 let loggedDefault = false;
 let loggedChoice = false;
+let warnedRemoteMismatch = false;
+
+function isLocalhost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "0.0.0.0" ||
+    hostname.startsWith("127.")
+  );
+}
 
 export function getApiBaseUrl(): string {
   const isDev = process.env.NODE_ENV !== "production";
@@ -19,6 +28,20 @@ export function getApiBaseUrl(): string {
     if (isDev && !loggedChoice) {
       console.log(`[api-client] Using NEXT_PUBLIC_API_BASE_URL=${stripTrailingSlash(explicit)}`);
       loggedChoice = true;
+    }
+    if (isDev && !isServer && !warnedRemoteMismatch) {
+      try {
+        const url = new URL(stripTrailingSlash(explicit), window.location.origin);
+        const browserHost = window.location.hostname;
+        if (isLocalhost(browserHost) && !isLocalhost(url.hostname)) {
+          console.warn(
+            `[api-client] NEXT_PUBLIC_API_BASE_URL points to ${url.hostname} while the app is served from localhost. Ensure that host is reachable on your network or unset the env to use the proxy.`
+          );
+          warnedRemoteMismatch = true;
+        }
+      } catch {
+        // ignore invalid URLs and do not block rendering
+      }
     }
     return stripTrailingSlash(explicit);
   }
