@@ -12,6 +12,7 @@ interface MapLensPanePortalProps {
   onHoverListing?: (id: string | null) => void;
   onSelectListing?: (id: string | null) => void;
   mapSide?: "left" | "right";
+  mapSplitX?: number;
 }
 
 export function MapLensPanePortal({
@@ -19,6 +20,7 @@ export function MapLensPanePortal({
   onHoverListing,
   onSelectListing,
   mapSide,
+  mapSplitX,
 }: MapLensPanePortalProps) {
   const { activeClusterData, dismissLens } = useMapLensStore((s) => ({
     activeClusterData: s.activeClusterData,
@@ -142,6 +144,7 @@ export function MapLensPanePortal({
       onHoverListing={onHoverListing}
       onSelectListing={onSelectListing}
       mapSide={mapSide}
+      mapSplitX={mapSplitX}
     />,
     containerRef.current
   );

@@ -7,6 +7,7 @@ type LensPreviewPanelProps = {
   anchor: { x: number; y: number };
   lensDiameter: number;
   mapSide?: "left" | "right";
+  mapSplitX?: number;
   onViewDetails: () => void;
 };
 
@@ -23,6 +24,7 @@ export function LensPreviewPanel({
   anchor,
   lensDiameter,
   mapSide = "left",
+  mapSplitX,
   onViewDetails,
 }: LensPreviewPanelProps) {
   const [viewport, setViewport] = useState<{ width: number; height: number }>({
@@ -43,16 +45,30 @@ export function LensPreviewPanel({
     const previewWidth = 320;
     const previewHeight = 240;
     const gutter = 12;
+    const overlapAllowance = 32;
+    const padding = 8;
     const radius = lensDiameter / 2;
+    const split = mapSplitX ?? viewport.width / 2;
 
-    let left =
+    let desiredLeft =
       mapSide === "left"
         ? anchor.x + radius + gutter
         : anchor.x - radius - gutter - previewWidth;
 
-    const minLeft = 8;
-    const maxLeft = viewport.width - previewWidth - 8;
-    left = Math.max(minLeft, Math.min(maxLeft, left));
+    let minLeft: number;
+    let maxLeft: number;
+
+    if (mapSide === "left") {
+      // list on the right
+      minLeft = split - overlapAllowance;
+      maxLeft = viewport.width - previewWidth - padding;
+    } else {
+      // list on the left
+      minLeft = padding;
+      maxLeft = split - previewWidth + overlapAllowance;
+    }
+
+    let left = Math.max(minLeft, Math.min(maxLeft, desiredLeft));
 
     let top = anchor.y - previewHeight / 2;
     const minTop = 8;

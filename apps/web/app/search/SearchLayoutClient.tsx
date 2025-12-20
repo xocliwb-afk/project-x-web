@@ -54,6 +54,8 @@ export default function SearchLayoutClient({
   const [isAwaitingBounds, setIsAwaitingBounds] = useState<boolean>(
     () => !Boolean(searchParams.get('bbox')),
   );
+  const mapPaneRef = useRef<HTMLDivElement | null>(null);
+  const [mapSplitX, setMapSplitX] = useState<number | null>(null);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
   const activeControllerRef = useRef<AbortController | null>(null);
@@ -274,6 +276,22 @@ export default function SearchLayoutClient({
     }, 200);
   };
 
+  useEffect(() => {
+    const updateSplit = () => {
+      if (!mapPaneRef.current) return;
+      const rect = mapPaneRef.current.getBoundingClientRect();
+      const splitX = mapSide === 'left' ? rect.right : rect.left;
+      setMapSplitX(splitX);
+    };
+    updateSplit();
+    window.addEventListener('resize', updateSplit);
+    window.addEventListener('scroll', updateSplit, true);
+    return () => {
+      window.removeEventListener('resize', updateSplit);
+      window.removeEventListener('scroll', updateSplit, true);
+    };
+  }, [mapSide]);
+
   const ToggleButton = ({
     mode,
     children,
@@ -347,7 +365,10 @@ export default function SearchLayoutClient({
           >
             {/* Map Column */}
             <div className={`relative min-w-0 ${mapPaneClass}`}>
-              <div className="sticky top-24 h-[calc(100vh-120px)] overflow-hidden rounded-lg border border-border">
+              <div
+                ref={mapPaneRef}
+                className="sticky top-24 h-[calc(100vh-120px)] overflow-hidden rounded-lg border border-border"
+              >
                 <MapPanel
                   listings={listings}
                   selectedListingId={selectedListingId}
@@ -355,6 +376,7 @@ export default function SearchLayoutClient({
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
                   mapSide={mapSide}
+                  mapSplitX={mapSplitX ?? undefined}
                 />
               </div>
             </div>

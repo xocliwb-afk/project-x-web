@@ -16,6 +16,7 @@ type MapLensProps = {
   onSelectListing?: (id: string | null) => void;
   isMobile?: boolean;
   mapSide?: "left" | "right";
+  mapSplitX?: number;
 };
 
 const formatPriceCompact = (price: number | null | undefined) => {
@@ -26,7 +27,13 @@ const formatPriceCompact = (price: number | null | undefined) => {
   }).format(price);
 };
 
-export function MapLens({ onHoverListing, onSelectListing, isMobile, mapSide = "left" }: MapLensProps) {
+export function MapLens({
+  onHoverListing,
+  onSelectListing,
+  isMobile,
+  mapSide = "left",
+  mapSplitX,
+}: MapLensProps) {
   const activeClusterData = useMapLensStore((s) => s.activeClusterData);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const isLocked = useMapLensStore((s) => s.isLocked);
@@ -105,26 +112,23 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile, mapSide = "
   }, []);
 
   useEffect(() => {
-    if (!visible || !lensRef.current) return;
+    if (!visible) return;
     const updateAnchor = () => {
       if (!lensRef.current) return;
-      const rect = lensRef.current.getBoundingClientRect();
-      setAnchorCenter({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      window.requestAnimationFrame(() => {
+        if (!lensRef.current) return;
+        const rect = lensRef.current.getBoundingClientRect();
+        setAnchorCenter({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      });
     };
-    let frame = 0;
-    const loop = () => {
-      updateAnchor();
-      frame = window.requestAnimationFrame(loop);
-    };
-    loop();
+    updateAnchor();
     window.addEventListener("resize", updateAnchor);
+    window.addEventListener("scroll", updateAnchor, true);
     return () => {
       window.removeEventListener("resize", updateAnchor);
-      if (frame) {
-        window.cancelAnimationFrame(frame);
-      }
+      window.removeEventListener("scroll", updateAnchor, true);
     };
-  }, [visible, lensDiameter]);
+  }, [visible, lensDiameter, activeClusterData]);
 
   const handleDismiss = useCallback(() => {
     setFocusedListingId(null);
@@ -317,6 +321,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile, mapSide = "
             anchor={anchorCenter}
             lensDiameter={lensDiameter}
             mapSide={mapSide}
+            mapSplitX={mapSplitX}
             onViewDetails={() => {
               onSelectListing?.(previewListing.id);
               goToListing(previewListing.id);
