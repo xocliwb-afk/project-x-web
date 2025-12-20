@@ -45,6 +45,7 @@ export function MapLens({
   const focusedListingId = useMapLensStore((s) => s.focusedListingId);
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const lensRef = useRef<HTMLDivElement | null>(null);
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const mobileDetected = useIsMobile();
 
@@ -141,22 +142,56 @@ export function MapLens({
   }, [activeClusterData]);
 
   useEffect(() => {
+    if (process.env.NODE_ENV !== "production" && activeClusterData) {
+      console.log("[MapLens] open", {
+        clusterListings: activeClusterData.listings.length,
+        bounds: activeClusterData.bounds,
+      });
+    }
+  }, [activeClusterData]);
+
+  useEffect(() => {
+    if (!visible) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         handleDismiss();
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
+    const onPointerDown = (e: Event) => {
+      const target = e.target as Node | null;
+      const lensEl = lensRef.current;
+      const previewEl = previewRef.current;
+      if (!lensEl || !target) return;
+      const insideLens = lensEl.contains(target);
+      const insidePreview = previewEl ? previewEl.contains(target) : false;
+      if (!insideLens && !insidePreview) {
+        handleDismiss();
+      }
     };
-  }, [handleDismiss]);
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("mousedown", onPointerDown, true);
+    document.addEventListener("touchstart", onPointerDown, true);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("mousedown", onPointerDown, true);
+      document.removeEventListener("touchstart", onPointerDown, true);
+    };
+  }, [handleDismiss, visible]);
 
   const focusedListing = useMemo(
     () => sortedAllListings.find((l) => l.id === focusedListingId) ?? null,
     [sortedAllListings, focusedListingId]
   );
   const previewListing = focusedListing ?? sortedAllListings[0] ?? null;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" && previewListing) {
+      console.log("[MapLens] preview listing", {
+        focusedListingId,
+        previewId: previewListing.id,
+      });
+    }
+  }, [focusedListingId, previewListing]);
 
   const lensTransitionClass =
     "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]";
@@ -293,12 +328,7 @@ export function MapLens({
         <div
           style={{ width: lensDiameter, height: lensDiameter }}
           className="relative rounded-full overflow-hidden border-2 border-border/70 bg-surface/10 shadow-2xl backdrop-blur-lg"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!isLocked && e.target === e.currentTarget) {
-              handleDismiss();
-            }
-          }}
+          onClick={(e) => e.stopPropagation()}
         >
           {process.env.NODE_ENV !== "production" && (
             <div className="absolute left-2 top-2 z-10 rounded bg-black/40 px-2 py-1 text-[11px] text-white leading-tight pointer-events-none">
@@ -327,6 +357,18 @@ export function MapLens({
             }}
           />
         </div>
+        {!isMobileView && (
+          <button
+            type="button"
+            className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-sm font-bold text-text-main shadow hover:brightness-95"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDismiss();
+            }}
+          >
+            ×
+          </button>
+        )}
 
         {previewListing && anchorCenter && (
           <LensPreviewPanel
@@ -335,6 +377,7 @@ export function MapLens({
             lensDiameter={lensDiameter}
             mapSide={mapSide}
             mapSplitX={mapSplitX}
+            panelRef={previewRef}
             onViewDetails={() => {
               onSelectListing?.(previewListing.id);
               goToListing(previewListing.id);

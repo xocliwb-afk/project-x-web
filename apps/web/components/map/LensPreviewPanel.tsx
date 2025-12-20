@@ -9,6 +9,7 @@ type LensPreviewPanelProps = {
   mapSide?: "left" | "right";
   mapSplitX?: number;
   onViewDetails: () => void;
+  panelRef?: React.RefObject<HTMLDivElement>;
 };
 
 const formatPriceCompact = (price: number | null | undefined) => {
@@ -26,6 +27,7 @@ export function LensPreviewPanel({
   mapSide = "left",
   mapSplitX,
   onViewDetails,
+  panelRef,
 }: LensPreviewPanelProps) {
   const [viewport, setViewport] = useState<{ width: number; height: number }>({
     width: typeof window !== "undefined" ? window.innerWidth : 1440,
@@ -106,6 +108,7 @@ export function LensPreviewPanel({
 
   return (
     <div
+      ref={panelRef as any}
       className="fixed z-[1050] overflow-hidden rounded-2xl border border-border/60 bg-white shadow-2xl"
       style={style}
       onClick={(e) => e.stopPropagation()}

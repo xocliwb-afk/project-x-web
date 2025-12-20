@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { NormalizedListing } from "@project-x/shared-types";
 import { useMapLensStore } from "@/stores/useMapLensStore";
+import { useRef } from "react";
 
 type LensMiniMapProps = {
   center: [number, number];
@@ -40,6 +41,7 @@ function FitBounds({ bounds }: { bounds?: L.LatLngBounds | null }) {
 
 export function LensMiniMap({ center, listings, bounds, onMarkerClick }: LensMiniMapProps) {
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const listingsWithCoords = listings.filter(
     (l): l is NormalizedListing & { address: { lat: number; lng: number } } =>
@@ -53,11 +55,23 @@ export function LensMiniMap({ center, listings, bounds, onMarkerClick }: LensMin
       ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
       : center;
 
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+    const el = wrapperRef.current;
+    if ((L as any).DomEvent) {
+      L.DomEvent.disableClickPropagation(el);
+      L.DomEvent.disableScrollPropagation(el);
+    }
+  }, []);
+
   return (
     <div
       className="w-full h-full"
+      ref={wrapperRef}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
     >
       <MapContainer
         center={effectiveCenter}
