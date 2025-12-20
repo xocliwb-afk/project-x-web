@@ -54,33 +54,39 @@ export function LensMiniMap({ center, listings, bounds, onMarkerClick }: LensMin
       : center;
 
   return (
-    <MapContainer
-      center={effectiveCenter}
-      zoom={15}
-      style={{ width: "100%", height: "100%" }}
-      dragging={false}
-      scrollWheelZoom={false}
-      doubleClickZoom={false}
-      touchZoom={false}
-      zoomControl={false}
-      keyboard={false}
-      attributionControl={false}
+    <div
+      className="w-full h-full"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     >
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      {bounds && <FitBounds bounds={bounds} />}
-      {listingsWithCoords.map((listing) => (
-        <Marker
-          key={listing.id}
-          position={[listing.address.lat, listing.address.lng]}
-          icon={DefaultIcon}
-          eventHandlers={{
-            click: () => {
-              setFocusedListingId(listing.id);
-              onMarkerClick(listing);
-            },
-          }}
-        />
-      ))}
-    </MapContainer>
+      <MapContainer
+        center={effectiveCenter}
+        zoom={15}
+        style={{ width: "100%", height: "100%" }}
+        dragging={false}
+        scrollWheelZoom={false}
+        doubleClickZoom={false}
+        touchZoom={false}
+        zoomControl={false}
+        keyboard={false}
+        attributionControl={false}
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {bounds && <FitBounds bounds={bounds} />}
+        {listingsWithCoords.map((listing) => (
+          <Marker
+            key={listing.id}
+            position={[listing.address.lat, listing.address.lng]}
+            icon={DefaultIcon}
+            eventHandlers={{
+              click: () => {
+                setFocusedListingId(listing.id);
+                onMarkerClick(listing);
+              },
+            }}
+          />
+        ))}
+      </MapContainer>
+    </div>
   );
 }

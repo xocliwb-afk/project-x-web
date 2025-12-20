@@ -295,7 +295,7 @@ export function MapLens({
           className="relative rounded-full overflow-hidden border-2 border-border/70 bg-surface/10 shadow-2xl backdrop-blur-lg"
           onClick={(e) => {
             e.stopPropagation();
-            if (!isLocked) {
+            if (!isLocked && e.target === e.currentTarget) {
               handleDismiss();
             }
           }}
