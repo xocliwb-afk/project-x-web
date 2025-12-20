@@ -93,7 +93,7 @@ export default function Map({
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const lensOpen = useMapLensStore((s) => Boolean(s.activeClusterData));
   const router = useRouter();
-  const { cancelHover, openImmediate, scheduleHover } = useMapLens();
+  const { cancelHover, openImmediate } = useMapLens();
   const isMobile = useIsMobile();
   const overlayOpen = lensOpen || Boolean(previewListing);
   const longPressTargetRef = useRef<{
@@ -141,37 +141,18 @@ export default function Map({
     [],
   );
 
-  const handleClusterMouseOver = useCallback(
-    (e: LeafletEvent) => {
-      if (overlayOpen) return;
-      const cluster = e.layer as L.MarkerCluster;
-      const listingsForCluster = getClusterListings(cluster);
-      const latLng = cluster.getLatLng();
-      longPressTargetRef.current = null;
-      longPressTriggeredRef.current = false;
-      scheduleHover(listingsForCluster, latLng);
-    },
-    [getClusterListings, overlayOpen, scheduleHover],
-  );
-
   const handleClusterPointerLeave = useCallback(
     (e?: any) => {
+      if (overlayOpen) return;
       const oe = e?.originalEvent as PointerEvent | undefined;
       if (oe) {
         longPressHandlers.onPointerLeave(oe);
       }
       longPressTargetRef.current = null;
       longPressTriggeredRef.current = false;
-      cancelHover(true);
+      cancelHover(false);
     },
-    [cancelHover, longPressHandlers],
-  );
-
-  const handleClusterMouseOut = useCallback(
-    (_e: LeafletEvent) => {
-      handleClusterPointerLeave();
-    },
-    [handleClusterPointerLeave],
+    [cancelHover, longPressHandlers, overlayOpen],
   );
 
   const handleClusterPointerDown = useCallback(
@@ -252,16 +233,12 @@ export default function Map({
     const layer = clusterRef.current;
     if (!layer) return;
 
-    const onOver = (e: LeafletEvent) => handleClusterMouseOver(e);
-    const onOut = (e: LeafletEvent) => handleClusterMouseOut(e);
     const onClick = (e: LeafletEvent) => handleClusterClick(e);
     const onMouseDown = (e: LeafletEvent) => handleClusterPointerDown(e);
     const onMouseMove = (e: LeafletEvent) => handleClusterPointerMove(e);
     const onMouseUp = (e: LeafletEvent) => handleClusterPointerUp(e);
     const onTouchEnd = (e: LeafletEvent) => handleClusterPointerUp(e);
     const onTouchMove = (e: LeafletEvent) => handleClusterPointerLeave(e);
-    layer.on("clustermouseover", onOver);
-    layer.on("clustermouseout", onOut);
     layer.on("clusterclick", onClick);
     layer.on("clustermousedown", onMouseDown);
     layer.on("clustermousemove", onMouseMove);
@@ -270,19 +247,15 @@ export default function Map({
     layer.on("clustertouchmove", onTouchMove);
 
     return () => {
-      layer.off("clustermouseover", onOver);
-      layer.off("clustermouseout", onOut);
-    layer.off("clusterclick", onClick);
-    layer.off("clustermousedown", onMouseDown);
-    layer.off("clustermousemove", onMouseMove);
-    layer.off("clustermouseup", onMouseUp);
-    layer.off("clustertouchend", onTouchEnd);
-    layer.off("clustertouchmove", onTouchMove);
+      layer.off("clusterclick", onClick);
+      layer.off("clustermousedown", onMouseDown);
+      layer.off("clustermousemove", onMouseMove);
+      layer.off("clustermouseup", onMouseUp);
+      layer.off("clustertouchend", onTouchEnd);
+      layer.off("clustertouchmove", onTouchMove);
     };
   }, [
     handleClusterClick,
-    handleClusterMouseOut,
-    handleClusterMouseOver,
     handleClusterPointerDown,
     handleClusterPointerLeave,
     handleClusterPointerMove,
