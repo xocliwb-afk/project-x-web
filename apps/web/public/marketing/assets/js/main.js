@@ -195,6 +195,96 @@ document.addEventListener('DOMContentLoaded', () => {
     return copy;
   };
 
+  const NEIGHBORHOODS = [
+    {
+      slug: 'grand-rapids',
+      name: 'Grand Rapids',
+      description:
+        'City neighborhoods with walkable amenities, historic homes, and ongoing revitalization projects.',
+      image: 'GR_Hero.webp',
+    },
+    {
+      slug: 'ada',
+      name: 'Ada',
+      description:
+        'Riverside living, village conveniences, and estate-style homes with room to breathe.',
+      image: 'Ada_Hero.webp',
+    },
+    {
+      slug: 'byron-center',
+      name: 'Byron Center',
+      description:
+        'Popular new-construction corridors, community parks, and easy access to regional employers.',
+      image: 'Byron_Center_Hero.webp',
+    },
+    {
+      slug: 'caledonia',
+      name: 'Caledonia',
+      description:
+        'Growth-friendly schools, newer subdivisions, and open spaces with quick routes to GR.',
+      image: 'Caledonia_Hero.webp',
+    },
+    {
+      slug: 'east-grand-rapids',
+      name: 'East Grand Rapids',
+      description:
+        'Tree-lined streets, Reeds Lake access, and a tight-knit community vibe near downtown.',
+      image: 'EGR_Hero.webp',
+    },
+    {
+      slug: 'grandville',
+      name: 'Grandville',
+      description:
+        'Established neighborhoods, retail conveniences, and commuter-friendly access to the metro area.',
+      image: 'Grandville_Hero.webp',
+    },
+    {
+      slug: 'kentwood',
+      name: 'Kentwood',
+      description:
+        'Diverse housing options, parks, and quick access to the airport, 131, and 96 corridors.',
+      image: 'Kentwood_Hero.webp',
+    },
+    {
+      slug: 'rockford',
+      name: 'Rockford',
+      description:
+        'River town character, trail access, and a mix of historic downtown and newer builds.',
+      image: 'Rockford_Hero.webp',
+    },
+    {
+      slug: 'wyoming',
+      name: 'Wyoming',
+      description:
+        'Convenient west-side hub with parks, shopping, and steady-value neighborhoods.',
+      image: 'Wyoming_Hero.webp',
+    },
+  ];
+
+  const renderFeaturedNeighborhoods = () => {
+    const grid = document.querySelector('.neighborhood-grid--featured');
+    if (!grid) return;
+    const picks = shuffle([...NEIGHBORHOODS]).slice(0, 4);
+    const html = picks
+      .map((n) => {
+        const slug = escapeHtml(n.slug);
+        const name = escapeHtml(n.name);
+        const desc = escapeHtml(n.description);
+        const image = escapeHtml(n.image);
+        return `
+          <a class="area-card" href="${slug}.html" role="listitem">
+            <div class="area-card__image" style="background-image:url('./assets/img/${image}');"></div>
+            <div class="area-card__body">
+              <h3>${name}</h3>
+              <p>${desc}</p>
+            </div>
+          </a>
+        `;
+      })
+      .join('');
+    grid.innerHTML = html;
+  };
+
   const formatNumber = (num) =>
     typeof num === "number" && Number.isFinite(num) ? num.toLocaleString() : "—";
 
@@ -362,6 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   loadFeaturedListings();
+  renderFeaturedNeighborhoods();
   updateHeroTheme();
   setInterval(updateHeroTheme, 5 * 60 * 1000);
 });
