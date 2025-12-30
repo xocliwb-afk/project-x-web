@@ -27,7 +27,6 @@ type ActiveFilter =
   | "beds"
   | "baths"
   | "propertyType"
-  | "sort"
   | "more";
 
 const chipBase =
@@ -112,7 +111,6 @@ export default function SearchFiltersBar() {
   const [propertyType, setPropertyType] = useState(
     searchParams.get("propertyType") || ""
   );
-  const [sort, setSort] = useState(searchParams.get("sort") || "");
   const [minSqft, setMinSqft] = useState(searchParams.get("minSqft") || "");
   const [maxSqft, setMaxSqft] = useState(searchParams.get("maxSqft") || "");
   const [minYearBuilt, setMinYearBuilt] = useState(
@@ -170,8 +168,6 @@ export default function SearchFiltersBar() {
     if (nextMinBaths !== minBaths) setMinBaths(nextMinBaths);
     const nextPropertyType = searchParams.get("propertyType") || "";
     if (nextPropertyType !== propertyType) setPropertyType(nextPropertyType);
-    const nextSort = searchParams.get("sort") || "";
-    if (nextSort !== sort) setSort(nextSort);
     const nextMinSqft = searchParams.get("minSqft") || "";
     if (nextMinSqft !== minSqft) setMinSqft(nextMinSqft);
     const nextMaxSqft = searchParams.get("maxSqft") || "";
@@ -197,7 +193,6 @@ export default function SearchFiltersBar() {
     minYearBuilt,
     propertyType,
     searchParams,
-    sort,
     text,
   ]);
 
@@ -243,10 +238,6 @@ export default function SearchFiltersBar() {
     setPropertyType("");
     updateParams({ propertyType: null });
   };
-  const clearSort = () => {
-    setSort("");
-    updateParams({ sort: null });
-  };
   const clearMore = () => {
     setMinSqft("");
     setMaxSqft("");
@@ -276,8 +267,6 @@ export default function SearchFiltersBar() {
   const bedsLabel = minBeds ? `${minBeds}+ Beds` : "Beds";
   const bathsLabel = minBaths ? `${minBaths}+ Baths` : "Baths";
   const typeLabel = propertyType || "Home Type";
-  const sortLabel =
-    SORT_OPTIONS.find((opt) => opt.value === sort)?.label || "Sort";
 
   const moreActive =
     minSqft ||
@@ -417,34 +406,6 @@ export default function SearchFiltersBar() {
             }}
             className={`rounded border border-border px-2 py-1 text-center text-sm ${
               minBaths === opt.value ? "bg-orange-500 text-white" : ""
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderSortDropdown = () => (
-    <div className="w-64 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
-      <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
-        <span className="font-semibold uppercase tracking-wider">Sort</span>
-        <button onClick={clearSort} className="text-orange-500">
-          Clear
-        </button>
-      </div>
-      <div className="flex flex-col gap-1">
-        {SORT_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => {
-              setSort(opt.value);
-              updateParams({ sort: opt.value });
-              setActiveFilter(null);
-            }}
-            className={`rounded px-2 py-1 text-left transition ${
-              sort === opt.value ? "bg-orange-500 text-white" : "hover:bg-white/10"
             }`}
           >
             {opt.label}
@@ -663,16 +624,6 @@ export default function SearchFiltersBar() {
           </button>
           <button
             ref={(el) => {
-              chipRefs.current.sort = el;
-            }}
-            type="button"
-            onClick={() => openFilter("sort", "sort")}
-            className={`${chipBase} ${sort ? chipActive : chipInactive}`}
-          >
-            {sortLabel}
-          </button>
-          <button
-            ref={(el) => {
               chipRefs.current.more = el;
             }}
             type="button"
@@ -693,9 +644,89 @@ export default function SearchFiltersBar() {
           {activeFilter === "price" && renderPriceDropdown()}
           {activeFilter === "beds" && renderBedsDropdown()}
           {activeFilter === "baths" && renderBathsDropdown()}
-          {activeFilter === "sort" && renderSortDropdown()}
           {activeFilter === "propertyType" && renderPropertyTypeDropdown()}
           {activeFilter === "more" && renderMoreDropdown()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SortButton() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const sort = searchParams.get("sort") || "";
+  const sortLabel =
+    SORT_OPTIONS.find((opt) => opt.value === sort)?.label || "Sort";
+
+  const updateSort = (value: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set("sort", value);
+    } else {
+      params.delete("sort");
+    }
+    startTransition(() => {
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    });
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const baseClasses =
+    "h-10 flex items-center rounded-full border px-4 text-sm font-semibold transition-colors whitespace-nowrap";
+  const activeClasses = "border-orange-500 bg-orange-500 text-white";
+  const inactiveClasses =
+    "border-slate-200 bg-white hover:bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800";
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        className={`${baseClasses} ${sort ? activeClasses : inactiveClasses}`}
+        onClick={() => setOpen((prev) => !prev)}
+        disabled={isPending}
+      >
+        {sortLabel}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+          <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
+            <span className="font-semibold uppercase tracking-wider">Sort</span>
+            <button onClick={() => updateSort(null)} className="text-orange-500">
+              Clear
+            </button>
+          </div>
+          <div className="flex flex-col gap-1">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  updateSort(opt.value);
+                  setOpen(false);
+                }}
+                className={`rounded px-2 py-1 text-left transition ${
+                  sort === opt.value ? "bg-orange-500 text-white" : "hover:bg-white/10"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
