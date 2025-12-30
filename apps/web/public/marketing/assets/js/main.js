@@ -266,12 +266,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`/api/listings?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch listings");
       const json = await res.json();
-      const listings = Array.isArray(json?.data) ? json.data : [];
+      const listings = Array.isArray(json?.results)
+        ? json.results
+        : Array.isArray(json?.data)
+        ? json.data
+        : [];
 
       const filtered = listings.filter((listing) => {
         const rawPrice = Number(listing?.listPrice ?? listing?.price ?? 0);
-        const status = String(listing?.details?.status || listing?.status || "").toUpperCase();
-        return Number.isFinite(rawPrice) && rawPrice >= 300000 && status === "FOR_SALE";
+        const statusRaw = String(listing?.details?.status || listing?.status || "")
+          .trim()
+          .toUpperCase();
+
+        const isSoldish =
+          statusRaw.includes("SOLD") || statusRaw.includes("CLOSED") || statusRaw.includes("PENDING");
+        const isForSale =
+          statusRaw === "FOR_SALE" || statusRaw === "ACTIVE" || statusRaw.includes("ACTIVE");
+
+        return Number.isFinite(rawPrice) && rawPrice >= 300000 && isForSale && !isSoldish;
       });
 
       const selected = shuffle(filtered).slice(0, 8);
