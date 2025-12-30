@@ -20,13 +20,18 @@ export default function LeadForm({
   onSuccess,
   onCancel,
 }: LeadFormProps) {
+  const initialMessage = listingAddress
+    ? `I'm interested in ${listingAddress}`
+    : "I'm interested in this property.";
+
   const [formState, setFormState] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
-    message: listingAddress
-      ? `I'm interested in ${listingAddress}`
-      : "I'm interested in this property.",
+    interest: "",
+    preferredArea: "",
+    message: initialMessage,
   });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
@@ -34,7 +39,7 @@ export default function LeadForm({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleChange = (
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = event.target;
     setFormState((prev) => ({ ...prev, [name]: value }));
@@ -46,13 +51,27 @@ export default function LeadForm({
     setErrorMessage(null);
 
     const hasListing = Boolean(listingId);
+    const fullName = `${formState.firstName.trim()} ${formState.lastName.trim()}`.trim();
+    const lines: string[] = [];
+    const userMessage = formState.message.trim();
+    if (userMessage) {
+      lines.push(userMessage);
+      lines.push("");
+    }
+    lines.push("---");
+    lines.push(`Interest: ${formState.interest}`);
+    if (formState.preferredArea.trim()) {
+      lines.push(`Preferred area: ${formState.preferredArea.trim()}`);
+    }
+    const finalMessage: string | undefined = lines.join("\n") || undefined;
+
     const payload: LeadSubmitPayload = {
       ...(hasListing ? { listingId } : {}),
       listingAddress,
-      name: formState.name.trim(),
+      name: fullName,
       email: formState.email.trim(),
       phone: formState.phone.trim() || undefined,
-      message: formState.message.trim() || undefined,
+      message: finalMessage,
       brokerId: DEFAULT_BROKER_ID,
       agentId: DEFAULT_AGENT_ID,
       source: hasListing ? "listing-pdp" : "global-cta",
@@ -67,12 +86,13 @@ export default function LeadForm({
 
       setStatus("success");
       setFormState({
-        name: "",
+        firstName: "",
+        lastName: "",
         email: "",
         phone: "",
-        message: listingAddress
-          ? `I'm interested in ${listingAddress}`
-          : "I'm interested in this property.",
+        interest: "",
+        preferredArea: "",
+        message: initialMessage,
       });
       onSuccess?.();
     } catch (error: any) {
@@ -104,15 +124,26 @@ export default function LeadForm({
       </div>
 
       <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
-        <input
-          type="text"
-          name="name"
-          required
-          value={formState.name}
-          onChange={handleChange}
-          className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
-          placeholder="Name"
-        />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <input
+            type="text"
+            name="firstName"
+            required
+            value={formState.firstName}
+            onChange={handleChange}
+            className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
+            placeholder="First Name"
+          />
+          <input
+            type="text"
+            name="lastName"
+            required
+            value={formState.lastName}
+            onChange={handleChange}
+            className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Last Name"
+          />
+        </div>
         <input
           type="email"
           name="email"
@@ -129,6 +160,29 @@ export default function LeadForm({
           onChange={handleChange}
           className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
           placeholder="Phone"
+        />
+        <select
+          name="interest"
+          required
+          value={formState.interest}
+          onChange={handleChange}
+          className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="" disabled>
+            Select interest
+          </option>
+          <option value="Buying">Buying</option>
+          <option value="Selling">Selling</option>
+          <option value="Building / Renovation">Building / Renovation</option>
+          <option value="Other">Other</option>
+        </select>
+        <input
+          type="text"
+          name="preferredArea"
+          value={formState.preferredArea}
+          onChange={handleChange}
+          className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
+          placeholder="Preferred Area (optional)"
         />
         <textarea
           name="message"
