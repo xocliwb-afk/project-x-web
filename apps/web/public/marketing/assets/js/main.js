@@ -117,24 +117,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const slugify = (str = '') => str.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-  document.querySelectorAll('[data-open-modal]').forEach(trigger => {
-    trigger.addEventListener('click', (e) => {
-      e.preventDefault();
-      const ctxInput = document.getElementById('page_context');
-      if (ctxInput) {
-        const fallbackHeading = document.querySelector('main h1')?.textContent || '';
-        const ctx = trigger.dataset.pageContext || slugify(fallbackHeading);
-        ctxInput.value = ctx;
-      }
-      openModal(trigger.getAttribute('data-open-modal'));
-    });
-  });
+  const handleOpenModalTrigger = (trigger) => {
+    const ctxInput = document.getElementById('page_context');
+    if (ctxInput) {
+      const fallbackHeading = document.querySelector('main h1')?.textContent || '';
+      const ctx = trigger.dataset.pageContext || slugify(fallbackHeading);
+      ctxInput.value = ctx;
+    }
+    openModal(trigger.getAttribute('data-open-modal'));
+  };
 
-  document.querySelectorAll('[data-open-drawer]').forEach(trigger => {
-    trigger.addEventListener('click', (e) => {
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const modalTrigger = target.closest('[data-open-modal]');
+    if (modalTrigger) {
       e.preventDefault();
-      openDrawer(trigger.getAttribute('data-open-drawer'));
-    });
+      handleOpenModalTrigger(modalTrigger);
+      return;
+    }
+    const drawerTrigger = target.closest('[data-open-drawer]');
+    if (drawerTrigger) {
+      e.preventDefault();
+      openDrawer(drawerTrigger.getAttribute('data-open-drawer'));
+    }
   });
 
   document.querySelectorAll('[data-close]').forEach(btn => {
@@ -165,6 +171,134 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 900);
     });
   }
+
+  // --- Featured listings (live) ---
+  const featuredGrid = document.getElementById('featuredListingsGrid');
+  const featuredLoading = document.getElementById('featuredListingsLoading');
+  const placeholderImage =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='480' viewBox='0 0 640 480'%3E%3Crect width='640' height='480' fill='%23e6e7e8'/%3E%3Ctext x='50%25' y='50%25' dy='.35em' text-anchor='middle' fill='%23898b8f' font-family='Arial, sans-serif' font-size='20'%3EPhoto coming soon%3C/text%3E%3C/svg%3E";
+
+  const escapeHtml = (str = "") =>
+    str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const shuffle = (arr = []) => {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  };
+
+  const formatNumber = (num) =>
+    typeof num === "number" && Number.isFinite(num) ? num.toLocaleString() : "—";
+
+  const formatPrice = (listing) => {
+    if (listing?.listPriceFormatted) return listing.listPriceFormatted;
+    const price = Number(listing?.listPrice ?? listing?.price ?? 0);
+    if (!Number.isFinite(price) || price <= 0) return "$—";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
+
+  const buildCardHtml = (listing) => {
+    const price = formatPrice(listing);
+    const street = escapeHtml(
+      listing?.address?.street || listing?.address?.full || "Address unavailable"
+    );
+    const city = escapeHtml(listing?.address?.city || "");
+    const state = escapeHtml(listing?.address?.state || "");
+    const cityLine = [city, state].filter(Boolean).join(", ");
+
+    const beds = listing?.details?.beds ?? listing?.details?.bedrooms ?? listing?.beds;
+    const baths =
+      listing?.details?.baths ?? listing?.details?.bathrooms ?? listing?.baths;
+    const sqft = listing?.details?.sqft ?? listing?.sqft;
+
+    const photo =
+      listing?.media?.thumbnailUrl ||
+      (Array.isArray(listing?.media?.photos) ? listing.media.photos[0] : null) ||
+      placeholderImage;
+    const safePhoto = escapeHtml(photo);
+    const altText = escapeHtml(street || "Featured listing");
+
+    const meta = `${formatNumber(beds)} Beds · ${formatNumber(baths)} Baths · ${formatNumber(
+      sqft
+    )} sqft`;
+
+    const id = escapeHtml(listing?.id || "");
+
+    return `
+      <article class="property-card hp-featured-card" role="listitem" data-listing-id="${id}">
+        <div class="property-card__media">
+          <img src="${safePhoto}" alt="${altText}" loading="lazy" decoding="async">
+        </div>
+        <div class="property-card__body">
+          <div class="property-card__price">${price}</div>
+          <div class="property-card__address">${street}${cityLine ? `<br>${cityLine}` : ""}</div>
+          <div class="property-card__meta">${meta}</div>
+          <div class="property-card__footer">
+            <button class="btn btn-secondary hp-featured-btn btn-block" type="button" data-open-modal="contactModal">View Details</button>
+          </div>
+        </div>
+      </article>
+    `;
+  };
+
+  const loadFeaturedListings = async () => {
+    if (!featuredGrid) return;
+    const params = new URLSearchParams({
+      minPrice: "300000",
+      limit: "24",
+      sort: "price_desc",
+      bbox: "-85.8,42.8,-85.5,43.1",
+    });
+
+    try {
+      const res = await fetch(`/api/listings?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch listings");
+      const json = await res.json();
+      const listings = Array.isArray(json?.results)
+        ? json.results
+        : Array.isArray(json?.data)
+        ? json.data
+        : [];
+
+      const filtered = listings.filter((listing) => {
+        const rawPrice = Number(listing?.listPrice ?? listing?.price ?? 0);
+        const statusRaw = String(listing?.details?.status || listing?.status || "")
+          .trim()
+          .toUpperCase();
+
+        const isSoldish =
+          statusRaw.includes("SOLD") || statusRaw.includes("CLOSED") || statusRaw.includes("PENDING");
+        const isForSale =
+          statusRaw === "FOR_SALE" || statusRaw === "ACTIVE" || statusRaw.includes("ACTIVE");
+
+        return Number.isFinite(rawPrice) && rawPrice >= 300000 && isForSale && !isSoldish;
+      });
+
+      const selected = shuffle(filtered).slice(0, 8);
+      if (!selected.length) throw new Error("No listings available");
+
+      featuredGrid.innerHTML = selected.map(buildCardHtml).join("");
+    } catch (err) {
+      featuredGrid.innerHTML =
+        '<p class="section__lede">Featured listings are unavailable right now.</p>';
+      // eslint-disable-next-line no-console
+      console.error("Featured listings failed", err);
+    } finally {
+      featuredLoading?.remove();
+    }
+  };
 
   // --- Hero day/night switching (Grand Rapids, MI) ---
   const degToRad = (deg) => deg * Math.PI / 180;
@@ -227,6 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
     heroEl.classList.toggle('is-night', isNight);
   };
 
+  loadFeaturedListings();
   updateHeroTheme();
   setInterval(updateHeroTheme, 5 * 60 * 1000);
 });
