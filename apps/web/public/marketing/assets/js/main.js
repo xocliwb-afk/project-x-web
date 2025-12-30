@@ -30,6 +30,39 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   setActiveNav();
 
+  // --- reCAPTCHA ---
+  let recaptchaSiteKey = "";
+  let recaptchaReady = false;
+
+  const initRecaptcha = async () => {
+    try {
+      const res = await fetch("/recaptcha/site-key", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      recaptchaSiteKey = String(data?.siteKey || "");
+      if (!recaptchaSiteKey) return;
+
+      const script = document.createElement("script");
+      script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(
+        recaptchaSiteKey
+      )}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        if (window.grecaptcha?.ready) {
+          window.grecaptcha.ready(() => {
+            recaptchaReady = true;
+          });
+        } else {
+          recaptchaReady = true;
+        }
+      };
+      document.head.appendChild(script);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn("[Marketing] Failed to init reCAPTCHA", e);
+    }
+  };
+
   // --- Mobile Menu ---
   const navToggle = document.getElementById('navToggle');
   const mobileNav = document.getElementById('mobile-nav');
@@ -185,6 +218,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      if (!recaptchaSiteKey || !recaptchaReady || !window.grecaptcha?.execute) {
+        if (modalStatus) modalStatus.textContent = 'Captcha not ready. Please try again.';
+        return;
+      }
+
+      if (modalStatus) modalStatus.textContent = 'Verifying...';
+
+      let captchaToken;
+      try {
+        captchaToken = await window.grecaptcha.execute(recaptchaSiteKey, { action: "submit_lead" });
+      } catch (err) {
+        if (modalStatus) modalStatus.textContent = 'Captcha not ready. Please try again.';
+        return;
+      }
+
+      if (!captchaToken) {
+        if (modalStatus) modalStatus.textContent = 'Captcha not ready. Please try again.';
+        return;
+      }
+
       const name = `${firstName} ${lastName}`.trim();
       const lines = [];
       if (userMessage) lines.push(userMessage);
@@ -201,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         message: finalMessage,
         brokerId: 'demo-broker',
         source: pageContext ? `marketing:${pageContext}` : 'marketing-contact-form',
+        captchaToken,
       };
 
       if (modalStatus) modalStatus.textContent = 'Submitting...';
@@ -213,7 +267,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.success) {
-          throw new Error('Lead submission failed');
+          const errorMsg = data?.message || 'Lead submission failed';
+          throw new Error(errorMsg);
         }
         if (modalStatus) modalStatus.textContent = 'Thanks — we will reach out shortly.';
         setTimeout(() => {
@@ -223,7 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 900);
       } catch (err) {
         console.error('Lead submit failed', err);
-        if (modalStatus) modalStatus.textContent = 'Error submitting form. Please try again.';
+        const fallbackMessage = 'Error submitting form. Please try again.';
+        const errorText = err?.message || fallbackMessage;
+        if (modalStatus) modalStatus.textContent = errorText;
       }
     });
   }
@@ -507,6 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
     heroEl.classList.toggle('is-night', isNight);
   };
 
+  initRecaptcha();
   loadFeaturedListings();
   renderFeaturedNeighborhoods();
   updateHeroTheme();

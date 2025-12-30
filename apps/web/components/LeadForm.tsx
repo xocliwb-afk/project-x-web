@@ -6,6 +6,7 @@ import { submitLead, type LeadSubmitPayload } from "@/lib/lead-api";
 const DEFAULT_BROKER_ID =
   process.env.NEXT_PUBLIC_BROKER_ID || "demo-broker";
 const DEFAULT_AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || undefined;
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 interface LeadFormProps {
   listingId?: string;
@@ -50,6 +51,13 @@ export default function LeadForm({
     setStatus("loading");
     setErrorMessage(null);
 
+    const grecaptcha = typeof window !== "undefined" ? (window as any).grecaptcha : undefined;
+    if (!RECAPTCHA_SITE_KEY || !grecaptcha || typeof grecaptcha.execute !== "function") {
+      setStatus("error");
+      setErrorMessage("Captcha not ready. Please try again.");
+      return;
+    }
+
     const hasListing = Boolean(listingId);
     const fullName = `${formState.firstName.trim()} ${formState.lastName.trim()}`.trim();
     const lines: string[] = [];
@@ -65,6 +73,15 @@ export default function LeadForm({
     }
     const finalMessage: string | undefined = lines.join("\n") || undefined;
 
+    let captchaToken: string | undefined;
+    try {
+      captchaToken = await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: "submit_lead" });
+    } catch (err) {
+      setStatus("error");
+      setErrorMessage("Captcha not ready. Please try again.");
+      return;
+    }
+
     const payload: LeadSubmitPayload = {
       ...(hasListing ? { listingId } : {}),
       listingAddress,
@@ -75,6 +92,7 @@ export default function LeadForm({
       brokerId: DEFAULT_BROKER_ID,
       agentId: DEFAULT_AGENT_ID,
       source: hasListing ? "listing-pdp" : "global-cta",
+      captchaToken,
     };
 
     try {

@@ -10,6 +10,7 @@ export type LeadRequest = {
   brokerId?: string;
   agentId?: string;
   source?: string;
+  captchaToken?: string;
 };
 
 export type NormalizedLead = {
