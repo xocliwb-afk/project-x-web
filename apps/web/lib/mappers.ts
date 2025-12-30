@@ -22,7 +22,7 @@ export interface Listing {
 export function mapNormalizedToListing(l: NormalizedListing): Listing {
   return {
     id: l.id,
-    price: null,
+    price: l.listPrice ?? null,
     addressLine1: l.address.street,
     city: l.address.city,
     state: l.address.state,
@@ -30,9 +30,9 @@ export function mapNormalizedToListing(l: NormalizedListing): Listing {
     beds: l.details.beds ?? 0,
     baths: l.details.baths ?? 0,
     sqft: l.details.sqft ?? 0,
-    photoUrl: "",
-    lat: l.address.lat,
-    lng: l.address.lng,
+    photoUrl: l.media.photos?.[0] ?? "",
+    lat: Number(l.address.lat ?? 0),
+    lng: Number(l.address.lng ?? 0),
     status: l.details.status,
     propertyType: l.details.propertyType,
     daysOnMarket: l.meta.daysOnMarket,

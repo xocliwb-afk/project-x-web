@@ -35,7 +35,7 @@ export default function MapClient({ listings }: { listings: Listing[] }) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {listings.map((l) => (
-          <Marker key={l.id} position={[l.address.lat, l.address.lng]}>
+          <Marker key={l.id} position={[Number(l.address.lat), Number(l.address.lng)]}>
             <Popup>
               <div className="text-sm font-sans">
                 <strong className="block mb-1 text-gray-900">

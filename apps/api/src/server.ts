@@ -8,7 +8,29 @@ import toursRouter from "./routes/tours.route";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
+const resolvePort = () => {
+  const argv = process.argv.slice(2);
+  const flagIndex = argv.findIndex((a) => a === "--port" || a === "-p");
+  if (flagIndex !== -1 && argv[flagIndex + 1]) {
+    const fromArg = Number(argv[flagIndex + 1]);
+    if (Number.isFinite(fromArg)) return fromArg;
+  }
+  const eqArg = argv.find((a) => a.startsWith("--port="));
+  if (eqArg) {
+    const fromEq = Number(eqArg.split("=")[1]);
+    if (Number.isFinite(fromEq)) return fromEq;
+  }
+
+  const envPort = Number(process.env.PORT);
+  if (Number.isFinite(envPort) && envPort > 0) return envPort;
+
+  const npmConfigPort = Number(process.env.npm_config_port);
+  if (Number.isFinite(npmConfigPort) && npmConfigPort > 0) return npmConfigPort;
+
+  return 3002;
+};
+
+const PORT = resolvePort();
 
 const parseAllowedOrigins = () => {
   const raw = process.env.ALLOWED_ORIGINS;
