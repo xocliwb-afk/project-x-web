@@ -94,18 +94,39 @@ export function MapLensPanePortal({
     };
 
     const handlePointerDown = (event: PointerEvent) => {
+      const elapsed = Date.now() - openedAtRef.current;
+      const target = event.target as HTMLElement | null;
+      const isCluster = target?.closest?.("[class*='marker-cluster']");
+      const inContainer = container?.contains(event.target as Node);
+
+      console.log("🔵 [PORTAL] handlePointerDown", {
+        elapsed,
+        hasContainer: Boolean(container),
+        targetTag: target?.tagName,
+        targetClass: target?.className,
+        isCluster: Boolean(isCluster),
+        inContainer,
+        hasActiveData: Boolean(activeClusterData),
+        willDismiss: elapsed >= 250 && container && !isCluster && !inContainer && Boolean(activeClusterData)
+      });
+
+      // Don't dismiss if no lens is open
+      if (!activeClusterData) return;
       if (Date.now() - openedAtRef.current < 250) return;
       if (!container) return;
+      if (target?.closest?.("[class*='marker-cluster']")) return;
       if (container.contains(event.target as Node)) return;
       dismissLens();
     };
+
+    // ALWAYS attach the pointerdown listener to prevent dismissal during cluster clicks
+    map.getContainer().addEventListener("pointerdown", handlePointerDown, true);
 
     if (activeClusterData) {
       pane.appendChild(container);
       pane.style.pointerEvents = "auto";
       setIsAttached(true);
       map.on("move zoom", updatePosition);
-      map.getContainer().addEventListener("pointerdown", handlePointerDown, true);
       updatePosition(); // Initial position
     } else {
       setIsAttached(false);
