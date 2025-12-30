@@ -56,6 +56,10 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     if (typeof window === "undefined" || !(window as any).L || !activeClusterData)
       return null;
     const L = (window as any).L;
+    if (activeClusterData.bounds) {
+      const presetBounds = L.latLngBounds(activeClusterData.bounds);
+      if (presetBounds.isValid()) return presetBounds as LatLngBounds;
+    }
     const bounds = L.latLngBounds([]);
     allClusterListings.forEach((l) => {
       if (

@@ -7,6 +7,7 @@ import {
   PlannedTour,
   TourStopInput,
 } from '@project-x/shared-types';
+import { getApiBaseUrl } from "@/lib/getApiBaseUrl";
 
 type TourStoreState = {
   stops: TourStopInput[];
@@ -24,10 +25,7 @@ type TourStoreState = {
   clearTour: () => void;
 };
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.API_BASE_URL ||
-  'http://localhost:3001';
+const API_BASE = getApiBaseUrl();
 
 export const useTourStore = create<TourStoreState>((set, get) => ({
   stops: [],
@@ -44,8 +42,8 @@ export const useTourStore = create<TourStoreState>((set, get) => ({
     const nextStop: TourStopInput = {
       listingId: listing.id,
       address: listing.address.full,
-      lat: listing.address.lat,
-      lng: listing.address.lng,
+      lat: Number(listing.address.lat ?? 0),
+      lng: Number(listing.address.lng ?? 0),
     };
     set({ stops: [...stops, nextStop], plannedTour: null, error: null });
   },
@@ -82,7 +80,9 @@ export const useTourStore = create<TourStoreState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/tours/plan`, {
+      const base = API_BASE;
+      const url = `${base ? base : ""}/api/v1/tours/plan`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

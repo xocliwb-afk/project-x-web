@@ -11,6 +11,11 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'cdn.photos.sparkplatform.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'd2bd5h5te3s67r.cloudfront.net',
         pathname: '/**',
       },
@@ -22,10 +27,13 @@ const nextConfig = {
     ],
   },
   async rewrites() {
-    const apiBase =
+    const apiTarget =
+      process.env.API_PROXY_TARGET ||
       process.env.NEXT_PUBLIC_API_BASE_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
       'http://127.0.0.1:3002';
+
+    const apiBase = apiTarget.replace(/\/+$/, '');
 
     const neighborhoodSlugs = [
       'grand-rapids',
