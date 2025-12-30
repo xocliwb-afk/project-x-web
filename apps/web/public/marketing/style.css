@@ -489,6 +489,26 @@ p { margin: 0; color: inherit; }
 /* Neighborhoods */
 .neighborhoods { background: #f7f2ec; border-top: 1px solid rgba(20,36,59,0.06); }
 .neighborhood-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.2rem; }
+
+/* Homepage Featured Neighborhoods: 4-up layout (scoped) */
+.neighborhood-grid--featured {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .neighborhood-grid--featured {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .neighborhood-grid--featured {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
 .area-card { background: var(--white); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--soft-shadow); border: var(--border); display: flex; flex-direction: column; transition: transform .2s ease, box-shadow .2s ease; }
 .area-card__image { aspect-ratio: 4 / 3; background-size: cover; background-position: center; }
 .area-card__body { padding: 1.25rem 1.3rem 1.35rem; display: grid; gap: .5rem; }
