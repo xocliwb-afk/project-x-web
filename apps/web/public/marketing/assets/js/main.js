@@ -161,14 +161,70 @@ document.addEventListener('DOMContentLoaded', () => {
     modalForm.prepend(ctxInput);
   }
   if (modalForm) {
-    modalForm.addEventListener('submit', (e) => {
+    modalForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (modalStatus) modalStatus.textContent = 'Thanks — we will reach out shortly.';
-      setTimeout(() => {
-        closeAllOverlays();
-        if (modalStatus) modalStatus.textContent = '';
-        modalForm.reset();
-      }, 900);
+      const formData = new FormData(modalForm);
+      const firstName = (formData.get('first_name') || '').toString().trim();
+      const lastName = (formData.get('last_name') || '').toString().trim();
+      const email = (formData.get('email') || '').toString().trim();
+      const phone = (formData.get('phone') || '').toString().trim();
+      const interest = (formData.get('interest') || '').toString().trim();
+      const preferredArea = (formData.get('preferred_area') || '').toString().trim();
+      const userMessage = (formData.get('message') || '').toString().trim();
+      const pageContextForm = (formData.get('page_context') || '').toString().trim();
+
+      const pageContext =
+        pageContextForm ||
+        (window.location.pathname || '/')
+          .replace(/^\/+/, '')
+          .replace(/\.html$/, '') ||
+        'home';
+
+      if (!firstName || !lastName || !email || !interest) {
+        if (modalStatus) modalStatus.textContent = 'Please fill all required fields.';
+        return;
+      }
+
+      const name = `${firstName} ${lastName}`.trim();
+      const lines = [];
+      if (userMessage) lines.push(userMessage);
+      lines.push('---');
+      lines.push(`Interest: ${interest}`);
+      if (preferredArea) lines.push(`Preferred area: ${preferredArea}`);
+      lines.push(`Page: ${pageContext}`);
+      const finalMessage = lines.join('\n');
+
+      const payload = {
+        name,
+        email,
+        phone: phone || undefined,
+        message: finalMessage,
+        brokerId: 'demo-broker',
+        source: pageContext ? `marketing:${pageContext}` : 'marketing-contact-form',
+      };
+
+      if (modalStatus) modalStatus.textContent = 'Submitting...';
+
+      try {
+        const res = await fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) {
+          throw new Error('Lead submission failed');
+        }
+        if (modalStatus) modalStatus.textContent = 'Thanks — we will reach out shortly.';
+        setTimeout(() => {
+          closeAllOverlays();
+          if (modalStatus) modalStatus.textContent = '';
+          modalForm.reset();
+        }, 900);
+      } catch (err) {
+        console.error('Lead submit failed', err);
+        if (modalStatus) modalStatus.textContent = 'Error submitting form. Please try again.';
+      }
     });
   }
 
