@@ -1,141 +1,198 @@
 "use client";
 
-import { useState } from "react";
+import styles from "./Header.module.css";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { useTheme } from "@/context/ThemeContext";
-import SearchFiltersBar from "@/components/SearchFiltersBar";
+import SearchFiltersBar, { SortButton } from "@/components/SearchFiltersBar";
 import { useLeadModalStore } from "@/stores/useLeadModalStore";
 
 export default function Header() {
   const { mapSide, paneDominance, setMapSide, setPaneDominance } = useTheme();
   const pathname = usePathname();
   const isSearchPage = pathname?.startsWith("/search");
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mapMenuOpen, setMapMenuOpen] = useState(false);
   const openLeadModal = useLeadModalStore((s) => s.open);
 
-  const navLinkClasses = (active: boolean) =>
-    [
-      "px-3 py-1 rounded-full text-sm font-medium transition-colors",
-      active
-        ? "bg-primary-accent text-primary"
-        : "text-white/80 hover:text-white hover:bg-white/10",
-    ].join(" ");
+  const navItems = [
+    { label: "Home", href: "/" },
+    { label: "Search", href: "/search" },
+    { label: "Buy Smarter", href: "/buy" },
+    { label: "Sell for More", href: "/sell" },
+    { label: "Build", href: "/build" },
+    { label: "Neighborhoods", href: "/neighborhoods" },
+    { label: "About", href: "/about" },
+  ];
+
+  const isActive = (href: string) => pathname === href;
+
+  const navLinkClass = (href: string) =>
+    [styles.navLink, isActive(href) ? styles.isActive : ""].join(" ").trim();
 
   const pillClasses = (active: boolean) =>
     [
       "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors",
       active
         ? "bg-primary text-white border-primary"
-        : "border-slate-200 text-slate-600 hover:bg-slate-100",
+        : "border-white/70 text-slate-800 bg-white/80 hover:bg-white",
     ].join(" ");
 
   return (
-    <header className="z-40 flex shrink-0 flex-col border-b border-border bg-primary text-white shadow-sm transition-colors duration-300">
-      <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between px-4 py-3 sm:px-6 lg:px-6">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-accent text-[11px] font-semibold tracking-[0.12em] text-primary">
-              PX
-            </div>
-            <div className="leading-tight">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-white/60">
-                Project X
-              </div>
-              <div className="text-xs font-medium text-white/90">
-                White-Label Search
-              </div>
-            </div>
+    <header className="z-40 flex shrink-0 flex-col">
+      <nav className={styles.topNav}>
+        <div className={styles.topNavInner}>
+          <Link href="/" className={styles.topNavBrand} onClick={() => setMobileOpen(false)}>
+            <Image
+              src="/assets/img/bw-home-group-logo.webp"
+              alt="Brandon Wilcox Home Group"
+              width={44}
+              height={44}
+              className={styles.topNavLogo}
+              priority
+            />
+            <span className={styles.topNavBrandText}>Brandon Wilcox Home Group</span>
+          </Link>
+
+          <div className={styles.topNavLinks}>
+            {navItems.map((item) => (
+              <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
+                {item.label}
+              </Link>
+            ))}
+            <button type="button" onClick={() => openLeadModal()} className={styles.navLink}>
+              Contact
+            </button>
           </div>
 
-          <nav className="flex items-center gap-2 text-xs">
-            <Link href="/" className={navLinkClasses(pathname === "/")}>
-              Overview
-            </Link>
-            <Link
-              href="/search"
-              className={navLinkClasses(isSearchPage ?? false)}
-            >
-              Search Prototype
-            </Link>
-          </nav>
+          <button
+            type="button"
+            className={styles.topNavToggle}
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
         </div>
+      </nav>
 
-        <div className="flex items-center gap-3">
+      <div className={`${styles.mobileNav} ${mobileOpen ? styles.mobileNavOpen : ""}`}>
+        <div className={styles.mobileNavBackdrop} onClick={() => setMobileOpen(false)} />
+        <div className={styles.mobileNavInner}>
           <button
             type="button"
-            onClick={() => openLeadModal()}
-            className="hidden rounded-full bg-white px-4 py-2 text-sm font-semibold text-primary shadow-sm transition hover:brightness-95 md:inline-flex"
+            className={styles.mobileNavClose}
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
           >
-            Plan a tour
+            ×
           </button>
-          <div className="relative">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
-            className="flex flex-col items-center justify-center gap-1 rounded px-2 py-1 transition hover:bg-white/10 focus:outline-none"
-            aria-label="Open layout controls"
-          >
-            <span className="block h-0.5 w-5 bg-white" />
-            <span className="block h-0.5 w-5 bg-white" />
-            <span className="block h-0.5 w-5 bg-white" />
-          </button>
-
-          {menuOpen && (
-            <div className="absolute right-4 top-12 z-50 w-64 rounded-xl border border-slate-700 bg-slate-900/95 p-3 text-slate-100 shadow-xl">
-              <div className="mb-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Map location
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className={pillClasses(mapSide === "left")}
-                    onClick={() => setMapSide("left")}
-                  >
-                    Map left
-                  </button>
-                  <button
-                    type="button"
-                    className={pillClasses(mapSide === "right")}
-                    onClick={() => setMapSide("right")}
-                  >
-                    Map right
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Panel size
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className={pillClasses(paneDominance === "left")}
-                    onClick={() => setPaneDominance("left")}
-                  >
-                    Left 60%
-                  </button>
-                  <button
-                    type="button"
-                    className={pillClasses(paneDominance === "right")}
-                    onClick={() => setPaneDominance("right")}
-                  >
-                    Right 60%
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          </div>
+          <ul className={styles.mobileNavList}>
+            {navItems.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={navLinkClass(item.href)}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+            <li>
+              <button
+                type="button"
+                className={styles.navLink}
+                onClick={() => {
+                  openLeadModal();
+                  setMobileOpen(false);
+                }}
+              >
+                Contact
+              </button>
+            </li>
+          </ul>
         </div>
       </div>
 
       {isSearchPage && (
-        <div className="w-full border-t border-border bg-primary-accent py-2 text-slate-900">
-          <div className="mx-auto w-full max-w-[1920px] px-4 sm:px-6 lg:px-6">
-            <SearchFiltersBar />
+        <div className="w-full border-b border-border bg-primary-accent py-2 text-slate-900">
+          <div className="mx-auto flex w-full max-w-[1920px] flex-wrap items-center gap-3 px-4 sm:px-6 lg:px-6">
+            <div className="flex-1 min-w-[320px]">
+              <SearchFiltersBar />
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <SortButton />
+              <button
+                type="button"
+                onClick={() => openLeadModal()}
+                className="h-10 rounded-full bg-white px-4 text-sm font-semibold text-primary shadow-sm transition hover:brightness-95"
+              >
+                Plan a tour
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMapMenuOpen((prev) => !prev)}
+                  className="flex h-10 w-10 flex-col items-center justify-center gap-1 rounded-full border border-white/60 bg-white/80 text-primary transition hover:bg-white"
+                  aria-label="Map layout controls"
+                >
+                  <span className="block h-0.5 w-4 bg-primary" />
+                  <span className="block h-0.5 w-4 bg-primary" />
+                  <span className="block h-0.5 w-4 bg-primary" />
+                </button>
+                {mapMenuOpen && (
+                  <div className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-slate-200 bg-white p-3 text-slate-800 shadow-xl">
+                    <div className="mb-3">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Map location
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className={pillClasses(mapSide === "left")}
+                          onClick={() => setMapSide("left")}
+                        >
+                          Left
+                        </button>
+                        <button
+                          type="button"
+                          className={pillClasses(mapSide === "right")}
+                          onClick={() => setMapSide("right")}
+                        >
+                          Right
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Panel size
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className={pillClasses(paneDominance === "left")}
+                          onClick={() => setPaneDominance("left")}
+                        >
+                          Left 60%
+                        </button>
+                        <button
+                          type="button"
+                          className={pillClasses(paneDominance === "right")}
+                          onClick={() => setPaneDominance("right")}
+                        >
+                          Right 60%
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
