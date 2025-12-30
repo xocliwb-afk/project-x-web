@@ -22,6 +22,11 @@ const nextConfig = {
     ],
   },
   async rewrites() {
+    const apiBase =
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'http://127.0.0.1:3002';
+
     const neighborhoodSlugs = [
       'grand-rapids',
       'ada',
@@ -36,6 +41,8 @@ const nextConfig = {
 
     return {
       beforeFiles: [
+        { source: '/api/:path*', destination: `${apiBase}/api/:path*` },
+        { source: '/api/v1/:path*', destination: `${apiBase}/api/v1/:path*` },
         { source: '/', destination: '/marketing/index.html' },
         { source: '/buy', destination: '/marketing/buy.html' },
         { source: '/sell', destination: '/marketing/sell.html' },

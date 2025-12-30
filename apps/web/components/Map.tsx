@@ -86,6 +86,7 @@ export default function Map({
   onHoverListing,
   onBoundsChange,
 }: MapProps) {
+  const [mounted, setMounted] = useState(false);
   const mapRef = useRef<LeafletMap | null>(null);
   const clusterRef = useRef<LayerGroup | null>(null);
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
@@ -123,6 +124,9 @@ export default function Map({
   const center: [number, number] = firstWithCoords
     ? [firstWithCoords.address.lat, firstWithCoords.address.lng]
     : defaultCenter;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const getClusterListings = useCallback(
     (cluster: L.MarkerCluster): NormalizedListing[] =>
       cluster
@@ -306,6 +310,10 @@ export default function Map({
       map.off("zoomend", emitBounds);
     };
   }, [onBoundsChange]);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="h-full w-full relative z-0">
