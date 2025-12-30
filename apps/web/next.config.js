@@ -21,6 +21,40 @@ const nextConfig = {
       },
     ],
   },
+  async rewrites() {
+    const neighborhoodSlugs = [
+      'grand-rapids',
+      'ada',
+      'byron-center',
+      'caledonia',
+      'east-grand-rapids',
+      'grandville',
+      'kentwood',
+      'rockford',
+      'wyoming',
+    ];
+
+    return {
+      beforeFiles: [
+        { source: '/', destination: '/marketing/index.html' },
+        { source: '/buy', destination: '/marketing/buy.html' },
+        { source: '/sell', destination: '/marketing/sell.html' },
+        { source: '/build', destination: '/marketing/builder.html' },
+        { source: '/builder', destination: '/marketing/builder.html' },
+        { source: '/about', destination: '/marketing/about.html' },
+        { source: '/neighborhoods', destination: '/marketing/neighborhoods.html' },
+        ...neighborhoodSlugs.map((slug) => ({
+          source: `/${slug}`,
+          destination: `/marketing/${slug}.html`,
+        })),
+        { source: '/assets/:path*', destination: '/marketing/assets/:path*' },
+        { source: '/style.css', destination: '/marketing/style.css' },
+        { source: '/robots.txt', destination: '/marketing/robots.txt' },
+        { source: '/sitemap.xml', destination: '/marketing/sitemap.xml' },
+        { source: '/search.html', destination: '/search' },
+      ],
+    };
+  },
 };
 
 module.exports = nextConfig;
