@@ -49,8 +49,11 @@ const nextConfig = {
 
     return {
       beforeFiles: [
+        // API proxy stays first
         { source: '/api/:path*', destination: `${apiBase}/api/:path*` },
         { source: '/api/v1/:path*', destination: `${apiBase}/api/v1/:path*` },
+        // Ensure search still routes to the Next app, even if linked with .html
+        { source: '/search.html', destination: '/search' },
         { source: '/', destination: '/marketing/index.html' },
         { source: '/buy', destination: '/marketing/buy.html' },
         { source: '/sell', destination: '/marketing/sell.html' },
@@ -58,6 +61,8 @@ const nextConfig = {
         { source: '/builder', destination: '/marketing/builder.html' },
         { source: '/about', destination: '/marketing/about.html' },
         { source: '/neighborhoods', destination: '/marketing/neighborhoods.html' },
+        { source: '/privacy-policy', destination: '/marketing/privacy-policy.html' },
+        { source: '/terms-of-use', destination: '/marketing/terms-of-use.html' },
         ...neighborhoodSlugs.map((slug) => ({
           source: `/${slug}`,
           destination: `/marketing/${slug}.html`,
@@ -66,7 +71,8 @@ const nextConfig = {
         { source: '/style.css', destination: '/marketing/style.css' },
         { source: '/robots.txt', destination: '/marketing/robots.txt' },
         { source: '/sitemap.xml', destination: '/marketing/sitemap.xml' },
-        { source: '/search.html', destination: '/search' },
+        // Generic .html marketing routes (kept after specific exceptions)
+        { source: '/:slug.html', destination: '/marketing/:slug.html' },
       ],
     };
   },
