@@ -1,14 +1,34 @@
 import { getLeadProvider } from "../providers/lead/lead-provider.factory";
 import type { LeadResult } from "../providers/lead/lead-provider.interface";
 import type { LeadRequest, NormalizedLead } from "../types/lead";
+import { CaptchaService } from "./captcha.service";
 
 type LeadServiceResult = LeadResult & { status?: number };
 
 export class LeadService {
+  private captchaService: CaptchaService | null = null;
+
+  private getCaptchaService(): CaptchaService {
+    if (!this.captchaService) {
+      this.captchaService = new CaptchaService();
+    }
+    return this.captchaService;
+  }
+
   async submitLead(payload: LeadRequest): Promise<LeadServiceResult> {
     const validationError = this.validate(payload);
     if (validationError) {
       return validationError;
+    }
+
+    const captchaResult = await this.getCaptchaService().verify(payload.captchaToken, "submit_lead");
+    if (!captchaResult.ok) {
+      return {
+        success: false,
+        provider: "captcha",
+        status: 400,
+        message: "Captcha verification failed",
+      };
     }
 
     const normalized = this.normalize(payload);

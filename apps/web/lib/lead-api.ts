@@ -12,6 +12,7 @@ export type LeadSubmitPayload = {
   brokerId: string;
   agentId?: string;
   source?: string;
+  captchaToken?: string;
 };
 
 export type SubmitLeadResult = {
