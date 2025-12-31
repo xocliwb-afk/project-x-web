@@ -68,9 +68,9 @@ export function MapLensPanePortal({
     if (!containerRef.current) {
       containerRef.current = L.DomUtil.create("div");
       Object.assign(containerRef.current.style, {
-        position: "absolute",
+        position: "fixed",
+        zIndex: "10000",
         pointerEvents: "auto",
-        zIndex: "9999",
       });
       L.DomEvent.disableClickPropagation(containerRef.current);
       L.DomEvent.on(containerRef.current, "wheel", L.DomEvent.stopPropagation);
@@ -84,65 +84,74 @@ export function MapLensPanePortal({
     pane.style.pointerEvents = activeClusterData ? "auto" : "none";
 
     const updatePosition = () => {
-      if (map && activeClusterData?.anchorLatLng) {
-        const { lat, lng } = activeClusterData.anchorLatLng;
-        const p = map.latLngToLayerPoint(L.latLng(lat, lng));
-        container.style.left = `${p.x}px`;
-        container.style.top = `${p.y}px`;
-        container.style.transform = "translate(-50%, -50%)";
-      }
+      if (!map || !activeClusterData?.anchorLatLng || !container) return;
+
+      const { lat, lng } = activeClusterData.anchorLatLng;
+
+      const pt = map.latLngToContainerPoint(L.latLng(lat, lng));
+      const mapRect = map.getContainer().getBoundingClientRect();
+
+      const viewportX = mapRect.left + pt.x;
+      const viewportY = mapRect.top + pt.y;
+
+      const rect = container.getBoundingClientRect();
+      const radius = (rect.width || 525) / 2 || 262.5;
+
+      const margin = 20;
+      const minX = radius + margin;
+      const maxX = window.innerWidth - radius - margin;
+      const minY = radius + margin;
+      const maxY = window.innerHeight - radius - margin;
+
+      const clampedX = Math.min(maxX, Math.max(minX, viewportX));
+      const clampedY = Math.min(maxY, Math.max(minY, viewportY));
+
+      container.style.left = `${clampedX}px`;
+      container.style.top = `${clampedY}px`;
+      container.style.transform = "translate(-50%, -50%)";
     };
 
     const handlePointerDown = (event: PointerEvent) => {
-      const elapsed = Date.now() - openedAtRef.current;
-      const target = event.target as HTMLElement | null;
-      const isCluster = target?.closest?.("[class*='marker-cluster']");
-      const inContainer = container?.contains(event.target as Node);
-
-      console.log("🔵 [PORTAL] handlePointerDown", {
-        elapsed,
-        hasContainer: Boolean(container),
-        targetTag: target?.tagName,
-        targetClass: target?.className,
-        isCluster: Boolean(isCluster),
-        inContainer,
-        hasActiveData: Boolean(activeClusterData),
-        willDismiss: elapsed >= 250 && container && !isCluster && !inContainer && Boolean(activeClusterData)
-      });
-
-      // Don't dismiss if no lens is open
       if (!activeClusterData) return;
       if (Date.now() - openedAtRef.current < 250) return;
-      if (!container) return;
-      if (target?.closest?.("[class*='marker-cluster']")) return;
-      if (container.contains(event.target as Node)) return;
+
+      const target = event.target as Element | null;
+      if (!target) return;
+
+      if (target.closest?.("[class*='marker-cluster']")) return;
+      if (container.contains(target)) return;
+
       dismissLens();
     };
 
-    // ALWAYS attach the pointerdown listener to prevent dismissal during cluster clicks
-    map.getContainer().addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("pointerdown", handlePointerDown, true);
 
     if (activeClusterData) {
-      pane.appendChild(container);
+      document.body.appendChild(container);
       pane.style.pointerEvents = "auto";
       setIsAttached(true);
       map.on("move zoom", updatePosition);
+      window.addEventListener("scroll", updatePosition, { passive: true });
+      window.addEventListener("resize", updatePosition);
       updatePosition(); // Initial position
+      requestAnimationFrame(updatePosition);
     } else {
       setIsAttached(false);
       pane.style.pointerEvents = "none";
-      if (pane.contains(container)) {
-        pane.removeChild(container);
+      if (document.body.contains(container)) {
+        document.body.removeChild(container);
       }
     }
 
     // Cleanup function
     return () => {
       map.off("move zoom", updatePosition);
-      map.getContainer().removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("scroll", updatePosition);
+      window.removeEventListener("resize", updatePosition);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
       setIsAttached(false);
-      if (pane.contains(container)) {
-        pane.removeChild(container);
+      if (document.body.contains(container)) {
+        document.body.removeChild(container);
       }
     };
   }, [map, activeClusterData, dismissLens, isMobile]);
