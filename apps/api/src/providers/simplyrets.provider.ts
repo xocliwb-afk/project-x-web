@@ -130,6 +130,44 @@ export class SimplyRetsListingProvider implements ListingProvider {
     const totalBaths =
       fullBaths > 0 || halfBaths > 0 ? fullBaths + halfBaths * 0.5 : null;
 
+    const mapAgent = (agentRaw: any) => {
+      if (!agentRaw) return null;
+      const contact = agentRaw.contact ?? {};
+      const firstName = agentRaw.firstName ?? contact.firstName ?? null;
+      const lastName = agentRaw.lastName ?? contact.lastName ?? null;
+      const email = agentRaw.email ?? contact.email ?? null;
+      const phone = agentRaw.officePhone ?? agentRaw.phone ?? contact.office ?? contact.phone ?? null;
+      const cellPhone = agentRaw.cellPhone ?? contact.cell ?? contact.cellPhone ?? null;
+      const id = agentRaw.id ?? contact.id ?? null;
+      if ([firstName, lastName, email, phone, cellPhone, id].every((v) => v == null)) {
+        return null;
+      }
+      return {
+        id,
+        firstName,
+        lastName,
+        email,
+        phone,
+        cellPhone,
+      };
+    };
+
+    const mapOffice = (officeRaw: any) => {
+      if (!officeRaw) return null;
+      const contact = officeRaw.contact ?? {};
+      const name = officeRaw.name ?? contact.name ?? null;
+      const phone = officeRaw.phone ?? contact.office ?? contact.phone ?? null;
+      const email = officeRaw.email ?? contact.email ?? null;
+      const id = officeRaw.id ?? contact.id ?? null;
+      if ([name, phone, email, id].every((v) => v == null)) return null;
+      return { id, name, phone, email };
+    };
+
+    const description =
+      typeof raw.remarks === 'string' && raw.remarks.trim().length > 0
+        ? raw.remarks.trim()
+        : null;
+
     return {
       id: String(raw.mlsId),
       mlsId: String(raw.mlsId),
@@ -175,6 +213,25 @@ export class SimplyRetsListingProvider implements ListingProvider {
         daysOnMarket: raw.mls?.daysOnMarket ?? null,
         mlsName: raw.mls?.name ?? 'SimplyRETS',
       },
+      agent: mapAgent(raw.agent),
+      coAgent: mapAgent(raw.coAgent),
+      office: mapOffice(raw.office),
+      description,
+      tax: raw.tax
+        ? {
+            annualAmount: raw.tax.taxAnnualAmount ?? null,
+            year: raw.tax.taxYear ?? null,
+            assessmentId: raw.tax.id ?? null,
+          }
+        : null,
+      school: raw.school
+        ? {
+            district: raw.school.district ?? null,
+            elementary: raw.school.elementarySchool ?? null,
+            middle: raw.school.middleSchool ?? null,
+            high: raw.school.highSchool ?? null,
+          }
+        : null,
       // Compensation/commission fields intentionally excluded for compliance.
     };
   }
