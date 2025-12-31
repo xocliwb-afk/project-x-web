@@ -9,6 +9,7 @@ import { LensMiniMap } from "./LensMiniMap";
 import type { LatLngBounds } from "leaflet";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
+import { useTheme } from "@/context/ThemeContext";
 
 type MapLensProps = {
   onHoverListing?: (id: string | null) => void;
@@ -37,6 +38,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const lensRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const mobileDetected = useIsMobile();
+  const { mapSide } = useTheme();
 
   const allClusterListings = activeClusterData?.listings ?? [];
   const sortedAllListings = useMemo(
@@ -73,9 +75,13 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   }, [activeClusterData, allClusterListings]);
 
   const lensSizePx = useMemo(() => {
-    const base = viewportWidth * 0.78;
-    return Math.min(350, Math.max(240, base));
-  }, [viewportWidth]);
+    const isMobileView = (isMobile ?? false) || mobileDetected;
+    if (isMobileView) {
+      const base = viewportWidth * 0.78;
+      return Math.min(350, Math.max(240, base));
+    }
+    return Math.min(525, Math.max(350, viewportWidth * 0.35));
+  }, [viewportWidth, isMobile, mobileDetected]);
   const lensKey = useMemo(() => {
     if (!activeClusterData) return "lens-none";
     const { lat, lng } = activeClusterData.anchorLatLng;
@@ -126,6 +132,9 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const lensVisibilityClass = visible
     ? "opacity-100 scale-100"
     : "opacity-0 scale-50";
+  const listOnRight = mapSide === "left";
+  const [previewOnRight, setPreviewOnRight] = useState(listOnRight);
+  const [previewKey, setPreviewKey] = useState(0);
 
   const isMobileView = (isMobile ?? false) || mobileDetected;
 
@@ -137,12 +146,67 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     };
   }, [isMobileView, activeClusterData]);
 
+  useEffect(() => {
+    if (!focusedListing) {
+      setPreviewOnRight(listOnRight);
+      return;
+    }
+    const lensEl = lensRef.current;
+    const mapEl = lensEl?.closest(".leaflet-container") as HTMLElement | null;
+    const mapRect = mapEl?.getBoundingClientRect();
+    const lensRect = lensEl?.getBoundingClientRect();
+    if (!mapRect || !lensRect) {
+      setPreviewOnRight(listOnRight);
+      return;
+    }
+    const previewWidth = 320;
+    const gap = 12;
+    const spaceRight = mapRect.right - (lensRect.right + gap);
+    const spaceLeft = lensRect.left - gap - mapRect.left;
+    let desiredRight = listOnRight;
+    let final = desiredRight;
+    if (desiredRight) {
+      if (spaceRight < previewWidth && spaceLeft > spaceRight) {
+        final = spaceLeft >= previewWidth;
+      }
+    } else {
+      if (spaceLeft < previewWidth && spaceRight > spaceLeft) {
+        final = spaceRight >= previewWidth;
+      }
+    }
+    setPreviewOnRight(final);
+  }, [focusedListing, listOnRight]);
+
+  // Update preview position when lens moves or window resizes
+  useEffect(() => {
+    if (!focusedListing || isMobileView) return;
+
+    const updatePreviewPosition = () => {
+      setPreviewKey(k => k + 1);
+    };
+
+    // Update on scroll (lens might move within viewport)
+    window.addEventListener("scroll", updatePreviewPosition, { passive: true });
+    // Update on resize
+    window.addEventListener("resize", updatePreviewPosition);
+    // Update on animation frame (for smooth tracking during map pan/zoom)
+    let rafId: number;
+    const trackPosition = () => {
+      updatePreviewPosition();
+      rafId = requestAnimationFrame(trackPosition);
+    };
+    rafId = requestAnimationFrame(trackPosition);
+
+    return () => {
+      window.removeEventListener("scroll", updatePreviewPosition);
+      window.removeEventListener("resize", updatePreviewPosition);
+      cancelAnimationFrame(rafId);
+    };
+  }, [focusedListing, isMobileView]);
+
   if (!activeClusterData || allClusterListings.length === 0) {
     return null;
   }
-
-  // Simple heuristic to decide if the card should render above or below the lens
-  const shouldFlipCard = activeClusterData.anchorLatLng.lat < 35; 
 
   const goToListing = (id: string) => {
     onSelectListing?.(id);
@@ -281,69 +345,101 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
           />
         </div>
 
-        {focusedListing && (
-          <div
-            className={`absolute left-1/2 ${
-              shouldFlipCard ? "bottom-full mb-3" : "top-full mt-3"
-            } -translate-x-1/2`}
-          >
+        {focusedListing && typeof document !== "undefined" && (() => {
+          const lensRect = lensRef.current?.getBoundingClientRect();
+          if (!lensRect) return null;
+
+          const previewWidth = 320; // w-80
+          const gap = 12; // ml-3/mr-3
+
+          // Calculate fixed position based on lens position
+          const top = lensRect.top + lensRect.height / 2;
+          let left: number;
+
+          if (previewOnRight) {
+            left = lensRect.right + gap;
+            // Flip if would overflow viewport
+            if (left + previewWidth > window.innerWidth) {
+              left = lensRect.left - previewWidth - gap;
+            }
+          } else {
+            left = lensRect.left - previewWidth - gap;
+            // Flip if would overflow viewport
+            if (left < 0) {
+              left = lensRect.right + gap;
+            }
+          }
+
+          return createPortal(
             <div
-              className={`w-80 max-w-sm rounded-2xl bg-white shadow-lg border border-border/60 p-4 transition-all duration-200 ease-out ${
-                focusedListing
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-3"
-              }`}
+              key={previewKey}
+              style={{
+                position: "fixed",
+                top: `${top}px`,
+                left: `${left}px`,
+                transform: "translateY(-50%)",
+                zIndex: 10000,
+              }}
             >
-              <div className="flex flex-col gap-3 w-full">
-                <div className="relative w-full overflow-hidden rounded-xl bg-slate-200 aspect-[4/3]">
-                  <Image
-                    src={
-                      focusedListing.media?.thumbnailUrl ??
-                      (focusedListing.media?.photos?.[0] ??
-                        "/placeholder-house.jpg")
-                    }
-                    alt={focusedListing.address?.full ?? "Listing photo"}
-                    fill
-                    sizes="(min-width: 1024px) 320px, 80vw"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex flex-col gap-1 text-text-main">
-                  <div className="text-lg font-semibold leading-tight">
-                    {formatPriceCompact(
-                      typeof focusedListing.listPrice === "number"
-                        ? focusedListing.listPrice
-                        : null
-                    )}
+              <div
+                className={`w-80 max-w-sm rounded-2xl bg-white shadow-lg border border-border/60 p-4 transition-all duration-200 ease-out ${
+                  focusedListing
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-3"
+                }`}
+              >
+                <div className="flex flex-col gap-3 w-full">
+                  <div className="relative w-full overflow-hidden rounded-xl bg-slate-200 aspect-[4/3]">
+                    <Image
+                      src={
+                        focusedListing.media?.thumbnailUrl ??
+                        (focusedListing.media?.photos?.[0] ??
+                          "/placeholder-house.jpg")
+                      }
+                      alt={focusedListing.address?.full ?? "Listing photo"}
+                      fill
+                      sizes="(min-width: 1024px) 320px, 80vw"
+                      className="object-cover"
+                    />
                   </div>
-                  <div className="text-sm text-slate-600 line-clamp-2">
-                    {focusedListing.address?.full || "Address unavailable"}
-                  </div>
-                  <div className="text-xs text-slate-600">
-                    {(focusedListing.details?.beds ?? "—").toString()} bd •{" "}
-                    {(focusedListing.details?.baths ?? "—").toString()} ba
-                    {typeof focusedListing.details?.sqft === "number" &&
-                    focusedListing.details.sqft > 0
-                      ? ` • ${focusedListing.details.sqft.toLocaleString()} sqft`
-                      : ""}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="inline-flex items-center self-start rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition hover:brightness-95"
-                      onClick={() => {
-                        onSelectListing?.(focusedListing.id);
-                        handleDismiss();
-                      }}
-                    >
-                      View details
-                    </button>
+                  <div className="flex flex-col gap-1 text-text-main">
+                    <div className="text-lg font-semibold leading-tight">
+                      {formatPriceCompact(
+                        typeof focusedListing.listPrice === "number"
+                          ? focusedListing.listPrice
+                          : null
+                      )}
+                    </div>
+                    <div className="text-sm text-slate-600 line-clamp-2">
+                      {focusedListing.address?.full || "Address unavailable"}
+                    </div>
+                    <div className="text-xs text-slate-600">
+                      {(focusedListing.details?.beds ?? "—").toString()} bd •{" "}
+                      {(focusedListing.details?.baths ?? "—").toString()} ba
+                      {typeof focusedListing.details?.sqft === "number" &&
+                      focusedListing.details.sqft > 0
+                        ? ` • ${focusedListing.details.sqft.toLocaleString()} sqft`
+                        : ""}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="inline-flex items-center self-start rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition hover:brightness-95"
+                        onClick={() => {
+                          onSelectListing?.(focusedListing.id);
+                          handleDismiss();
+                        }}
+                      >
+                        View details
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            </div>,
+            document.body
+          );
+        })()}
         {isLocked && (
           <div className="mt-2 text-[11px] text-text-secondary">
             {focusedListing
