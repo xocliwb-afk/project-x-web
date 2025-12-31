@@ -40,6 +40,40 @@ export type NormalizedListing = {
     daysOnMarket: number | null;
     mlsName: string | null;
   };
+  agent?: {
+    id?: string | number | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    cellPhone?: string | null;
+  } | null;
+  coAgent?: {
+    id?: string | number | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    cellPhone?: string | null;
+  } | null;
+  office?: {
+    id?: string | number | null;
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
+  description?: string | null;
+  tax?: {
+    annualAmount?: number | null;
+    year?: number | null;
+    assessmentId?: string | number | null;
+  } | null;
+  school?: {
+    district?: string | null;
+    elementary?: string | null;
+    middle?: string | null;
+    high?: string | null;
+  } | null;
 };
 
 /**

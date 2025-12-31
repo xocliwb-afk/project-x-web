@@ -122,6 +122,12 @@ export class MockListingProvider implements ListingProvider {
         daysOnMarket: raw.mls?.daysOnMarket ?? raw.meta?.daysOnMarket ?? null,
         mlsName: raw.mls?.isMls ?? raw.meta?.mlsName ?? 'Mock MLS',
       },
+      agent: raw.agent ?? null,
+      coAgent: raw.coAgent ?? null,
+      office: raw.office ?? null,
+      description: raw.description ?? raw.remarks ?? null,
+      tax: raw.tax ?? null,
+      school: raw.school ?? null,
     };
   }
 }

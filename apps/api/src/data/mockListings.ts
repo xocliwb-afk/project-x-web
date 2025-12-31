@@ -33,6 +33,31 @@ export const mockListings: any[] = [
       lat: 42.9634,
       lng: -85.6681,
     },
+    agent: {
+      id: "ag-123",
+      firstName: "Alex",
+      lastName: "Agent",
+      email: "alex.agent@example.com",
+      phone: "616-555-0100",
+      cellPhone: "616-555-0199",
+    },
+    office: {
+      id: "ofc-42",
+      name: "Heritage Realty",
+      phone: "616-555-0200",
+      email: "info@heritagerealty.example.com",
+    },
+    tax: {
+      annualAmount: 4800,
+      year: 2023,
+      assessmentId: "TAX-123",
+    },
+    school: {
+      district: "Grand Rapids Public Schools",
+      elementary: "Congress Elementary",
+      middle: "Grand Rapids Montessori",
+      high: "Union High School",
+    },
   },
   {
     id: "2",
