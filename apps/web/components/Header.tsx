@@ -41,7 +41,7 @@ export default function Header() {
     ].join(" ");
 
   return (
-    <header className="z-40 flex shrink-0 flex-col">
+    <header className="flex shrink-0 flex-col">
       <nav className={styles.topNav}>
         <div className={styles.topNavInner}>
           <Link href="/" className={styles.topNavBrand} onClick={() => setMobileOpen(false)}>
