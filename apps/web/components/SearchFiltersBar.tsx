@@ -180,21 +180,8 @@ export default function SearchFiltersBar() {
     if (nextMaxDom !== maxDaysOnMarket) setMaxDaysOnMarket(nextMaxDom);
     const nextKeywords = searchParams.get("keywords") || "";
     if (nextKeywords !== keywords) setKeywords(nextKeywords);
-  }, [
-    keywords,
-    maxDaysOnMarket,
-    maxPrice,
-    maxSqft,
-    maxYearBuilt,
-    minBaths,
-    minBeds,
-    minPrice,
-    minSqft,
-    minYearBuilt,
-    propertyType,
-    searchParams,
-    text,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     const currentQ = searchParams.get("q") || "";
@@ -281,7 +268,7 @@ export default function SearchFiltersBar() {
     : { left: dropdownLeft, transform: "translateX(-50%)" };
 
   const renderStatusDropdown = () => (
-    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+    <div className="w-72 rounded-xl border border-border bg-white p-4 text-sm shadow-xl dark:bg-slate-900">
       <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
         <span className="font-semibold uppercase tracking-wider">Status</span>
         <button onClick={clearStatus} className="text-orange-500">
@@ -310,7 +297,7 @@ export default function SearchFiltersBar() {
   );
 
   const renderPriceDropdown = () => (
-    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+    <div className="w-72 rounded-xl border border-border bg-white p-4 text-sm shadow-xl dark:bg-slate-900">
       <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
         <span className="font-semibold uppercase tracking-wider">Price</span>
         <button onClick={clearPrice} className="text-orange-500">
@@ -321,7 +308,7 @@ export default function SearchFiltersBar() {
         <label className="flex flex-col gap-1 text-xs text-text-main/70">
           Min price
           <select
-            className="w-full rounded border border-border bg-white/5 px-2 py-1"
+            className="w-full rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
             value={minPrice}
             onChange={(e) => setMinPrice(e.target.value)}
           >
@@ -335,7 +322,7 @@ export default function SearchFiltersBar() {
         <label className="flex flex-col gap-1 text-xs text-text-main/70">
           Max price
           <select
-            className="w-full rounded border border-border bg-white/5 px-2 py-1"
+            className="w-full rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
           >
@@ -360,7 +347,7 @@ export default function SearchFiltersBar() {
   );
 
   const renderBedsDropdown = () => (
-    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+    <div className="w-72 rounded-xl border border-border bg-white p-4 text-sm shadow-xl dark:bg-slate-900">
       <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
         <span className="font-semibold uppercase tracking-wider">Bedrooms</span>
         <button onClick={clearBeds} className="text-orange-500">
@@ -388,7 +375,7 @@ export default function SearchFiltersBar() {
   );
 
   const renderBathsDropdown = () => (
-    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+    <div className="w-72 rounded-xl border border-border bg-white p-4 text-sm shadow-xl dark:bg-slate-900">
       <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
         <span className="font-semibold uppercase tracking-wider">Bathrooms</span>
         <button onClick={clearBaths} className="text-orange-500">
@@ -416,7 +403,7 @@ export default function SearchFiltersBar() {
   );
 
   const renderPropertyTypeDropdown = () => (
-    <div className="w-72 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+    <div className="w-72 rounded-xl border border-border bg-white p-4 text-sm shadow-xl dark:bg-slate-900">
       <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
         <span className="font-semibold uppercase tracking-wider">Home Type</span>
         <button onClick={clearPropertyType} className="text-orange-500">
@@ -446,7 +433,7 @@ export default function SearchFiltersBar() {
   );
 
   const renderMoreDropdown = () => (
-    <div className="w-[90vw] max-w-2xl rounded-2xl border border-border bg-surface p-6 text-sm shadow-2xl">
+    <div className="w-[90vw] max-w-2xl rounded-2xl border border-border bg-white p-6 text-sm shadow-2xl dark:bg-slate-900">
       <div className="mb-4 flex items-center justify-between text-xs text-text-main/70">
         <span className="font-semibold uppercase tracking-wider">Advanced Filters</span>
         <button onClick={clearMore} className="text-orange-500">
@@ -464,14 +451,14 @@ export default function SearchFiltersBar() {
               <input
                 type="number"
                 placeholder="Min"
-                className="w-1/2 rounded border border-border bg-white/5 px-2 py-1"
+                className="w-1/2 rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
                 value={minSqft}
                 onChange={(e) => setMinSqft(e.target.value)}
               />
               <input
                 type="number"
                 placeholder="Max"
-                className="w-1/2 rounded border border-border bg-white/5 px-2 py-1"
+                className="w-1/2 rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
                 value={maxSqft}
                 onChange={(e) => setMaxSqft(e.target.value)}
               />
@@ -483,14 +470,14 @@ export default function SearchFiltersBar() {
               <input
                 type="number"
                 placeholder="Min"
-                className="w-1/2 rounded border border-border bg-white/5 px-2 py-1"
+                className="w-1/2 rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
                 value={minYearBuilt}
                 onChange={(e) => setMinYearBuilt(e.target.value)}
               />
               <input
                 type="number"
                 placeholder="Max"
-                className="w-1/2 rounded border border-border bg-white/5 px-2 py-1"
+                className="w-1/2 rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
                 value={maxYearBuilt}
                 onChange={(e) => setMaxYearBuilt(e.target.value)}
               />
@@ -506,7 +493,7 @@ export default function SearchFiltersBar() {
             <input
               type="text"
               placeholder="Pool, fixer upper..."
-              className="rounded border border-border bg-white/5 px-2 py-1"
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
               value={keywords}
               onChange={(e) => setKeywords(e.target.value)}
             />
@@ -519,7 +506,7 @@ export default function SearchFiltersBar() {
           <label className="flex flex-col gap-1 text-xs text-text-main/70">
             Days on Market
             <select
-              className="rounded border border-border bg-white/5 px-2 py-1"
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
               value={maxDaysOnMarket}
               onChange={(e) => setMaxDaysOnMarket(e.target.value)}
             >
@@ -557,7 +544,7 @@ export default function SearchFiltersBar() {
     <div ref={barRef} className="relative w-full">
       <div className="mx-auto flex max-w-[1920px] flex-wrap items-center gap-3">
         <div className="w-full sm:w-1/3 md:w-1/3 lg:w-1/3 sm:ml-2">
-          <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-surface px-3 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <span className="hidden text-[10px] font-bold uppercase tracking-[0.3em] text-text-main/60 sm:inline">
               Search
             </span>
@@ -704,7 +691,7 @@ export function SortButton() {
         {sortLabel}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-surface p-4 text-sm shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-white p-4 text-sm shadow-xl dark:bg-slate-900">
           <div className="mb-3 flex items-center justify-between text-xs text-text-main/70">
             <span className="font-semibold uppercase tracking-wider">Sort</span>
             <button onClick={() => updateSort(null)} className="text-orange-500">
