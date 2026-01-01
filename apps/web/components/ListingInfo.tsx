@@ -66,10 +66,7 @@ export function ListingInfo({ listing, variant = 'modal' }: ListingInfoProps) {
   const propertyTypeText = formatPropertyType(propertyType ?? null);
   const hoaText = formatHOAFees(listing.details?.hoaFees ?? null);
   const basementText = formatBasement(listing.details?.basement ?? null);
-  const snippet = formatDescription(listing.description ?? null, variant);
   const normalizedDesc = normalizeRemarks(listing.description ?? null);
-  const isTruncated =
-    snippet != null && normalizedDesc != null && normalizedDesc.length > snippet.length;
 
   return (
     <>
@@ -142,25 +139,6 @@ export function ListingInfo({ listing, variant = 'modal' }: ListingInfoProps) {
                 <DetailItem key={row.label} label={row.label} value={row.value} />
               ))}
             </div>
-          </div>
-        )}
-
-        {variant === 'modal' && snippet && (
-          <div className="mt-6">
-            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">
-              Description
-            </h2>
-            <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
-              {snippet}
-            </p>
-            {isTruncated && (
-              <a
-                href={`/listing/${listing.id}`}
-                className="mt-2 inline-block text-sm font-semibold text-blue-600 hover:underline"
-              >
-                Read more
-              </a>
-            )}
           </div>
         )}
 
