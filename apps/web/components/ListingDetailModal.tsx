@@ -56,7 +56,10 @@ export function ListingDetailModal({
         onClick={handleContentClick}
       >
         <div className="w-full md:w-1/2">
-          <ListingImageGallery photos={listing.media?.photos ?? []} />
+          <ListingImageGallery
+            photos={listing.media?.photos ?? []}
+            listing={listing}
+          />
         </div>
         <div className="w-full md:w-1/2 flex flex-col">
           <div className="flex items-center justify-between px-4 pt-4 md:px-6">
