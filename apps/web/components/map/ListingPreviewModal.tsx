@@ -6,19 +6,19 @@ import { useRouter } from "next/navigation";
 import type { Listing as NormalizedListing } from "@project-x/shared-types";
 import { useEffect } from "react";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
+import {
+  formatAddressFull,
+  formatPrice,
+  formatSqft,
+  formatStatus,
+  getStatusBadgeClasses,
+  getThumbnailUrl,
+} from "@/lib/listingFormat";
 
 type ListingPreviewModalProps = {
   listing: NormalizedListing | null;
   isOpen: boolean;
   onClose: () => void;
-};
-
-const formatPriceCompact = (price: number | null | undefined) => {
-  if (!price || price <= 0) return "N/A";
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(price);
 };
 
 export default function ListingPreviewModal({ listing, isOpen, onClose }: ListingPreviewModalProps) {
@@ -39,12 +39,10 @@ export default function ListingPreviewModal({ listing, isOpen, onClose }: Listin
     onClose();
   };
 
-  const priceLabel =
-    typeof listing.listPrice === "number"
-      ? formatPriceCompact(listing.listPrice)
-      : listing.listPriceFormatted || "—";
-
-  const mainPhoto = listing.media?.thumbnailUrl ?? listing.media?.photos?.[0] ?? "/placeholder-house.jpg";
+  const priceLabel = formatPrice(listing);
+  const statusLabel = formatStatus(listing.details?.status);
+  const sqft = formatSqft(listing.details?.sqft);
+  const mainPhoto = getThumbnailUrl(listing);
 
   const modal = (
     <div className="fixed inset-0 z-[99999] pt-[env(safe-area-inset-top)]">
@@ -82,14 +80,19 @@ export default function ListingPreviewModal({ listing, isOpen, onClose }: Listin
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-lg font-semibold leading-tight">{priceLabel}</div>
-                  <div className="text-sm text-slate-600 line-clamp-2">
-                    {listing.address?.full || "Address unavailable"}
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${getStatusBadgeClasses(
+                        listing.details?.status
+                      )}`}
+                    >
+                      {statusLabel}
+                    </span>
                   </div>
+                  <div className="text-sm text-slate-600 line-clamp-2">{formatAddressFull(listing)}</div>
                   <div className="text-xs text-slate-600">
                     {(listing.details?.beds ?? "—").toString()} bd • {(listing.details?.baths ?? "—").toString()} ba
-                    {typeof listing.details?.sqft === "number" && listing.details.sqft > 0
-                      ? ` • ${listing.details.sqft.toLocaleString()} sqft`
-                      : ""}
+                    {sqft ? ` • ${sqft} sqft` : ""}
                   </div>
                 </div>
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-lg">
