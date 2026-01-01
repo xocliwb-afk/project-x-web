@@ -158,7 +158,8 @@ export class SimplyRetsListingProvider implements ListingProvider {
       const name = officeRaw.name ?? contact.name ?? null;
       const phone = officeRaw.phone ?? contact.office ?? contact.phone ?? null;
       const email = officeRaw.email ?? contact.email ?? null;
-      const id = officeRaw.id ?? contact.id ?? null;
+      const rawId = officeRaw.id ?? officeRaw.brokerid ?? contact.id ?? contact.brokerid ?? null;
+      const id = rawId != null ? String(rawId) : null;
       if ([name, phone, email, id].every((v) => v == null)) return null;
       return { id, name, phone, email };
     };
