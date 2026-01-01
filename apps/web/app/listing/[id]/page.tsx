@@ -5,18 +5,28 @@ import BackButton from '@/components/BackButton';
 import ListingImageGallery from '@/components/ListingImageGallery';
 import ContactAgentPanel from '@/components/listing-detail/ContactAgentPanel';
 import SiteFooter from '@/components/footer/SiteFooter';
+import {
+  formatAddressFull,
+  formatAttribution,
+  formatBasement,
+  formatDaysOnMarketFull,
+  formatHOAFees,
+  formatLotSize,
+  formatPrice,
+  formatPropertyType,
+  formatSqft,
+  formatStatus,
+  formatYearBuilt,
+  getListingDetailsRows,
+  getStatusBadgeClasses,
+  normalizeRemarks,
+} from '@/lib/listingFormat';
 
 type ListingDetailPageProps = {
   params: {
     id: string;
   };
 };
-
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
 
 const formatLabel = (key: string) =>
   key
@@ -86,32 +96,26 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
   const beds = listing.details?.beds ?? null;
   const baths = listing.details?.baths ?? null;
-  const sqft = listing.details?.sqft ?? null;
-  const lotSize = listing.details?.lotSize ?? null;
-  const yearBuilt = listing.details?.yearBuilt ?? null;
-  const hoa = listing.details?.hoaFees ?? null;
-  const basement = listing.details?.basement ?? null;
-  const propertyType = listing.details?.propertyType ?? null;
+  const sqft = formatSqft(listing.details?.sqft ?? null);
+  const lotSize = formatLotSize(listing.details?.lotSize ?? null);
+  const yearBuilt = formatYearBuilt(listing.details?.yearBuilt ?? null);
+  const hoa = formatHOAFees(listing.details?.hoaFees ?? null);
+  const basement = formatBasement(listing.details?.basement ?? null) ?? '—';
+  const propertyType = formatPropertyType(listing.details?.propertyType ?? null) ?? '—';
   const status = listing.details?.status ?? null;
-  const mlsName = listing.meta?.mlsName ?? null;
-  const description =
-    (listing as any)?.description ||
-    (listing as any)?.remarks ||
-    (listing.details as any)?.description ||
-    'Property description coming soon.';
-  const priceLabel =
-    typeof listing.listPriceFormatted === 'string' && listing.listPriceFormatted.trim().length > 0
-      ? listing.listPriceFormatted
-      : currency.format(listing.listPrice ?? 0);
+  const statusLabel = formatStatus(status);
+  const statusClass = getStatusBadgeClasses(status);
+  const domLabel = formatDaysOnMarketFull(listing.meta?.daysOnMarket ?? null);
+  const priceLabel = formatPrice(listing);
+  const listingAddressFull = formatAddressFull(listing);
+  const description = normalizeRemarks((listing as any)?.description ?? listing.description ?? null);
+  const detailRows = getListingDetailsRows(listing);
+  const attribution = formatAttribution();
 
   const mapListing = {
     ...listing,
     id: listing.id,
   };
-
-  const listingAddressFull =
-    listing.address?.full ??
-    `${listing.address.street}, ${listing.address.city}, ${listing.address.state} ${listing.address.zip}`;
 
   return (
     <div className="min-h-screen w-full bg-surface">
@@ -125,26 +129,22 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              {status && (
-                <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                  {status.replace(/_/g, ' ')}
+              {statusLabel && (
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusClass}`}>
+                  {statusLabel}
                 </span>
               )}
-              {listing.meta?.daysOnMarket != null && (
+              {domLabel && (
                 <span className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-text-muted">
-                  {listing.meta.daysOnMarket} days on market
+                  {domLabel}
                 </span>
               )}
             </div>
             <h1 className="text-3xl font-bold text-text-main sm:text-4xl">{priceLabel}</h1>
-            <p className="text-lg text-text-main/80">
-              {listing.address.street}, {listing.address.city}, {listing.address.state} {listing.address.zip}
+            <p className="text-lg text-text-main/80">{listingAddressFull}</p>
+            <p className="text-xs uppercase tracking-wide text-text-muted">
+              {attribution}
             </p>
-            {mlsName && (
-              <p className="text-xs uppercase tracking-wide text-text-muted">
-                Listing courtesy of {mlsName}
-              </p>
-            )}
           </div>
         </div>
 
@@ -155,15 +155,29 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               <dl className="mt-4 grid grid-cols-2 gap-4 text-sm text-text-main sm:grid-cols-3">
                 <Fact label="Beds" value={beds ?? '--'} />
                 <Fact label="Baths" value={baths ?? '--'} />
-                <Fact label="Square Feet" value={sqft ? sqft.toLocaleString() : '--'} />
-                <Fact label="Lot Size" value={lotSize ? `${lotSize} ac` : '--'} />
+                <Fact label="Square Feet" value={sqft ?? '--'} />
+                <Fact label="Lot Size" value={lotSize ?? '--'} />
                 <Fact label="Year Built" value={yearBuilt ?? '--'} />
-                <Fact label="HOA" value={hoa ? currency.format(hoa) : 'N/A'} />
+                <Fact label="HOA" value={hoa ?? 'N/A'} />
                 <Fact label="Basement" value={basement ?? '—'} />
                 <Fact label="Property Type" value={propertyType ?? '—'} />
-                <Fact label="Status" value={status ?? '—'} />
+                <Fact label="Status" value={statusLabel ?? '—'} />
               </dl>
             </section>
+
+            {detailRows.length > 0 && (
+              <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
+                <h2 className="text-xl font-semibold text-text-main">Agent &amp; Office Information</h2>
+                <dl className="mt-4 grid grid-cols-1 gap-4 text-sm text-text-main sm:grid-cols-2">
+                  {detailRows.map((row) => (
+                    <div key={row.label} className="rounded-lg bg-surface-muted/60 p-3">
+                      <dt className="text-[11px] uppercase tracking-wide text-text-muted">{row.label}</dt>
+                      <dd className="mt-1 text-base font-semibold text-text-main">{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
 
             {renderKeyValueSection('Additional Details', listing.details, [
               'beds',
@@ -180,10 +194,12 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
             {renderKeyValueSection('Listing Meta', listing.meta, ['mlsName', 'daysOnMarket'])}
 
-            <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-text-main">Description</h2>
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-text-muted">{description}</p>
-            </section>
+            {description && (
+              <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
+                <h2 className="text-xl font-semibold text-text-main">Description</h2>
+                <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-text-muted">{description}</p>
+              </section>
+            )}
 
             {listing.address?.lat != null && listing.address?.lng != null && (
               <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
@@ -199,11 +215,9 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
             )}
 
             <section className="rounded-2xl border border-dashed border-border bg-surface-muted/60 p-4 text-xs text-text-muted">
-              {mlsName && (
-                <p className="font-semibold text-text-main">
-                  Listing courtesy of {mlsName}
-                </p>
-              )}
+              <p className="font-semibold text-text-main">
+                {attribution}
+              </p>
               <p className="mt-1">
                 Information deemed reliable but not guaranteed. Buyers should verify all information with the listing broker.
               </p>
