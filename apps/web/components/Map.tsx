@@ -329,7 +329,6 @@ export default function Map({
                         return;
                       }
                       onSelectListing?.(l.id);
-                      router.push(`/listing/${l.id}`);
                     },
                     popupopen: () => {
                       if (overlayOpen) return;
@@ -371,6 +370,18 @@ export default function Map({
                             ? sqft.toLocaleString()
                             : "—"}{" "}
                           sqft
+                        </div>
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-blue-600 hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/listing/${l.id}`);
+                            }}
+                          >
+                            View Details →
+                          </button>
                         </div>
                       </div>
                     </Popup>
