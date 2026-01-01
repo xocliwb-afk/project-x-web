@@ -2,6 +2,22 @@
 
 import { Listing } from '@project-x/shared-types';
 import { useLeadModalStore } from '@/stores/useLeadModalStore';
+import {
+  formatAddressCityStateZip,
+  formatAddressFull,
+  formatAttribution,
+  formatDescription,
+  formatDaysOnMarketShort,
+  formatBasement,
+  formatHOAFees,
+  formatLotSize,
+  formatPrice,
+  formatSqft,
+  formatStatus,
+  getListingDetailsRows,
+  getStatusBadgeClasses,
+  normalizeRemarks,
+} from '@/lib/listingFormat';
 
 type DetailItemProps = {
   label: string;
@@ -26,39 +42,49 @@ const DetailItem = ({ label, value }: DetailItemProps) => {
 
 type ListingInfoProps = {
   listing: Listing;
+  variant?: 'card' | 'modal' | 'detail';
 };
 
-export function ListingInfo({ listing }: ListingInfoProps) {
+export function ListingInfo({ listing, variant = 'modal' }: ListingInfoProps) {
   const openLeadModal = useLeadModalStore((s) => s.open);
 
-  const numericPrice =
-    typeof listing.listPrice === 'number' ? listing.listPrice : 0;
-
-  const priceText =
-    typeof listing.listPriceFormatted === 'string' &&
-    listing.listPriceFormatted.trim().length > 0
-      ? listing.listPriceFormatted
-      : `$${numericPrice.toLocaleString()}`;
-
-  const fullAddress = listing.address?.full ?? 'Address unavailable';
-  const cityStateZip = `${listing.address?.city ?? ''}, ${
-    listing.address?.state ?? ''
-  } ${listing.address?.zip ?? ''}`;
+  const priceText = formatPrice(listing);
+  const fullAddress = formatAddressFull(listing);
+  const cityStateZip = formatAddressCityStateZip(listing);
 
   const { beds, baths, sqft, lotSize, yearBuilt, propertyType, status } =
     listing.details ?? {};
+  const sqftText = formatSqft(sqft ?? null) ?? '-';
+  const statusText = formatStatus(status);
+  const statusClass = getStatusBadgeClasses(status);
+  const domText = formatDaysOnMarketShort(listing.meta?.daysOnMarket ?? null);
+  const detailRows = getListingDetailsRows(listing);
+  const lotSizeText = formatLotSize(lotSize ?? null);
+  const hoaText = formatHOAFees(listing.details?.hoaFees ?? null);
+  const basementText = formatBasement(listing.details?.basement ?? null);
+  const snippet = formatDescription(listing.description ?? null, variant);
+  const normalizedDesc = normalizeRemarks(listing.description ?? null);
+  const isTruncated =
+    snippet != null && normalizedDesc != null && normalizedDesc.length > snippet.length;
 
   return (
     <>
       <div className="p-6 overflow-y-auto flex-grow">
-        {status && (
-          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-            {status.replace(/_/g, ' ')}
+        {statusText && (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusClass}`}
+          >
+            {statusText}
           </span>
         )}
         <h1 className="text-3xl font-bold mt-2 text-slate-900 dark:text-white">
           {priceText}
         </h1>
+        {domText && (
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+            {domText}
+          </p>
+        )}
         <p className="text-md text-slate-600 dark:text-slate-400 mt-1">
           {fullAddress}
         </p>
@@ -81,9 +107,7 @@ export function ListingInfo({ listing }: ListingInfoProps) {
           </div>
           <div>
             <span className="font-bold text-2xl text-slate-800 dark:text-slate-100">
-              {typeof sqft === 'number' && sqft > 0
-                ? sqft.toLocaleString()
-                : '-'}
+              {sqftText}
             </span>
             <p className="text-xs text-slate-500">Sqft</p>
           </div>
@@ -96,14 +120,58 @@ export function ListingInfo({ listing }: ListingInfoProps) {
           <div className="grid grid-cols-2 gap-y-2 gap-x-4">
             <DetailItem label="Property Type" value={propertyType} />
             <DetailItem label="Year Built" value={yearBuilt} />
-            <DetailItem
-              label="Lot Size (sqft)"
-              value={
-                typeof lotSize === 'number' ? lotSize.toLocaleString() : null
-              }
-            />
+            <DetailItem label="Lot Size" value={lotSizeText} />
+            {hoaText && <DetailItem label="HOA" value={hoaText} />}
+            {basementText && <DetailItem label="Basement" value={basementText} />}
           </div>
         </div>
+
+        {detailRows.length > 0 && (
+          <div className="mt-6">
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">
+              Agent &amp; Office Information
+            </h2>
+            <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+              {detailRows.map((row) => (
+                <DetailItem key={row.label} label={row.label} value={row.value} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {variant === 'modal' && snippet && (
+          <div className="mt-6">
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">
+              Description
+            </h2>
+            <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
+              {snippet}
+            </p>
+            {isTruncated && (
+              <a
+                href={`/listing/${listing.id}`}
+                className="mt-2 inline-block text-sm font-semibold text-blue-600 hover:underline"
+              >
+                Read more
+              </a>
+            )}
+          </div>
+        )}
+
+        {variant === 'detail' && normalizedDesc && (
+          <div className="mt-6">
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">
+              Description
+            </h2>
+            <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
+              {normalizedDesc}
+            </p>
+          </div>
+        )}
+
+        <p className="mt-4 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          {formatAttribution()}
+        </p>
       </div>
 
       <div className="p-6 border-t border-slate-200 dark:border-slate-700 mt-auto">

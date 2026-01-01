@@ -4,6 +4,17 @@ import type { Listing } from '@project-x/shared-types';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import {
+  formatAddressFull,
+  formatAttribution,
+  formatDaysOnMarketShort,
+  formatPrice,
+  formatSqft,
+  formatStatus,
+  getListingDetailsRows,
+  getStatusBadgeClasses,
+  getThumbnailUrl,
+} from '@/lib/listingFormat';
 
 interface ListingCardProps {
   listing: Listing;
@@ -21,44 +32,21 @@ export function ListingCard({
   onClick,
 }: ListingCardProps) {
   const photos = listing.media?.photos ?? [];
-  const fallbackPhoto = '/placeholder-house.jpg';
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // --- Derive Null-Safe Values ---
-  const numericPrice =
-    typeof listing.listPrice === 'number' ? listing.listPrice : 0;
-
-  const priceText =
-    typeof listing.listPriceFormatted === 'string' &&
-    listing.listPriceFormatted.trim().length > 0
-      ? listing.listPriceFormatted
-      : `$${numericPrice.toLocaleString()}`;
-
+  const priceText = formatPrice(listing);
   const beds = listing.details?.beds ?? 0;
   const baths = listing.details?.baths ?? 0;
-  const sqft = listing.details?.sqft ?? null;
-  const daysOnMarket =
-    typeof listing.meta?.daysOnMarket === 'number' ? listing.meta.daysOnMarket : null;
-  const mlsName = listing.meta?.mlsName ?? null;
+  const sqft = formatSqft(listing.details?.sqft ?? null);
+  const daysOnMarket = formatDaysOnMarketShort(listing.meta?.daysOnMarket ?? null);
+  const mlsAttribution = formatAttribution();
 
-  const fullAddress = listing.address?.full ?? 'Address unavailable';
-  const thumbnail =
-    listing.media?.thumbnailUrl ??
-    listing.media?.photos?.[0] ??
-    '/placeholder-house.jpg';
-  const status = listing.details?.status || 'Active';
+  const fullAddress = formatAddressFull(listing);
+  const thumbnail = getThumbnailUrl(listing);
+  const status = listing.details?.status;
   const currentImageUrl = photos[currentIndex] ?? photos[0] ?? thumbnail;
-
-  const statusStyles: Record<string, string> = {
-    Active: 'bg-green-100 text-green-800',
-    'FOR_SALE': 'bg-green-100 text-green-800',
-    Pending: 'bg-amber-100 text-amber-800',
-    PENDING: 'bg-amber-100 text-amber-800',
-    Sold: 'bg-slate-200 text-slate-700',
-    SOLD: 'bg-slate-200 text-slate-700',
-  };
-  const statusClass =
-    statusStyles[status] || 'bg-slate-200 text-slate-700';
+  const statusClass = getStatusBadgeClasses(status);
+  const detailRows = getListingDetailsRows(listing);
 
   // --- Event Handlers ---
   const handleClick = () => {
@@ -98,7 +86,7 @@ export function ListingCard({
             <span
               className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide backdrop-blur-sm ${statusClass}`}
             >
-              {status.replace(/_/g, ' ')}
+              {formatStatus(status)}
             </span>
           </div>
         )}
@@ -158,24 +146,31 @@ export function ListingCard({
             <span>{beds} bd</span>
             <span>•</span>
             <span>{baths} ba</span>
-            {typeof sqft === 'number' && sqft > 0 && (
+            {sqft && (
               <>
                 <span>•</span>
-                <span>{sqft.toLocaleString()} sqft</span>
+                <span>{sqft} sqft</span>
               </>
             )}
           </div>
+
+          {detailRows.length > 0 && (
+            <div className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-300">
+              {detailRows.map((row) => (
+                <div key={row.label} className="flex gap-1">
+                  <span className="font-semibold">{row.label}:</span>
+                  <span className="line-clamp-1">{row.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-300">
-          {mlsName ? (
-            <span className="line-clamp-1">Listing courtesy of {mlsName}</span>
-          ) : (
-            <span className="opacity-0">placeholder</span>
-          )}
-          {daysOnMarket && daysOnMarket > 0 && (
+          <span className="line-clamp-1">{mlsAttribution}</span>
+          {daysOnMarket && (
             <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-              {daysOnMarket} DOM
+              {daysOnMarket}
             </span>
           )}
         </div>
