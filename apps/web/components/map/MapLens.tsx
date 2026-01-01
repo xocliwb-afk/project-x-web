@@ -10,19 +10,19 @@ import type { LatLngBounds } from "leaflet";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { useTheme } from "@/context/ThemeContext";
+import {
+  formatAddressFull,
+  formatPrice,
+  formatSqft,
+  formatStatus,
+  getStatusBadgeClasses,
+  getThumbnailUrl,
+} from "@/lib/listingFormat";
 
 type MapLensProps = {
   onHoverListing?: (id: string | null) => void;
   onSelectListing?: (id: string | null) => void;
   isMobile?: boolean;
-};
-
-const formatPriceCompact = (price: number | null | undefined) => {
-  if (!price || price <= 0) return "N/A";
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(price);
 };
 
 export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensProps) {
@@ -257,11 +257,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
                 >
                   <div className="relative w-full overflow-hidden rounded-xl bg-slate-200 aspect-[16/9]">
                     <Image
-                      src={
-                        focusedListing.media?.thumbnailUrl ??
-                        focusedListing.media?.photos?.[0] ??
-                        "/placeholder-house.jpg"
-                      }
+                      src={getThumbnailUrl(focusedListing)}
                       alt={focusedListing.address?.full ?? "Listing photo"}
                       fill
                       sizes="100vw"
@@ -272,22 +268,27 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-lg font-semibold leading-tight">
-                        {formatPriceCompact(
-                          typeof focusedListing.listPrice === "number"
-                            ? focusedListing.listPrice
-                            : null
-                        )}
+                        {formatPrice(focusedListing)}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${getStatusBadgeClasses(
+                            focusedListing.details?.status
+                          )}`}
+                        >
+                          {formatStatus(focusedListing.details?.status)}
+                        </span>
                       </div>
                       <div className="text-sm text-slate-600 line-clamp-2">
-                        {focusedListing.address?.full || "Address unavailable"}
+                        {formatAddressFull(focusedListing)}
                       </div>
                       <div className="text-xs text-slate-600">
                         {(focusedListing.details?.beds ?? "—").toString()} bd •{" "}
                         {(focusedListing.details?.baths ?? "—").toString()} ba
-                        {typeof focusedListing.details?.sqft === "number" &&
-                        focusedListing.details.sqft > 0
-                          ? ` • ${focusedListing.details.sqft.toLocaleString()} sqft`
-                          : ""}
+                        {(() => {
+                          const sqft = formatSqft(focusedListing.details?.sqft);
+                          return sqft ? ` • ${sqft} sqft` : "";
+                        })()}
                       </div>
                     </div>
                     <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-lg">
@@ -391,35 +392,36 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
                 <div className="flex flex-col gap-3 w-full">
                   <div className="relative w-full overflow-hidden rounded-xl bg-slate-200 aspect-[4/3]">
                     <Image
-                      src={
-                        focusedListing.media?.thumbnailUrl ??
-                        (focusedListing.media?.photos?.[0] ??
-                          "/placeholder-house.jpg")
-                      }
+                      src={getThumbnailUrl(focusedListing)}
                       alt={focusedListing.address?.full ?? "Listing photo"}
                       fill
                       sizes="(min-width: 1024px) 320px, 80vw"
                       className="object-cover"
                     />
                   </div>
-                  <div className="flex flex-col gap-1 text-text-main">
-                    <div className="text-lg font-semibold leading-tight">
-                      {formatPriceCompact(
-                        typeof focusedListing.listPrice === "number"
-                          ? focusedListing.listPrice
-                          : null
-                      )}
+                  <div className="flex flex-col gap-2 text-text-main">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-lg font-semibold leading-tight">
+                        {formatPrice(focusedListing)}
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${getStatusBadgeClasses(
+                          focusedListing.details?.status
+                        )}`}
+                      >
+                        {formatStatus(focusedListing.details?.status)}
+                      </span>
                     </div>
                     <div className="text-sm text-slate-600 line-clamp-2">
-                      {focusedListing.address?.full || "Address unavailable"}
+                      {formatAddressFull(focusedListing)}
                     </div>
                     <div className="text-xs text-slate-600">
                       {(focusedListing.details?.beds ?? "—").toString()} bd •{" "}
                       {(focusedListing.details?.baths ?? "—").toString()} ba
-                      {typeof focusedListing.details?.sqft === "number" &&
-                      focusedListing.details.sqft > 0
-                        ? ` • ${focusedListing.details.sqft.toLocaleString()} sqft`
-                        : ""}
+                      {(() => {
+                        const sqft = formatSqft(focusedListing.details?.sqft);
+                        return sqft ? ` • ${sqft} sqft` : "";
+                      })()}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
