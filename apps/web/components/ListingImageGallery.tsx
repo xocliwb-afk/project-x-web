@@ -2,16 +2,19 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
+import type { Listing } from '@project-x/shared-types';
+import { getThumbnailUrl } from '@/lib/listingFormat';
 
 type ListingImageGalleryProps = {
   photos: string[];
+  listing: Listing;
 };
 
-export default function ListingImageGallery({ photos }: ListingImageGalleryProps) {
+export default function ListingImageGallery({ photos, listing }: ListingImageGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const hasPhotos = Array.isArray(photos) && photos.length > 0;
   const safeIndex = hasPhotos ? currentIndex % photos.length : 0;
-  const currentPhoto = hasPhotos ? photos[safeIndex] : '/placeholder-house.jpg';
+  const currentPhoto = hasPhotos ? photos[safeIndex] : getThumbnailUrl(listing);
 
   const handlePrev = () => {
     if (!hasPhotos) return;

@@ -44,7 +44,7 @@ export function ListingCard({
   const fullAddress = formatAddressFull(listing);
   const thumbnail = getThumbnailUrl(listing);
   const status = listing.details?.status;
-  const currentImageUrl = photos[currentIndex] ?? photos[0] ?? thumbnail;
+  const currentImageUrl = photos[currentIndex] ?? thumbnail;
   const statusClass = getStatusBadgeClasses(status);
   const detailRows = getListingDetailsRows(listing);
 

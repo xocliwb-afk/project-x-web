@@ -28,6 +28,7 @@ import type {
 import { MapLens } from "./map/MapLens";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import ListingPreviewModal from "./map/ListingPreviewModal";
+import { getThumbnailUrl } from "@/lib/listingFormat";
 
 const iconUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png";
 const iconRetinaUrl = "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png";
@@ -306,7 +307,7 @@ export default function Map({
               const beds = l.details?.beds ?? 0;
               const baths = l.details?.baths ?? 0;
               const sqft = l.details?.sqft ?? null;
-              const mainPhoto = l.media?.photos?.[0] ?? "/placeholder-house.jpg";
+              const mainPhoto = getThumbnailUrl(l);
               const fullAddress = l.address?.full ?? "Address unavailable";
               const cityLine = `${l.address.city}, ${l.address.state} ${l.address.zip}`.trim();
 
