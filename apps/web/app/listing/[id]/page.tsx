@@ -126,6 +126,14 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
         <div className="space-y-4 rounded-2xl border border-border bg-white/80 p-4 shadow-sm">
           <ListingImageGallery photos={photos} listing={listing} />
+          {description && (
+            <section className="rounded-2xl bg-white/80 p-4 shadow-sm">
+              <h2 className="text-lg font-semibold text-text-main">Description</h2>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-text-muted">
+                {description}
+              </p>
+            </section>
+          )}
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">
@@ -194,13 +202,6 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
             ])}
 
             {renderKeyValueSection('Listing Meta', listing.meta, ['mlsName', 'daysOnMarket'])}
-
-            {description && (
-              <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
-                <h2 className="text-xl font-semibold text-text-main">Description</h2>
-                <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-text-muted">{description}</p>
-              </section>
-            )}
 
             {listing.address?.lat != null && listing.address?.lng != null && (
               <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">

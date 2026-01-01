@@ -5,6 +5,7 @@ import type { Listing } from '@project-x/shared-types';
 import ListingImageGallery from './ListingImageGallery';
 import { ListingInfo } from './ListingInfo';
 import Link from 'next/link';
+import { normalizeRemarks } from '@/lib/listingFormat';
 
 type ListingDetailModalProps = {
   listing: Listing | null;
@@ -43,6 +44,8 @@ export function ListingDetailModal({
     e.stopPropagation();
   };
 
+  const description = normalizeRemarks(listing.description ?? null);
+
   return (
     <div
       role="dialog"
@@ -60,6 +63,11 @@ export function ListingDetailModal({
             photos={listing.media?.photos ?? []}
             listing={listing}
           />
+          {description && (
+            <div className="mt-4 px-4 pb-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
+              {description}
+            </div>
+          )}
         </div>
         <div className="w-full md:w-1/2 flex flex-col">
           <div className="flex items-center justify-between px-4 pt-4 md:px-6">
