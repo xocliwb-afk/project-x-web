@@ -100,8 +100,8 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const lotSize = formatLotSize(listing.details?.lotSize ?? null);
   const yearBuilt = formatYearBuilt(listing.details?.yearBuilt ?? null);
   const hoa = formatHOAFees(listing.details?.hoaFees ?? null);
-  const basement = formatBasement(listing.details?.basement ?? null) ?? '—';
-  const propertyType = formatPropertyType(listing.details?.propertyType ?? null) ?? '—';
+  const basement = formatBasement(listing.details?.basement ?? null);
+  const propertyType = formatPropertyType(listing.details?.propertyType ?? null);
   const status = listing.details?.status ?? null;
   const statusLabel = formatStatus(status);
   const statusClass = getStatusBadgeClasses(status);
@@ -153,15 +153,16 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
             <section className="rounded-2xl border border-border bg-white/80 p-6 shadow-sm">
               <h2 className="text-xl font-semibold text-text-main">Key Facts</h2>
               <dl className="mt-4 grid grid-cols-2 gap-4 text-sm text-text-main sm:grid-cols-3">
+                <Fact label="Status" value={statusLabel ?? '--'} />
+                <Fact label="Days on Market" value={domLabel ?? '--'} />
                 <Fact label="Beds" value={beds ?? '--'} />
                 <Fact label="Baths" value={baths ?? '--'} />
                 <Fact label="Square Feet" value={sqft ?? '--'} />
                 <Fact label="Lot Size" value={lotSize ?? '--'} />
                 <Fact label="Year Built" value={yearBuilt ?? '--'} />
-                <Fact label="HOA" value={hoa ?? 'N/A'} />
-                <Fact label="Basement" value={basement ?? '—'} />
-                <Fact label="Property Type" value={propertyType ?? '—'} />
-                <Fact label="Status" value={statusLabel ?? '—'} />
+                <Fact label="Property Type" value={propertyType ?? '--'} />
+                <Fact label="HOA" value={hoa ?? '--'} />
+                <Fact label="Basement" value={basement ?? '--'} />
               </dl>
             </section>
 

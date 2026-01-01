@@ -14,8 +14,10 @@ import {
   formatPrice,
   formatSqft,
   formatStatus,
-  getListingDetailsRows,
+  formatYearBuilt,
+  formatPropertyType,
   getStatusBadgeClasses,
+  getListingDetailsRows,
   normalizeRemarks,
 } from '@/lib/listingFormat';
 
@@ -60,6 +62,8 @@ export function ListingInfo({ listing, variant = 'modal' }: ListingInfoProps) {
   const domText = formatDaysOnMarketShort(listing.meta?.daysOnMarket ?? null);
   const detailRows = getListingDetailsRows(listing);
   const lotSizeText = formatLotSize(lotSize ?? null);
+  const yearBuiltText = formatYearBuilt(yearBuilt ?? null);
+  const propertyTypeText = formatPropertyType(propertyType ?? null);
   const hoaText = formatHOAFees(listing.details?.hoaFees ?? null);
   const basementText = formatBasement(listing.details?.basement ?? null);
   const snippet = formatDescription(listing.description ?? null, variant);
@@ -118,9 +122,11 @@ export function ListingInfo({ listing, variant = 'modal' }: ListingInfoProps) {
             Key Facts
           </h2>
           <div className="grid grid-cols-2 gap-y-2 gap-x-4">
-            <DetailItem label="Property Type" value={propertyType} />
-            <DetailItem label="Year Built" value={yearBuilt} />
-            <DetailItem label="Lot Size" value={lotSizeText} />
+            <DetailItem label="Status" value={statusText || undefined} />
+            {domText && <DetailItem label="Days on Market" value={domText} />}
+            {lotSizeText && <DetailItem label="Lot Size" value={lotSizeText} />}
+            {yearBuiltText && <DetailItem label="Year Built" value={yearBuiltText} />}
+            {propertyTypeText && <DetailItem label="Property Type" value={propertyTypeText} />}
             {hoaText && <DetailItem label="HOA" value={hoaText} />}
             {basementText && <DetailItem label="Basement" value={basementText} />}
           </div>
