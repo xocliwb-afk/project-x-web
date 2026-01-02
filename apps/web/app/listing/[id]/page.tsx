@@ -110,7 +110,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const listingAddressFull = formatAddressFull(listing);
   const description = normalizeRemarks((listing as any)?.description ?? listing.description ?? null);
   const detailRows = getListingDetailsRows(listing);
-  const attribution = formatAttribution();
+  const attribution = formatAttribution(listing);
 
   const mapListing = {
     ...listing,
@@ -150,7 +150,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
             </div>
             <h1 className="text-3xl font-bold text-text-main sm:text-4xl">{priceLabel}</h1>
             <p className="text-lg text-text-main/80">{listingAddressFull}</p>
-            <p className="text-xs uppercase tracking-wide text-text-muted">
+            <p className="text-xs uppercase tracking-wide text-text-muted whitespace-pre-line">
               {attribution}
             </p>
           </div>

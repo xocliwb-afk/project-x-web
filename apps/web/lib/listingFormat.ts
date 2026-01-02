@@ -1,6 +1,14 @@
 import type { Listing } from "@project-x/shared-types";
 
-export const formatAttribution = () => "Data provided by SimplyRETS";
+export const formatAttribution = (listing: Listing): string => {
+  const name = listing.office?.name?.trim() ?? "";
+  const idRaw = listing.office?.id;
+  const id = idRaw != null ? String(idRaw).trim() : "";
+  if (name && id) {
+    return `Listed by ${name}\nData provided by SimplyRETS`;
+  }
+  return "Data provided by SimplyRETS";
+};
 
 export const formatAgentName = (agent?: Listing["agent"]): string | null => {
   if (!agent) return null;
@@ -164,7 +172,7 @@ export const getThumbnailUrl = (listing: Listing): string =>
   listing.media?.photos?.[0] ||
   "/placeholder-house.jpg";
 
-export const formatMLSAttribution = (): string => formatAttribution();
+export const formatMLSAttribution = (listing: Listing): string => formatAttribution(listing);
 
 export const getListingDetailsRows = (listing: Listing): Array<{ label: string; value: string }> => {
   const rows: Array<{ label: string; value: string }> = [];
