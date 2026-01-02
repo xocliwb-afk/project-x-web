@@ -73,7 +73,7 @@ export function ListingCard({
       }`}
       aria-label={`View details for ${fullAddress}`}
     >
-      <div className="relative w-full overflow-hidden bg-slate-200 dark:bg-slate-700 aspect-[4/3]">
+      <div className="relative w-full overflow-hidden bg-slate-200 dark:bg-slate-700 aspect-[4/3] md:aspect-[16/9]">
         <Image
           src={currentImageUrl}
           alt={`Image of ${fullAddress}`}
