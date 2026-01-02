@@ -153,8 +153,8 @@ export function ListingInfo({ listing, variant = 'modal' }: ListingInfoProps) {
           </div>
         )}
 
-        <p className="mt-4 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          {formatAttribution()}
+        <p className="mt-4 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 whitespace-pre-line">
+          {formatAttribution(listing)}
         </p>
       </div>
 

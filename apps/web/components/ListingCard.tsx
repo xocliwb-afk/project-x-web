@@ -39,7 +39,7 @@ export function ListingCard({
   const baths = listing.details?.baths ?? 0;
   const sqft = formatSqft(listing.details?.sqft ?? null);
   const daysOnMarket = formatDaysOnMarketShort(listing.meta?.daysOnMarket ?? null);
-  const mlsAttribution = formatAttribution();
+  const mlsAttribution = formatAttribution(listing);
 
   const fullAddress = formatAddressFull(listing);
   const thumbnail = getThumbnailUrl(listing);
@@ -167,7 +167,7 @@ export function ListingCard({
         </div>
 
         <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-300">
-          <span className="line-clamp-1">{mlsAttribution}</span>
+          <span className="whitespace-pre-line">{mlsAttribution}</span>
           {daysOnMarket && (
             <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-200">
               {daysOnMarket}
