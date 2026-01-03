@@ -59,6 +59,24 @@ export default function SearchLayoutClient({
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
+  const hasAnyNonPagingFilterFrontend = useCallback((p: FetchListingsParams) => {
+    return Boolean(
+      p.q ||
+        p.minPrice != null ||
+        p.maxPrice != null ||
+        p.beds != null ||
+        p.baths != null ||
+        p.propertyType ||
+        (p.status && p.status.length > 0) ||
+        p.minSqft != null ||
+        p.maxSqft != null ||
+        p.minYearBuilt != null ||
+        p.maxYearBuilt != null ||
+        p.maxDaysOnMarket != null ||
+        p.keywords,
+    );
+  }, []);
+
   const parsedParams = useMemo<FetchListingsParams>(() => {
     const getNumber = (key: string) => {
       const value = searchParams.get(key);
@@ -95,24 +113,41 @@ export default function SearchLayoutClient({
     };
   }, [searchParams]);
 
-  const effectiveParams = useMemo(() => {
-    if (!mapBounds) return parsedParams;
-    return {
-      ...parsedParams,
-      bbox: mapBounds.bbox,
-      swLat: mapBounds.swLat,
-      swLng: mapBounds.swLng,
-      neLat: mapBounds.neLat,
-      neLng: mapBounds.neLng,
-    };
-  }, [mapBounds, parsedParams]);
+  const hasFilters = useMemo(() => hasAnyNonPagingFilterFrontend(parsedParams), [
+    hasAnyNonPagingFilterFrontend,
+    parsedParams,
+  ]);
 
-  const paramsKey = useMemo(
-    () => JSON.stringify(effectiveParams),
-    [effectiveParams],
-  );
+  const effectiveParams = useMemo(() => {
+    if (mapBounds) {
+      const bbox = mapBounds.bbox;
+      const shouldResetPage =
+        (!!parsedParams.page && parsedParams.page > 1 && !parsedParams.bbox) ||
+        (!!parsedParams.bbox && parsedParams.bbox !== bbox);
+      return {
+        ...parsedParams,
+        bbox,
+        swLat: mapBounds.swLat,
+        swLng: mapBounds.swLng,
+        neLat: mapBounds.neLat,
+        neLng: mapBounds.neLng,
+        ...(shouldResetPage ? { page: 1 } : {}),
+      };
+    }
+
+    if (parsedParams.bbox) return parsedParams;
+    if (hasFilters) return parsedParams;
+
+    return null;
+  }, [mapBounds, parsedParams, hasFilters]);
+
+  const paramsKey = useMemo(() => (effectiveParams ? JSON.stringify(effectiveParams) : null), [
+    effectiveParams,
+  ]);
+  const isWaitingForBounds = effectiveParams === null;
 
   useEffect(() => {
+    if (!paramsKey) return;
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
     }
@@ -124,6 +159,7 @@ export default function SearchLayoutClient({
       if (hasCompletedInitialFetch.current) {
         setIsLoading(true);
       }
+      setError(null);
       try {
         const { results, pagination: newPagination } = await fetchListings(
           parsed,
@@ -287,6 +323,7 @@ export default function SearchLayoutClient({
                 <ListingsList
                   listings={listings}
                   isLoading={isLoading}
+                  isWaiting={isWaitingForBounds}
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
                   onHoverListing={(id) => setHoveredListingId(id)}
@@ -329,9 +366,9 @@ export default function SearchLayoutClient({
                       Homes for sale
                     </h2>
                     <p className="text-sm text-text-main/70">
-                      {isLoading
+                      {isLoading || isWaitingForBounds
                         ? 'Loading...'
-                        : `${(pagination.pageCount ?? listings.length).toLocaleString()} results`}
+                        : `${listings.length.toLocaleString()} results`}
                     </p>
                     {error && (
                       <p className="text-xs text-red-500">
@@ -345,6 +382,7 @@ export default function SearchLayoutClient({
                   <ListingsList
                     listings={listings}
                     isLoading={isLoading}
+                    isWaiting={isWaitingForBounds}
                     selectedListingId={selectedListingId}
                     hoveredListingId={hoveredListingId}
                     onHoverListing={(id) => setHoveredListingId(id)}

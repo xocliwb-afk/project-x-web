@@ -8,6 +8,7 @@ import ListingCardSkeleton from './ListingCardSkeleton';
 type ListingsListProps = {
   listings: Listing[];
   isLoading: boolean;
+  isWaiting?: boolean;
   selectedListingId: string | null;
   hoveredListingId?: string | null;
   onSelectListing: (id: string | null) => void;
@@ -18,6 +19,7 @@ type ListingsListProps = {
 export default function ListingsList({
   listings,
   isLoading,
+  isWaiting = false,
   selectedListingId,
   hoveredListingId,
   onSelectListing,
@@ -39,7 +41,7 @@ export default function ListingsList({
     return () => cancelAnimationFrame(frame);
   }, [selectedListingId]);
 
-  if (isLoading) {
+  if (isLoading || isWaiting) {
     return (
       <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2">
         {Array.from({ length: 8 }).map((_, idx) => (
@@ -49,7 +51,7 @@ export default function ListingsList({
     );
   }
 
-  if (!listings.length) {
+  if (!listings.length && !isWaiting) {
     return <p className="text-sm text-slate-500">No listings found.</p>;
   }
 
