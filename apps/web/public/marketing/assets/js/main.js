@@ -297,10 +297,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- Featured listings (live) ---
-  const featuredGrid = document.getElementById('featuredListingsGrid');
+  const featuredGrid = document.querySelector('.hp-featured-grid');
   const featuredLoading = document.getElementById('featuredListingsLoading');
-  const placeholderImage =
-    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='480' viewBox='0 0 640 480'%3E%3Crect width='640' height='480' fill='%23e6e7e8'/%3E%3Ctext x='50%25' y='50%25' dy='.35em' text-anchor='middle' fill='%23898b8f' font-family='Arial, sans-serif' font-size='20'%3EPhoto coming soon%3C/text%3E%3C/svg%3E";
+  const placeholderImage = "/assets/img/1.webp";
 
   const escapeHtml = (str = "") =>
     str
@@ -317,6 +316,42 @@ document.addEventListener('DOMContentLoaded', () => {
       [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy;
+  };
+
+  const NEIGHBORHOOD_FILTERS = {
+    "ada": { zips: ["49301"], cities: ["Ada"] },
+    "grand-rapids": { zips: ["49503","49504","49505","49506","49507","49508","49525","49534","49546"], cities: ["Grand Rapids"] },
+    "east-grand-rapids": { zips: ["49506"], cities: ["East Grand Rapids","Grand Rapids"] },
+    "byron-center": { zips: ["49315"], cities: ["Byron Center"] },
+    "caledonia": { zips: ["49316"], cities: ["Caledonia"] },
+    "grandville": { zips: ["49418"], cities: ["Grandville"] },
+    "kentwood": { zips: ["49508","49512"], cities: ["Kentwood","Grand Rapids"] },
+    "rockford": { zips: ["49341"], cities: ["Rockford"] },
+    "wyoming": { zips: ["49418","49509","49519"], cities: ["Wyoming"] },
+  };
+
+  const FEATURED_COUNT_NEIGHBORHOOD = 8;
+  const MIN_PRICE_NEIGHBORHOOD = 300000;
+  const FETCH_LIMIT_NEIGHBORHOOD = 200;
+  const MAX_PAGES_NEIGHBORHOOD = 5;
+  const GR_METRO_BBOX = "-85.8,42.8,-85.5,43.1";
+
+  const getPageSlug = () => {
+    const p = window.location.pathname || "";
+    const parts = p.split("/").filter(Boolean);
+    const last = parts.pop() || "";
+    const slug = last.replace(/\.html$/i, "");
+    return slug.toLowerCase();
+  };
+
+  const isActiveForSale = (listing) => {
+    const raw = listing?.details?.status || listing?.meta?.status || "";
+    const s = String(raw).toUpperCase();
+    if (s.includes("PENDING") || s.includes("SOLD") || s.includes("CLOSED")) return false;
+    if (s.includes("ACTIVE")) return true;
+    if (s === "FOR_SALE" || s.includes("FOR_SALE")) return true;
+    if (!s) return true;
+    return false;
   };
 
   const NEIGHBORHOODS = [
@@ -419,6 +454,19 @@ document.addEventListener('DOMContentLoaded', () => {
     return normalized.replace(/\n\s*\n\s*\n+/g, "\n\n");
   };
 
+  const normalizeZip = (zip) => {
+    if (!zip) return "";
+    return String(zip).trim().split("-")[0];
+  };
+
+  const normalizeCity = (city) => {
+    if (!city) return "";
+    return String(city)
+      .toLowerCase()
+      .replace(/\s+(township|twp)\b/g, "")
+      .trim();
+  };
+
   const MAX_DESC_WORDS = 120;
   const truncateWords = (text, maxWords) => {
     if (!text) return { text: "", truncated: false };
@@ -482,7 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return `
       <article class="property-card hp-featured-card" role="listitem" data-listing-id="${id}">
         <div class="property-card__media">
-          <img src="${safePhoto}" alt="${altText}" loading="lazy" decoding="async">
+          <img src="${safePhoto}" alt="${altText}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/placeholder-house.jpg';">
         </div>
         <div class="property-card__body">
           <div class="property-card__price">${price}</div>
@@ -823,6 +871,101 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const loadNeighborhoodFeaturedListings = async () => {
+    if (!featuredGrid) return;
+    const slug = getPageSlug();
+    if (!slug || !NEIGHBORHOOD_FILTERS[slug]) return;
+    const filterCfg = NEIGHBORHOOD_FILTERS[slug];
+    const zips = Array.isArray(filterCfg?.zips) ? filterCfg.zips : [];
+    const cities = Array.isArray(filterCfg?.cities)
+      ? filterCfg.cities.map((c) => normalizeCity(c))
+      : [];
+
+    featuredGrid.innerHTML = '<p class="section__lede">Loading featured listings…</p>';
+
+    try {
+      const collected = [];
+      const seen = new Set();
+
+      for (let page = 1; page <= MAX_PAGES_NEIGHBORHOOD; page += 1) {
+        const params = new URLSearchParams({
+          minPrice: String(MIN_PRICE_NEIGHBORHOOD),
+          limit: String(FETCH_LIMIT_NEIGHBORHOOD),
+          bbox: GR_METRO_BBOX,
+          sort: "price_desc",
+          page: String(page),
+        });
+
+        const res = await fetch(`/api/listings?${params.toString()}`);
+        if (!res.ok) throw new Error("Failed to fetch listings");
+        const json = await res.json();
+        const listings = Array.isArray(json?.results)
+          ? json.results
+          : Array.isArray(json?.data)
+          ? json.data
+          : [];
+
+        listings.forEach((listing) => {
+          const id = listing?.id != null ? String(listing.id) : "";
+          if (!id || seen.has(id)) return;
+
+          const rawPrice = Number(listing?.listPrice ?? listing?.price ?? 0);
+          const zipNorm = normalizeZip(listing?.address?.zip || "");
+          const cityNorm = normalizeCity(listing?.address?.city || "");
+
+          const matchesZip = zips.length ? zips.includes(zipNorm) : true;
+          const matchesCity = cities.length ? cities.includes(cityNorm) : true;
+          let match = false;
+          if (zips.length && cities.length) {
+            match = matchesZip && matchesCity;
+          } else if (zips.length) {
+            match = matchesZip;
+          } else if (cities.length) {
+            match = matchesCity;
+          }
+
+          if (
+            Number.isFinite(rawPrice) &&
+            rawPrice >= MIN_PRICE_NEIGHBORHOOD &&
+            match &&
+            isActiveForSale(listing)
+          ) {
+            seen.add(id);
+            collected.push(listing);
+          }
+        });
+
+        const hasMore =
+          json?.pagination?.hasMore === false ? false : listings.length >= FETCH_LIMIT_NEIGHBORHOOD;
+        if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD || !hasMore) {
+          break;
+        }
+      }
+
+      const selected = shuffle(collected).slice(0, FEATURED_COUNT_NEIGHBORHOOD);
+      if (!selected.length) throw new Error("No listings available");
+
+      featuredGrid.innerHTML = selected.map(buildCardHtml).join("");
+    } catch (err) {
+      featuredGrid.innerHTML =
+        '<p class="section__lede">Featured listings are unavailable right now.</p>';
+      // eslint-disable-next-line no-console
+      console.error("Neighborhood featured listings failed", err);
+    } finally {
+      featuredLoading?.remove();
+    }
+  };
+
+  const slug = getPageSlug();
+  const isNeighborhoodPage = Boolean(slug && NEIGHBORHOOD_FILTERS[slug]);
+  if (featuredGrid) {
+    if (isNeighborhoodPage) {
+      loadNeighborhoodFeaturedListings();
+    } else {
+      loadFeaturedListings();
+    }
+  }
+
   // --- Hero day/night switching (Grand Rapids, MI) ---
   const degToRad = (deg) => deg * Math.PI / 180;
   const radToDeg = (rad) => rad * 180 / Math.PI;
@@ -885,7 +1028,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   initRecaptcha();
-  loadFeaturedListings();
   renderFeaturedNeighborhoods();
   updateHeroTheme();
   setInterval(updateHeroTheme, 5 * 60 * 1000);
