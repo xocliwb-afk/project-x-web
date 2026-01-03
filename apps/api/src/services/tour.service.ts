@@ -15,7 +15,7 @@ export function planTour(req: PlanTourRequest): PlannedTour {
   }
 
   let current = startDate;
-  const stops: TourStop[] = req.stops.map((stop, idx) => {
+  const stops: TourStop[] = req.stops.map((stop: any, idx: number) => {
     const startIso = current.toISOString();
     const endDate = new Date(current);
     endDate.setMinutes(endDate.getMinutes() + defaultDurationMinutes);
