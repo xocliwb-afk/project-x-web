@@ -383,20 +383,19 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
               }}
             >
               <div
-                className={`w-80 max-w-sm rounded-2xl bg-white shadow-lg border border-border/60 p-4 transition-all duration-200 ease-out ${
+                className={`w-64 rounded-2xl bg-white shadow-lg border border-border/60 p-2 transition-all duration-200 ease-out ${
                   focusedListing
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-3"
                 }`}
               >
-                <div className="flex flex-col gap-3 w-full">
-                  <div className="relative w-full overflow-hidden rounded-xl bg-slate-200 aspect-[4/3]">
-                    <Image
+                <div className="flex flex-col gap-2 w-full">
+                  <div className="mb-2 w-full overflow-hidden rounded">
+                    <img
                       src={getThumbnailUrl(focusedListing)}
                       alt={focusedListing.address?.full ?? "Listing photo"}
-                      fill
-                      sizes="(min-width: 1024px) 320px, 80vw"
-                      className="object-cover"
+                      className="h-28 w-full object-cover bg-slate-200"
+                      loading="lazy"
                     />
                   </div>
                   <div className="flex flex-col gap-2 text-text-main">
@@ -423,18 +422,16 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
                         return sqft ? ` • ${sqft} sqft` : "";
                       })()}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="inline-flex items-center self-start rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition hover:brightness-95"
-                        onClick={() => {
-                          onSelectListing?.(focusedListing.id);
-                          handleDismiss();
-                        }}
-                      >
-                        View details
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
+                      onClick={() => {
+                        onSelectListing?.(focusedListing.id);
+                        handleDismiss();
+                      }}
+                    >
+                      View Details →
+                    </button>
                   </div>
                 </div>
               </div>
