@@ -52,8 +52,8 @@ export class SimplyRetsListingProvider implements ListingProvider {
       }
     }
     if (params.bbox) {
-      const parts = params.bbox.split(',').map((p) => Number(p));
-      if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+      const parts = params.bbox.split(',').map((p: string) => Number(p));
+      if (parts.length === 4 && parts.every((n: number) => Number.isFinite(n))) {
         const [minLng, minLat, maxLng, maxLat] = parts;
         const rectangle: Array<[number, number]> = [
           [minLat, minLng],
