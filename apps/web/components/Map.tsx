@@ -280,6 +280,7 @@ export default function Map({
           zoomToBoundsOnClick={false}
           spiderfyOnEveryZoom={false}
           spiderfyOnMaxZoom={false}
+          maxClusterRadius={50}
           iconCreateFunction={(cluster: L.MarkerCluster) =>
             createClusterIcon(getClusterListings(cluster))
           }
