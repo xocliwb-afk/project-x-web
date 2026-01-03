@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import { getListingProvider } from '../utils/provider.factory';
+import { ListingSearchParams, NormalizedListing, ApiError } from '@project-x/shared-types';
 import {
-  ListingSearchParams,
-  NormalizedListing,
-  ApiError,
-} from '@project-x/shared-types';
+  clampLimit,
+  hasAnyNonPagingFilter,
+  parseBbox,
+  stableSortListings,
+  MAX_LIMIT,
+  DEFAULT_LIMIT,
+} from '../utils/listingSearch.util';
 
 const router = Router();
 
@@ -50,10 +54,54 @@ router.get('/', async (req, res) => {
       keywords: typeof req.query.keywords === 'string' ? req.query.keywords : undefined,
     };
 
-    const page = params.page && params.page > 0 ? params.page : 1;
-    const limit = params.limit && params.limit > 0 ? params.limit : 20;
+    const page = params.page && params.page > 0 ? Math.floor(params.page) : 1;
+    const requestedLimit = clampLimit(params.limit);
+    let limit = requestedLimit;
 
-    const results: NormalizedListing[] = await provider.search(params);
+    // Validate bbox if provided; if missing, allow only when other filters exist
+    let bboxString = params.bbox;
+    try {
+      if (bboxString) {
+        const { minLng, minLat, maxLng, maxLat } = parseBbox(bboxString);
+        bboxString = `${minLng},${minLat},${maxLng},${maxLat}`;
+      } else if (!hasAnyNonPagingFilter(params)) {
+        if (page > 1) {
+          const error: ApiError = {
+            error: true,
+            message: 'bbox is required when paging without other filters',
+            code: 'BAD_REQUEST',
+            status: 400,
+          };
+          return res.status(400).json(error);
+        }
+        // Allow page 1 without bbox but cap limit to default for safety
+        if (limit > DEFAULT_LIMIT) {
+          limit = DEFAULT_LIMIT;
+        }
+      }
+    } catch (bboxErr: any) {
+      const error: ApiError = {
+        error: true,
+        message: bboxErr?.message ?? 'Invalid bbox',
+        code: 'BAD_REQUEST',
+        status: 400,
+      };
+      return res.status(400).json(error);
+    }
+
+    const providerLimit = Math.min(limit + 1, MAX_LIMIT + 1);
+
+    const resultsRaw: NormalizedListing[] = await provider.search({
+      ...params,
+      bbox: bboxString,
+      page,
+      limit: providerLimit,
+      clientLimit: limit,
+    });
+
+    const sorted = stableSortListings(resultsRaw, params.sort);
+    const hasMore = sorted.length > limit;
+    const results = sorted.slice(0, limit);
 
     res.json({
       results,
@@ -61,7 +109,7 @@ router.get('/', async (req, res) => {
         page,
         limit,
         pageCount: results.length,
-        hasMore: results.length === limit,
+        hasMore,
       },
     });
   } catch (err: any) {

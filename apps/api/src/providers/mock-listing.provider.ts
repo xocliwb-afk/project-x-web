@@ -1,6 +1,7 @@
 import { ListingProvider } from './listing-provider.interface';
 import { ListingSearchParams, NormalizedListing } from '@project-x/shared-types';
 import { mockListings } from '../data/mockListings';
+import { clampLimit, parseBbox, stableSortListings } from '../utils/listingSearch.util';
 
 /**
  * MockListingProvider uses static in-repo data and maps it into the NormalizedListing shape.
@@ -8,13 +9,34 @@ import { mockListings } from '../data/mockListings';
  */
 export class MockListingProvider implements ListingProvider {
   public async search(params: ListingSearchParams): Promise<NormalizedListing[]> {
-    // For now, ignore most filters and just return all mock listings mapped.
-    // Later we can add filtering by price, beds, etc.
-    const mapped = mockListings.map((raw) => this.mapToListing(raw));
+    const page = params.page && params.page > 0 ? Math.floor(params.page) : 1;
+    const limit = clampLimit(params.limit);
+    const pageSize = params.clientLimit ? clampLimit(params.clientLimit) : limit;
+
+    let mapped = mockListings.map((raw) => this.mapToListing(raw));
+
+    if (params.bbox) {
+      const { minLng, minLat, maxLng, maxLat } = parseBbox(params.bbox);
+      mapped = mapped.filter((l) => {
+        const { lat, lng } = l.address ?? {};
+        return (
+          Number.isFinite(lat) &&
+          Number.isFinite(lng) &&
+          lng >= minLng &&
+          lng <= maxLng &&
+          lat >= minLat &&
+          lat <= maxLat
+        );
+      });
+    }
+
+    const sorted = stableSortListings(mapped, params.sort);
+    const offset = (page - 1) * pageSize;
+    const paged = sorted.slice(offset, offset + limit);
 
     if (process.env.NODE_ENV !== 'production') {
-      const missingPrice = mapped.filter((l) => !Number.isFinite(l.listPrice) || l.listPrice <= 0).length;
-      const missingCoords = mapped.filter(
+      const missingPrice = sorted.filter((l) => !Number.isFinite(l.listPrice) || l.listPrice <= 0).length;
+      const missingCoords = sorted.filter(
         (l) => !Number.isFinite(l.address.lat) || !Number.isFinite(l.address.lng),
       ).length;
       if (missingPrice || missingCoords) {
@@ -24,7 +46,7 @@ export class MockListingProvider implements ListingProvider {
       }
     }
 
-    return mapped;
+    return paged;
   }
 
   public async getById(id: string): Promise<NormalizedListing | null> {
