@@ -47,7 +47,7 @@ export default function Footer() {
                 className="inline-flex"
               >
                 <img
-                  src="/assets/img/logo (for non-white backgrounds).png"
+                  src="/assets/img/logo (for non-white backgrounds).webp"
                   alt="616 Realty"
                   className="h-12 w-auto opacity-80 transition hover:opacity-100"
                 />
@@ -81,7 +81,7 @@ export default function Footer() {
               </Link>
             </div>
             <img
-              src="/assets/img/realtor.png"
+              src="/assets/img/realtor.webp"
               alt="Realtor / Equal Housing"
               className="h-8 w-auto opacity-80"
             />
