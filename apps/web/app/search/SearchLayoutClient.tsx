@@ -211,6 +211,32 @@ export default function SearchLayoutClient({
     }, 200);
   };
 
+  const handledListingIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const listingId = searchParams.get('listingId');
+    if (!listingId) return;
+    if (handledListingIdRef.current === listingId) return;
+
+    const fetchAndOpen = async () => {
+      try {
+        const res = await fetch(`/api/listings/${encodeURIComponent(listingId)}`);
+        if (!res.ok) throw new Error('Failed to fetch listing');
+        const data = await res.json().catch(() => null);
+        const listing = data?.listing || data;
+        if (listing && listing.id) {
+          handleCardClick(listing);
+          handledListingIdRef.current = listingId;
+        }
+      } catch (err) {
+        console.warn('[SearchLayoutClient] failed to open listingId from URL', err);
+        handledListingIdRef.current = listingId;
+      }
+    };
+
+    fetchAndOpen();
+  }, [searchParams]);
+
   const ToggleButton = ({
     mode,
     children,

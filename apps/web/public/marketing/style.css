@@ -390,6 +390,13 @@ p { margin: 0; color: inherit; }
 .ui-modal .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .btn-close { background: transparent; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-main); }
 
+#listingModal.ui-modal {
+  width: min(96vw, 1200px);
+  max-width: 1200px;
+  padding: 0;
+  overflow-x: hidden;
+}
+
 .ui-drawer {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: var(--white); border-radius: 20px 20px 0 0;
@@ -398,6 +405,46 @@ p { margin: 0; color: inherit; }
   box-shadow: 0 -12px 36px rgba(0,0,0,0.14);
 }
 .ui-drawer.is-visible { transform: translateY(0); }
+
+/* Listing detail modal (marketing) */
+.listing-modal { max-width: 1200px; width: min(96vw, 1200px); max-height: 90vh; background: var(--white); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+#listingModal .listing-modal { width: 100%; max-width: 100%; box-sizing: border-box; }
+.listing-modal__body { display: grid; gap: 1rem; grid-template-columns: 1fr; min-width: 0; overflow-x: hidden; }
+.listing-modal__left { display: grid; gap: 1rem; min-width: 0; }
+.listing-modal__right { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+.listing-modal__hero { position: relative; border-radius: 14px; overflow: hidden; background: #e5e7eb; }
+.listing-modal__hero img { width: 100%; height: 100%; object-fit: cover; aspect-ratio: 16 / 9; display: block; }
+.listing-modal__nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.55); color: #fff; border: none; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
+.listing-modal__nav--prev { left: 12px; }
+.listing-modal__nav--next { right: 12px; }
+.listing-modal__counter { position: absolute; bottom: 10px; right: 12px; background: rgba(0,0,0,0.65); color: #fff; padding: 4px 8px; border-radius: 10px; font-size: 12px; }
+.listing-modal__thumbs { display: flex; gap: .5rem; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; min-height: 68px; padding-bottom: 4px; }
+.listing-modal__thumb { border: 2px solid transparent; border-radius: 10px; padding: 0; background: transparent; cursor: pointer; }
+.listing-modal__thumb { flex: 0 0 auto; }
+.listing-modal__thumb img { width: 90px; height: 60px; object-fit: cover; border-radius: 8px; display: block; }
+.listing-modal__thumb.is-active { border-color: var(--accent-copper); }
+.listing-modal__description h4 { margin: 0 0 .35rem; }
+.listing-modal__description p { margin: 0; white-space: pre-line; color: var(--text-muted); overflow-wrap: anywhere; word-break: break-word; }
+.listing-modal__section { border: 1px solid rgba(20,36,59,0.08); border-radius: 12px; padding: 1rem; background: var(--white); }
+.listing-modal__price { font-size: 1.5rem; font-weight: 700; }
+.listing-modal__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-width: 0; overflow: hidden; }
+.listing-modal__address { color: var(--text-main); font-weight: 600; margin-top: .2rem; overflow-wrap: anywhere; word-break: break-word; }
+.listing-modal__meta { color: var(--text-muted); font-weight: 600; margin-top: .25rem; overflow-wrap: anywhere; word-break: break-word; }
+.listing-modal__facts { display: grid; grid-template-columns: 1fr; gap: .5rem; margin: .6rem 0 0; }
+.listing-modal__fact-row { display: grid; grid-template-columns: 1fr; gap: .2rem; }
+.listing-modal__fact-row dt { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.listing-modal__fact-row dd { margin: 0; font-weight: 600; color: var(--text-main); overflow-wrap: anywhere; word-break: break-word; }
+.listing-modal__attribution { margin: 0; white-space: pre-line; color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; word-break: break-word; }
+.listing-modal__actions { display: grid; gap: .5rem; margin-top: .75rem; }
+.listing-modal__loading { margin: 0; color: var(--text-muted); }
+
+@media (min-width: 768px) {
+  .listing-modal__body { grid-template-columns: 1.1fr 0.9fr; gap: 1rem; }
+  .listing-modal { padding: 1.5rem; }
+  .listing-modal__left { max-height: calc(90vh - 140px); overflow-y: auto; padding-right: .5rem; }
+  .listing-modal__right { max-height: calc(90vh - 140px); overflow-y: auto; padding-right: .25rem; }
+  .listing-modal__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* Search page */
 .search-page { background: var(--sand); }

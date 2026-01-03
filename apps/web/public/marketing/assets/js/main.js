@@ -163,6 +163,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => {
     const target = e.target;
     if (!(target instanceof Element)) return;
+    const listingTrigger = target.closest('[data-view-listing]');
+    if (listingTrigger) {
+      const listingId =
+        listingTrigger.getAttribute('data-listing-id') ||
+        listingTrigger.getAttribute('data-view-listing');
+      if (listingId) {
+        e.preventDefault();
+        openListingModal(listingId);
+        return;
+      }
+    }
     const modalTrigger = target.closest('[data-open-modal]');
     if (modalTrigger) {
       e.preventDefault();
@@ -401,6 +412,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const formatNumber = (num) =>
     typeof num === "number" && Number.isFinite(num) ? num.toLocaleString() : "—";
 
+  const normalizeRemarks = (text) => {
+    if (!text) return "";
+    const normalized = text.replace(/\r\n/g, "\n").trim();
+    if (!normalized) return "";
+    return normalized.replace(/\n\s*\n\s*\n+/g, "\n\n");
+  };
+
+  const MAX_DESC_WORDS = 120;
+  const truncateWords = (text, maxWords) => {
+    if (!text) return { text: "", truncated: false };
+    const matches = [...text.matchAll(/\S+/g)];
+    if (matches.length <= maxWords) {
+      return { text, truncated: false };
+    }
+    const cutoffIndex = matches[maxWords - 1].index + matches[maxWords - 1][0].length;
+    const sliced = text.slice(0, cutoffIndex).trimEnd();
+    return { text: `${sliced}…`, truncated: true };
+  };
+
+  const formatAttribution = (listing) => {
+    const name = (listing?.office?.name || "").trim();
+    const rawId = listing?.office?.id;
+    const id = rawId != null ? String(rawId).trim() : "";
+    if (name && id) {
+      return `Listed by ${name}\nData provided by SimplyRETS`;
+    }
+    return "Data provided by SimplyRETS";
+  };
+
   const formatPrice = (listing) => {
     if (listing?.listPriceFormatted) return listing.listPriceFormatted;
     const price = Number(listing?.listPrice ?? listing?.price ?? 0);
@@ -449,11 +489,291 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="property-card__address">${street}${cityLine ? `<br>${cityLine}` : ""}</div>
           <div class="property-card__meta">${meta}</div>
           <div class="property-card__footer">
-            <button class="btn btn-secondary hp-featured-btn btn-block" type="button" data-open-modal="contactModal">View Details</button>
+            <button class="btn btn-secondary hp-featured-btn btn-block" type="button" data-view-listing data-listing-id="${id}">View Details</button>
           </div>
         </div>
       </article>
     `;
+  };
+
+  let listingModalEls = null;
+
+  const ensureListingModalMarkup = () => {
+    if (listingModalEls) return listingModalEls;
+    let modal = document.getElementById("listingModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.className = "ui-modal";
+      modal.id = "listingModal";
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      modal.innerHTML = `
+        <div class="listing-modal">
+          <div class="listing-modal__header">
+            <h3 id="listing-modal-title">Listing Details</h3>
+            <button class="btn-close" type="button" aria-label="Close" data-close>&times;</button>
+          </div>
+          <div class="listing-modal__body">
+            <div class="listing-modal__left">
+              <div class="listing-modal__hero">
+                <img id="listingModalHero" src="${placeholderImage}" alt="Listing photo">
+                <button class="listing-modal__nav listing-modal__nav--prev" type="button" aria-label="Previous photo">‹</button>
+                <button class="listing-modal__nav listing-modal__nav--next" type="button" aria-label="Next photo">›</button>
+                <div class="listing-modal__counter" id="listingModalCounter"></div>
+              </div>
+              <div class="listing-modal__thumbs" id="listingModalThumbs"></div>
+              <div class="listing-modal__description" id="listingModalDescription"></div>
+            </div>
+            <div class="listing-modal__right" id="listingModalRight">
+              <p class="listing-modal__loading">Loading…</p>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    const closeBtn = modal.querySelector('[data-close]');
+    const closeModalFallback = () => {
+      modal.classList.remove("is-visible");
+      document.body.classList.remove("no-scroll");
+      const backdropEl = document.getElementById("globalBackdrop");
+      backdropEl?.classList.remove("is-visible");
+    };
+    if (closeBtn) {
+      closeBtn.onclick = () => (typeof closeAllOverlays === "function" ? closeAllOverlays() : closeModalFallback());
+    }
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) {
+        if (typeof closeAllOverlays === "function") closeAllOverlays();
+        else closeModalFallback();
+      }
+    });
+
+    listingModalEls = {
+      modal,
+      hero: modal.querySelector("#listingModalHero"),
+      counter: modal.querySelector("#listingModalCounter"),
+      thumbs: modal.querySelector("#listingModalThumbs"),
+      description: modal.querySelector("#listingModalDescription"),
+      right: modal.querySelector("#listingModalRight"),
+      prev: modal.querySelector(".listing-modal__nav--prev"),
+      next: modal.querySelector(".listing-modal__nav--next"),
+    };
+    return listingModalEls;
+  };
+
+  const renderListingModal = (listing) => {
+    const els = ensureListingModalMarkup();
+    if (!els) return;
+    const photos = Array.isArray(listing?.media?.photos) ? listing.media.photos.filter(Boolean) : [];
+    const thumb = listing?.media?.thumbnailUrl || null;
+    const fallback = thumb || photos[0] || placeholderImage;
+    let activeIndex = 0;
+
+    const setHero = (idx) => {
+      const safeIdx = photos.length ? ((idx % photos.length) + photos.length) % photos.length : 0;
+      activeIndex = safeIdx;
+      const src = photos.length ? photos[safeIdx] : fallback;
+      els.hero.src = src || placeholderImage;
+      els.hero.alt = listing?.address?.full || "Listing photo";
+      if (els.counter) {
+        els.counter.textContent = photos.length ? `${safeIdx + 1} / ${photos.length}` : "1 / 1";
+      }
+      if (els.thumbs) {
+        els.thumbs.querySelectorAll("button").forEach((btn, i) => {
+          btn.classList.toggle("is-active", i === safeIdx);
+        });
+      }
+    };
+
+    if (els.thumbs) {
+      if (photos.length) {
+        els.thumbs.innerHTML = photos
+          .map(
+            (p, idx) => `
+            <button type="button" class="listing-modal__thumb${idx === 0 ? " is-active" : ""}" data-idx="${idx}">
+              <img src="${escapeHtml(p)}" alt="Thumbnail ${idx + 1}">
+            </button>
+          `
+          )
+          .join("");
+        els.thumbs.querySelectorAll("button").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const idx = Number(btn.getAttribute("data-idx"));
+            setHero(idx);
+          });
+        });
+      } else {
+        els.thumbs.innerHTML = `
+          <button type="button" class="listing-modal__thumb is-active">
+            <img src="${escapeHtml(fallback)}" alt="Listing photo">
+          </button>
+        `;
+      }
+    }
+
+    els.prev.onclick = photos.length > 1 ? () => setHero(activeIndex - 1) : null;
+    els.next.onclick = photos.length > 1 ? () => setHero(activeIndex + 1) : null;
+    if (photos.length <= 1) {
+      els.prev.style.display = "none";
+      els.next.style.display = "none";
+    } else {
+      els.prev.style.display = "";
+      els.next.style.display = "";
+    }
+    setHero(0);
+
+    const status = (listing?.details?.status || "").toString().trim();
+    const beds = listing?.details?.beds ?? null;
+    const baths = listing?.details?.baths ?? null;
+    const sqft = listing?.details?.sqft ?? null;
+    const lotSize = listing?.details?.lotSize ?? null;
+    const yearBuilt = listing?.details?.yearBuilt ?? null;
+    const hoa = listing?.details?.hoaFees ?? null;
+    const basement = listing?.details?.basement ?? null;
+    const propertyType = listing?.details?.propertyType ?? null;
+    const dom = listing?.meta?.daysOnMarket ?? null;
+
+    const keyFacts = [];
+    if (status) keyFacts.push({ label: "Status", value: status.replace(/_/g, " ") });
+    if (Number.isFinite(dom) && dom > 0) keyFacts.push({ label: "Days on Market", value: `${dom}` });
+    if (Number.isFinite(lotSize) && lotSize > 0) keyFacts.push({ label: "Lot Size", value: `${lotSize.toLocaleString(undefined, { maximumFractionDigits: 2 })} ac` });
+    if (Number.isFinite(yearBuilt) && yearBuilt > 0) keyFacts.push({ label: "Year Built", value: `${yearBuilt}` });
+    if (propertyType) keyFacts.push({ label: "Property Type", value: propertyType });
+    if (Number.isFinite(hoa) && hoa > 0) keyFacts.push({ label: "HOA", value: `$${hoa.toLocaleString()}` });
+    if (basement) keyFacts.push({ label: "Basement", value: basement });
+
+    const detailRows = [];
+    const agentName = [listing?.agent?.firstName, listing?.agent?.lastName].filter(Boolean).join(" ").trim();
+    const coAgentName = [listing?.coAgent?.firstName, listing?.coAgent?.lastName].filter(Boolean).join(" ").trim();
+    const brokerage = (listing?.office?.name || "").trim();
+    const schoolDistrict = (listing?.school?.district || "").trim();
+    const taxAmount = listing?.tax?.annualAmount;
+    const taxYear = listing?.tax?.year;
+
+    if (agentName) detailRows.push({ label: "Agent", value: agentName });
+    if (coAgentName) detailRows.push({ label: "Co-Agent", value: coAgentName });
+    if (brokerage) detailRows.push({ label: "Brokerage", value: brokerage });
+    if (schoolDistrict) detailRows.push({ label: "School District", value: schoolDistrict });
+    if (Number.isFinite(taxAmount)) {
+      const taxValue = `$${taxAmount.toLocaleString()}${taxYear ? ` (${taxYear})` : ""}`;
+      detailRows.push({ label: "Tax", value: taxValue });
+    }
+
+    const specs = [];
+    if (beds != null) specs.push(`${beds} bd`);
+    if (baths != null) specs.push(`${baths} ba`);
+    if (Number.isFinite(sqft) && sqft > 0) specs.push(`${sqft.toLocaleString()} sqft`);
+
+    const attribution = escapeHtml(formatAttribution(listing)).replace(/\n/g, "<br>");
+
+    const fullDesc = normalizeRemarks(
+      listing?.description ?? listing?.remarks ?? listing?.details?.publicRemarks ?? ""
+    );
+    if (els.description) {
+      const { text: descOut, truncated } = truncateWords(fullDesc, MAX_DESC_WORDS);
+      const safeDesc = descOut ? escapeHtml(descOut).replace(/\n/g, "<br>") : "";
+      els.description.innerHTML = safeDesc
+        ? `<h4>Description</h4><p>${safeDesc}</p>${truncated ? '<p class="listing-modal__note">Full description on Full Listing Page.</p>' : ""}`
+        : "";
+    }
+
+    if (els.right) {
+      els.right.innerHTML = `
+        <div class="listing-modal__section">
+          <div class="listing-modal__price">${formatPrice(listing)}</div>
+          <div class="listing-modal__address">${escapeHtml(listing?.address?.full || "")}</div>
+          <div class="listing-modal__meta">${specs.join(" · ")}</div>
+        </div>
+        ${
+          keyFacts.length
+            ? `<div class="listing-modal__section"><h4>Key Facts</h4>
+                <dl class="listing-modal__facts">
+                  ${keyFacts
+                    .map(
+                      (row) => `
+                      <div class="listing-modal__fact-row">
+                        <dt>${row.label}</dt>
+                        <dd>${escapeHtml(row.value)}</dd>
+                      </div>`
+                    )
+                    .join("")}
+                </dl>
+              </div>`
+            : ""
+        }
+        ${
+          detailRows.length
+            ? `<div class="listing-modal__section"><h4>Agent &amp; Office</h4>
+                <dl class="listing-modal__facts">
+                  ${detailRows
+                    .map(
+                      (row) => `
+                      <div class="listing-modal__fact-row">
+                        <dt>${row.label}</dt>
+                        <dd>${escapeHtml(row.value)}</dd>
+                      </div>`
+                    )
+                    .join("")}
+                </dl>
+              </div>`
+            : ""
+        }
+        <div class="listing-modal__section">
+          <p class="listing-modal__attribution">${attribution}</p>
+          <div class="listing-modal__actions">
+            <a class="btn btn-primary btn-block" href="/listing/${encodeURIComponent(
+              listing.id
+            )}">Full Listing Page</a>
+            <a class="btn btn-secondary btn-block" href="/search?listingId=${encodeURIComponent(
+              listing.id
+            )}">See on Map</a>
+          </div>
+        </div>
+      `;
+    }
+  };
+
+  const openListingModal = async (listingId) => {
+    const els = ensureListingModalMarkup();
+    if (!els) return;
+    if (els.right) {
+      els.right.innerHTML = `<p class="listing-modal__loading">Loading…</p>`;
+    }
+    if (els.description) {
+      els.description.innerHTML = "";
+    }
+
+    try {
+      const res = await fetch(`/api/listings/${encodeURIComponent(listingId)}`);
+      const data = await res.json().catch(() => null);
+      const listing = data?.listing || data;
+      if (!listing || !listing.id) {
+        throw new Error("Listing not found");
+      }
+      renderListingModal(listing);
+      openModal("listingModal");
+      const escListener = (ev) => {
+        if (ev.key === "Escape") {
+          if (typeof closeAllOverlays === "function") closeAllOverlays();
+          else {
+            const modal = document.getElementById("listingModal");
+            const backdropEl = document.getElementById("globalBackdrop");
+            modal?.classList.remove("is-visible");
+            backdropEl?.classList.remove("is-visible");
+            document.body.classList.remove("no-scroll");
+          }
+          document.removeEventListener("keydown", escListener);
+        }
+      };
+      document.addEventListener("keydown", escListener);
+    } catch (err) {
+      if (els.right) {
+        els.right.innerHTML = `<p class="listing-modal__loading">Failed to load listing.</p>`;
+      }
+      // eslint-disable-next-line no-console
+      console.error("Listing modal failed", err);
+    }
   };
 
   const loadFeaturedListings = async () => {
