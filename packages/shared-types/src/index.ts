@@ -88,9 +88,13 @@ export type Listing = NormalizedListing;
  */
 export type ListingSearchParams = {
   q?: string;
-  bbox?: string; // "minLng,minLat,maxLng,maxLat"
+  bbox?: string; // "minLng,minLat,maxLng,maxLat" (validated server-side)
   page?: number;
   limit?: number;
+  /**
+   * Internal: original client-requested limit (used for stable paging when providers fetch limit+1)
+   */
+  clientLimit?: number;
   minPrice?: number;
   maxPrice?: number;
   beds?: number;

@@ -68,8 +68,9 @@ export class SimplyRetsListingProvider implements ListingProvider {
     }
 
     const page = params.page && params.page > 0 ? params.page : 1;
-    if (params.limit && params.limit > 0 && page > 1) {
-      const offset = (page - 1) * params.limit;
+    const limitForOffset = params.clientLimit ?? params.limit;
+    if (limitForOffset && limitForOffset > 0 && page > 1) {
+      const offset = (page - 1) * limitForOffset;
       url.searchParams.set('offset', String(offset));
     }
 
