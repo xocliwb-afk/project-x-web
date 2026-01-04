@@ -45,7 +45,7 @@ export default function TourBuilderClient() {
   );
 
   const totalDurationMinutes =
-    plannedTour?.stops.reduce((sum, stop) => {
+    plannedTour?.stops.reduce((sum: number, stop: any) => {
       const dur = (stop as any).durationMinutes ?? plannedTour.defaultDurationMinutes;
       const buf = (stop as any).bufferMinutes ?? plannedTour.defaultBufferMinutes;
       return sum + dur + buf;
