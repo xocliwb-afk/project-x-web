@@ -70,8 +70,9 @@ export function MapLensPanePortal({
       Object.assign(containerRef.current.style, {
         position: "fixed",
         zIndex: "10000",
-        pointerEvents: "auto",
+        pointerEvents: "none",
       });
+      containerRef.current.dataset.testid = "map-lens-pane-portal";
       L.DomEvent.disableClickPropagation(containerRef.current);
       L.DomEvent.on(containerRef.current, "wheel", L.DomEvent.stopPropagation);
       L.DomEvent.on(containerRef.current, "touchmove", L.DomEvent.stopPropagation);
@@ -129,6 +130,7 @@ export function MapLensPanePortal({
     if (activeClusterData) {
       document.body.appendChild(container);
       pane.style.pointerEvents = "auto";
+      container.style.pointerEvents = "auto";
       setIsAttached(true);
       map.on("move zoom", updatePosition);
       window.addEventListener("scroll", updatePosition, { passive: true });
@@ -138,6 +140,7 @@ export function MapLensPanePortal({
     } else {
       setIsAttached(false);
       pane.style.pointerEvents = "none";
+      container.style.pointerEvents = "none";
       if (document.body.contains(container)) {
         document.body.removeChild(container);
       }
@@ -150,6 +153,8 @@ export function MapLensPanePortal({
       window.removeEventListener("resize", updatePosition);
       document.removeEventListener("pointerdown", handlePointerDown, true);
       setIsAttached(false);
+      pane.style.pointerEvents = "none";
+      container.style.pointerEvents = "none";
       if (document.body.contains(container)) {
         document.body.removeChild(container);
       }

@@ -118,4 +118,17 @@ test('search listings use bbox-filtered results and render matching IDs', async 
         .join(' | ') || 'none'}`,
     );
   }
+
+  const firstCard = page.locator('[data-listing-id]:visible').first();
+  await expect(firstCard).toBeVisible({ timeout: 60000 });
+  await firstCard.scrollIntoViewIfNeeded();
+  await firstCard.click({ timeout: 10000 });
+  const modal = page.getByRole('dialog');
+  await expect(modal).toBeVisible({ timeout: 10000 });
+  await page.keyboard.press('Escape');
+  await expect(modal).toBeHidden({ timeout: 5000 });
+  await firstCard.click({ timeout: 10000 });
+  await expect(modal).toBeVisible({ timeout: 10000 });
+  await page.keyboard.press('Escape');
+  await expect(modal).toBeHidden({ timeout: 5000 });
 });

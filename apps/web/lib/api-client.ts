@@ -20,6 +20,7 @@ export type PaginatedListingsResponse = {
 import { getApiBaseUrl } from "./getApiBaseUrl";
 
 const API_BASE_URL = getApiBaseUrl();
+const inflightListings = new Map<string, Promise<PaginatedListingsResponse>>();
 
 /**
  * Fetches a paginated list of listings from the backend API.
@@ -72,17 +73,34 @@ export async function fetchListings(
   const qs = searchParams.toString();
   const url = `${API_BASE_URL}/api/listings${qs ? `?${qs}` : ''}`;
 
-  const res = await fetch(url, {
-    // Always fetch fresh data for search
-    cache: 'no-store',
-    signal,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch listings: ${res.status} ${res.statusText}`);
+  const key = `GET ${url}`;
+  // Coalesce identical in-flight GETs to avoid request storms. Only share when
+  // no caller-specific AbortSignal is provided.
+  if (!signal && inflightListings.has(key)) {
+    return inflightListings.get(key)!;
   }
 
-  return (await res.json()) as PaginatedListingsResponse;
+  const fetchPromise = fetch(url, {
+    cache: 'no-store',
+    signal,
+  }).then(async (res) => {
+    if (!res.ok) {
+      throw new Error(`Failed to fetch listings: ${res.status} ${res.statusText}`);
+    }
+    return (await res.json()) as PaginatedListingsResponse;
+  });
+
+  if (!signal) {
+    inflightListings.set(key, fetchPromise);
+  }
+
+  try {
+    return await fetchPromise;
+  } finally {
+    if (!signal) {
+      inflightListings.delete(key);
+    }
+  }
 }
 
 /**
