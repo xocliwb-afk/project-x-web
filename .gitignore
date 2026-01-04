@@ -21,6 +21,10 @@ build/
 **/build/
 **/*.tsbuildinfo
 
+# Playwright artifacts
+apps/web/test-results/
+playwright-report/
+
 # ----------------------------
 # Logs
 # ----------------------------

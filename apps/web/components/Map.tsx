@@ -226,19 +226,24 @@ export default function Map({
   }, [clusterLayer]);
 
   useEffect(() => {
-    const map = mapRef.current;
+    const map = mapInstance;
     if (!map || !onBoundsChange) return;
 
     const emitBounds = () => {
+      const round5 = (n: number) => Math.round(n * 1e5) / 1e5;
       const bounds = map.getBounds();
-      const sw = bounds.getSouthWest();
-      const ne = bounds.getNorthEast();
+      const swRaw = bounds.getSouthWest();
+      const neRaw = bounds.getNorthEast();
+      const swLat = round5(swRaw.lat);
+      const swLng = round5(swRaw.lng);
+      const neLat = round5(neRaw.lat);
+      const neLng = round5(neRaw.lng);
       onBoundsChange({
-        swLat: sw.lat,
-        swLng: sw.lng,
-        neLat: ne.lat,
-        neLng: ne.lng,
-        bbox: `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`,
+        swLat,
+        swLng,
+        neLat,
+        neLng,
+        bbox: `${swLng},${swLat},${neLng},${neLat}`,
       });
     };
 
@@ -250,7 +255,7 @@ export default function Map({
       map.off("moveend", emitBounds);
       map.off("zoomend", emitBounds);
     };
-  }, [onBoundsChange]);
+  }, [mapInstance, onBoundsChange]);
 
   if (!mounted) {
     return null;
