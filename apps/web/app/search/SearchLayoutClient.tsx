@@ -304,6 +304,7 @@ export default function SearchLayoutClient({
         if (baseKey && baseQueryKeyRef.current && baseQueryKeyRef.current !== baseKey) {
           return;
         }
+        // Apply batched updates once after autofill completes.
         setListings(merged);
         setPagination(finalPagination);
       } catch (err) {
