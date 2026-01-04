@@ -9,6 +9,10 @@ type ListingsListProps = {
   listings: Listing[];
   isLoading: boolean;
   isWaiting?: boolean;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  loadMoreError?: string | null;
+  onLoadMore?: () => void;
   selectedListingId: string | null;
   hoveredListingId?: string | null;
   onSelectListing: (id: string | null) => void;
@@ -20,6 +24,10 @@ export default function ListingsList({
   listings,
   isLoading,
   isWaiting = false,
+  hasMore = false,
+  isLoadingMore = false,
+  loadMoreError = null,
+  onLoadMore,
   selectedListingId,
   hoveredListingId,
   onSelectListing,
@@ -55,36 +63,55 @@ export default function ListingsList({
     return <p className="text-sm text-slate-500">No listings found.</p>;
   }
 
+  const disableLoadMore = isLoading || isWaiting || isLoadingMore;
+
   return (
-    <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2">
-      {listings.map((listing) => (
-        <div
-          key={listing.id}
-          data-listing-id={listing.id}
-          ref={(el) => {
-            if (el) {
-              itemRefs.current[listing.id] = el;
-            } else {
-              delete itemRefs.current[listing.id];
-            }
-          }}
-          className="w-full"
-        >
-          <ListingCard
-            listing={listing}
-            isSelected={
-              selectedListingId === listing.id ||
-              hoveredListingId === listing.id
-            }
-            onMouseEnter={() => onHoverListing?.(listing.id)}
-            onMouseLeave={() => onHoverListing?.(null)}
-            onClick={(item) => {
-              onSelectListing(listing.id);
-              onCardClick?.(item);
+    <>
+      <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2">
+        {listings.map((listing) => (
+          <div
+            key={listing.id}
+            data-listing-id={listing.id}
+            ref={(el) => {
+              if (el) {
+                itemRefs.current[listing.id] = el;
+              } else {
+                delete itemRefs.current[listing.id];
+              }
             }}
-          />
+            className="w-full"
+          >
+            <ListingCard
+              listing={listing}
+              isSelected={
+                selectedListingId === listing.id ||
+                hoveredListingId === listing.id
+              }
+              onMouseEnter={() => onHoverListing?.(listing.id)}
+              onMouseLeave={() => onHoverListing?.(null)}
+              onClick={(item) => {
+                onSelectListing(listing.id);
+                onCardClick?.(item);
+              }}
+            />
+          </div>
+        ))}
+      </div>
+      {hasMore && (
+        <div className="mt-4">
+          <button
+            type="button"
+            className="w-full rounded-md border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-main transition hover:bg-surface-accent disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={onLoadMore}
+            disabled={disableLoadMore || !onLoadMore}
+          >
+            {isLoadingMore ? 'Loading...' : 'Load more'}
+          </button>
+          {loadMoreError && (
+            <p className="mt-2 text-xs text-red-500">{loadMoreError}</p>
+          )}
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 }

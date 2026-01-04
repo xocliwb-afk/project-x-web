@@ -48,9 +48,13 @@ export default function SearchLayoutClient({
   const [pagination, setPagination] =
     useState<PaginatedListingsResponse['pagination']>(initialPagination);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadMoreControllerRef = useRef<AbortController | null>(null);
+  const baseQueryKeyRef = useRef<string | null>(null);
   const hasCompletedInitialFetch = useRef(false);
 
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
@@ -145,9 +149,23 @@ export default function SearchLayoutClient({
     effectiveParams,
   ]);
   const isWaitingForBounds = effectiveParams === null;
+  const baseQueryKey = useMemo(() => {
+    if (!effectiveParams) return null;
+    const { page: _page, ...rest } = effectiveParams as any;
+    return JSON.stringify({ ...rest, page: 1 });
+  }, [effectiveParams]);
 
   useEffect(() => {
     if (!paramsKey) return;
+    // reset load-more state when base params change
+    if (loadMoreControllerRef.current) {
+      loadMoreControllerRef.current.abort();
+      loadMoreControllerRef.current = null;
+    }
+    setIsLoadingMore(false);
+    setLoadMoreError(null);
+    baseQueryKeyRef.current = baseQueryKey;
+
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
     }
@@ -187,7 +205,7 @@ export default function SearchLayoutClient({
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [paramsKey]);
+  }, [paramsKey, baseQueryKey]);
 
   const updateUrlWithBounds = useCallback(
     (bbox: string) => {
@@ -239,6 +257,68 @@ export default function SearchLayoutClient({
   const handleSelectListing = (id: string | null) => {
     setSelectedListingId(id);
   };
+
+  const handleLoadMore = useCallback(async () => {
+    if (!effectiveParams) return;
+    if (isLoadingMore || isWaitingForBounds) return;
+    if (!pagination?.hasMore) return;
+
+    const currentPage = pagination?.page ?? 1;
+    const nextPage = currentPage + 1;
+
+    if (loadMoreControllerRef.current) {
+      loadMoreControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    loadMoreControllerRef.current = controller;
+    setIsLoadingMore(true);
+    setLoadMoreError(null);
+
+    const nextParams = { ...effectiveParams, page: nextPage };
+    const currentBaseKey = baseQueryKey;
+
+    try {
+      const { results: moreResults, pagination: nextPagination } = await fetchListings(
+        nextParams,
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
+      if (currentBaseKey && baseQueryKeyRef.current && baseQueryKeyRef.current !== currentBaseKey) {
+        setIsLoadingMore(false);
+        loadMoreControllerRef.current = null;
+        return;
+      }
+
+      const existingIds = new Set(
+        listings.map((l) => (l.mlsId ?? l.id ?? '').toString()).filter(Boolean),
+      );
+      const merged = [...listings];
+      moreResults.forEach((l) => {
+        const key = (l.mlsId ?? l.id ?? '').toString();
+        if (key && !existingIds.has(key)) {
+          existingIds.add(key);
+          merged.push(l);
+        }
+      });
+
+      setListings(merged);
+      setPagination(nextPagination);
+      setIsLoadingMore(false);
+      loadMoreControllerRef.current = null;
+    } catch (err: any) {
+      if (controller.signal.aborted) return;
+      setLoadMoreError(err instanceof Error ? err.message : 'Failed to load more');
+      setIsLoadingMore(false);
+      loadMoreControllerRef.current = null;
+    }
+  }, [
+    baseQueryKey,
+    effectiveParams,
+    isLoadingMore,
+    isWaitingForBounds,
+    listings,
+    pagination,
+  ]);
 
   const handleCloseModal = () => {
     setIsDetailModalOpen(false);
@@ -324,6 +404,10 @@ export default function SearchLayoutClient({
                   listings={listings}
                   isLoading={isLoading}
                   isWaiting={isWaitingForBounds}
+                  hasMore={pagination?.hasMore}
+                  isLoadingMore={isLoadingMore}
+                  loadMoreError={loadMoreError}
+                  onLoadMore={handleLoadMore}
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
                   onHoverListing={(id) => setHoveredListingId(id)}
@@ -383,6 +467,10 @@ export default function SearchLayoutClient({
                     listings={listings}
                     isLoading={isLoading}
                     isWaiting={isWaitingForBounds}
+                    hasMore={pagination?.hasMore}
+                    isLoadingMore={isLoadingMore}
+                    loadMoreError={loadMoreError}
+                    onLoadMore={handleLoadMore}
                     selectedListingId={selectedListingId}
                     hoveredListingId={hoveredListingId}
                     onHoverListing={(id) => setHoveredListingId(id)}
