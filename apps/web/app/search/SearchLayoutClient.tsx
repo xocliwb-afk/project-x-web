@@ -261,6 +261,7 @@ export default function SearchLayoutClient({
     let currentPage = pagination.page ?? 1;
     let hasMore = pagination.hasMore;
     let merged = [...listings];
+    let finalPagination = pagination;
 
     const run = async () => {
       try {
@@ -295,12 +296,16 @@ export default function SearchLayoutClient({
             }
           });
 
-          setListings(merged);
-          setPagination(nextPagination);
-
+          finalPagination = nextPagination;
           currentPage = nextPagination.page ?? nextPage;
           hasMore = nextPagination.hasMore;
         }
+        if (controller.signal.aborted) return;
+        if (baseKey && baseQueryKeyRef.current && baseQueryKeyRef.current !== baseKey) {
+          return;
+        }
+        setListings(merged);
+        setPagination(finalPagination);
       } catch (err) {
         if (controller.signal.aborted) return;
         console.warn('[SearchLayoutClient] auto-fill failed', err);
