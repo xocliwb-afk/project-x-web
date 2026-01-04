@@ -54,6 +54,7 @@ export default function SearchLayoutClient({
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const [boundsWaitTimedOut, setBoundsWaitTimedOut] = useState(false);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFetchedParamsKeyRef = useRef<string | null>(null);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
   const baseQueryKeyRef = useRef<string | null>(null);
   const hasCompletedInitialFetch = useRef(false);
@@ -163,6 +164,7 @@ export default function SearchLayoutClient({
 
   useEffect(() => {
     if (!paramsKey) return;
+    if (paramsKey === lastFetchedParamsKeyRef.current) return;
     // reset load-more state when base params change
     if (loadMoreControllerRef.current) {
       loadMoreControllerRef.current.abort();
@@ -193,6 +195,7 @@ export default function SearchLayoutClient({
         setListings(results);
         setPagination(newPagination);
         setError(null);
+        lastFetchedParamsKeyRef.current = paramsKey;
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error('[SearchLayoutClient] failed to fetch listings', err);
@@ -308,8 +311,6 @@ export default function SearchLayoutClient({
       );
       if (controller.signal.aborted) return;
       if (currentBaseKey && baseQueryKeyRef.current && baseQueryKeyRef.current !== currentBaseKey) {
-        setIsLoadingMore(false);
-        loadMoreControllerRef.current = null;
         return;
       }
 
@@ -327,13 +328,14 @@ export default function SearchLayoutClient({
 
       setListings(merged);
       setPagination(nextPagination);
-      setIsLoadingMore(false);
-      loadMoreControllerRef.current = null;
     } catch (err: any) {
       if (controller.signal.aborted) return;
       setLoadMoreError(err instanceof Error ? err.message : 'Failed to load more');
-      setIsLoadingMore(false);
-      loadMoreControllerRef.current = null;
+    } finally {
+      if (loadMoreControllerRef.current === controller) {
+        setIsLoadingMore(false);
+        loadMoreControllerRef.current = null;
+      }
     }
   }, [
     baseQueryKey,
