@@ -52,8 +52,6 @@ const nextConfig = {
         // API proxy stays first
         { source: '/api/:path*', destination: `${apiBase}/api/:path*` },
         { source: '/api/v1/:path*', destination: `${apiBase}/api/v1/:path*` },
-        // Ensure search still routes to the Next app, even if linked with .html
-        { source: '/search.html', destination: '/search' },
         { source: '/', destination: '/marketing/index.html' },
         { source: '/buy', destination: '/marketing/buy.html' },
         { source: '/sell', destination: '/marketing/sell.html' },
@@ -75,6 +73,15 @@ const nextConfig = {
         { source: '/:slug.html', destination: '/marketing/:slug.html' },
       ],
     };
+  },
+  async redirects() {
+    return [
+      {
+        source: '/search.html',
+        destination: '/search',
+        permanent: true,
+      },
+    ];
   },
 };
 
