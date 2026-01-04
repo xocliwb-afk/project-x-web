@@ -165,7 +165,7 @@ export default function TourBuilderClient() {
             </p>
           </div>
           <div className="mt-4 space-y-2">
-            {plannedTour.stops.map((stop) => (
+            {plannedTour.stops.map((stop: any) => (
               <div
                 key={stop.listingId + stop.startTime}
                 className="rounded border border-border bg-surface-muted p-3 text-sm"
