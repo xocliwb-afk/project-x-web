@@ -60,6 +60,8 @@ export default function SearchLayoutClient({
   const baseQueryKeyRef = useRef<string | null>(null);
   const hasCompletedInitialFetch = useRef(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const CARDS_PER_PAGE = 25;
+  const [listPage, setListPage] = useState(1);
 
   const TARGET_RESULTS = 100;
   const PAGE_SIZE = 50;
@@ -361,12 +363,20 @@ export default function SearchLayoutClient({
     }
   }, [mapBounds, updateUrlWithBounds]);
 
+  useEffect(() => {
+    setListPage(1);
+  }, [baseQueryKey]);
+
   const leftPaneClass =
     paneDominance === 'left' ? 'md:basis-3/5' : 'md:basis-2/5';
   const rightPaneClass =
     paneDominance === 'right' ? 'md:basis-3/5' : 'md:basis-2/5';
   const mapPaneClass = mapSide === 'left' ? leftPaneClass : rightPaneClass;
   const listPaneClass = mapSide === 'left' ? rightPaneClass : leftPaneClass;
+  const visibleListings = useMemo(
+    () => listings.slice(0, listPage * CARDS_PER_PAGE),
+    [listings, listPage],
+  );
 
   const handleBoundsChange = useCallback((bounds: MapBounds) => {
     setMapBounds((prev) => {
@@ -538,11 +548,11 @@ export default function SearchLayoutClient({
                 <div className="mb-3 text-sm text-text-main/70">
                   {isLoading || isWaitingForBounds
                     ? 'Loading...'
-                    : `Results: ${listings.length.toLocaleString()} / ${TARGET_RESULTS}`}{" "}
+                    : `Showing ${visibleListings.length.toLocaleString()} / ${TARGET_RESULTS} results`}{" "}
                   · Pins: {pinCount.toLocaleString()} {isAutoFilling ? '(loading...)' : ''}
                 </div>
                 <ListingsList
-                  listings={listings}
+                  listings={visibleListings}
                   isLoading={isLoading}
                   isWaiting={isWaitingForBounds}
                   hasMore={pagination?.hasMore}
@@ -555,6 +565,18 @@ export default function SearchLayoutClient({
                   onSelectListing={handleSelectListing}
                   onCardClick={handleCardClick}
                 />
+                {visibleListings.length < listings.length && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setListPage((p) => p + 1)}
+                      className="w-full rounded-md bg-surface-muted px-4 py-2 text-sm font-semibold text-text-main hover:bg-surface-accent"
+                    >
+                      Show next{' '}
+                      {Math.min(CARDS_PER_PAGE, listings.length - visibleListings.length)} results
+                    </button>
+                  </div>
+                )}
                 <div className="mt-6">
                   <Footer />
                 </div>
@@ -593,7 +615,7 @@ export default function SearchLayoutClient({
                     <p className="text-sm text-text-main/70">
                       {isLoading || isWaitingForBounds
                         ? 'Loading...'
-                        : `Results: ${listings.length.toLocaleString()} / ${TARGET_RESULTS}`}
+                        : `Showing ${visibleListings.length.toLocaleString()} / ${TARGET_RESULTS} results`}
                       {isAutoFilling ? ' (loading...)' : ''}
                     </p>
                     <p className="text-xs text-text-main/60">
@@ -609,7 +631,7 @@ export default function SearchLayoutClient({
 
                 <div className="flex-1 p-4">
                   <ListingsList
-                    listings={listings}
+                    listings={visibleListings}
                     isLoading={isLoading}
                     isWaiting={isWaitingForBounds}
                     hasMore={pagination?.hasMore}
@@ -622,6 +644,18 @@ export default function SearchLayoutClient({
                     onSelectListing={handleSelectListing}
                     onCardClick={handleCardClick}
                   />
+                  {visibleListings.length < listings.length && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => setListPage((p) => p + 1)}
+                        className="w-full rounded-md bg-surface-muted px-4 py-2 text-sm font-semibold text-text-main hover:bg-surface-accent"
+                      >
+                        Show next{' '}
+                        {Math.min(CARDS_PER_PAGE, listings.length - visibleListings.length)} results
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="px-4 pb-6">
                   <Footer />

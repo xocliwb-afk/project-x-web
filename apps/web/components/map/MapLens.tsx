@@ -317,6 +317,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   return (
     <div
       ref={lensRef}
+      data-testid="map-lens"
       className={`pointer-events-auto ${lensTransitionClass} ${lensVisibilityClass}`}
       onClick={(e) => e.stopPropagation()}
     >

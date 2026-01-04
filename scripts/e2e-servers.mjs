@@ -48,7 +48,14 @@ const start = (cmd, args, options = {}) => {
 };
 
 const main = async () => {
-  start('pnpm', ['--dir', 'apps/api', 'dev']);
+  start('pnpm', ['--dir', 'apps/api', 'dev'], {
+    env: {
+      ...process.env,
+      DATA_PROVIDER: 'mock',
+      DEV_FALLBACK_TO_MOCK: 'true',
+      NODE_ENV: 'test',
+    },
+  });
   start('pnpm', ['--dir', 'apps/web', 'dev'], {
     env: {
       ...process.env,

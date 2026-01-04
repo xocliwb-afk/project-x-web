@@ -56,7 +56,6 @@ const main = async () => {
     'test',
     '-c',
     'playwright.config.ts',
-    'e2e/search-bbox-coupling.spec.ts',
   ]);
 
   cleanup();
