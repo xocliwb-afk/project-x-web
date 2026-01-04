@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { setTimeout as wait } from 'timers/promises';
 
 const procs = [];
@@ -47,8 +47,29 @@ const start = (cmd, args, options = {}) => {
   });
 };
 
+const killPort = async (port) => {
+  spawnSync('bash', ['-lc', `lsof -ti:${port} | xargs -r kill -TERM`], {
+    stdio: 'inherit',
+  });
+  await wait(1000);
+  spawnSync('bash', ['-lc', `lsof -ti:${port} | xargs -r kill -KILL`], {
+    stdio: 'inherit',
+  });
+};
+
 const main = async () => {
-  start('pnpm', ['--dir', 'apps/api', 'dev']);
+  console.log('[servers] killing ports 3000/3002');
+  await Promise.all([killPort(3000), killPort(3002)]);
+
+  console.log('[servers] starting api/web');
+  start('pnpm', ['--dir', 'apps/api', 'dev'], {
+    env: {
+      ...process.env,
+      DATA_PROVIDER: 'mock',
+      DEV_FALLBACK_TO_MOCK: 'true',
+      NODE_ENV: 'test',
+    },
+  });
   start('pnpm', ['--dir', 'apps/web', 'dev'], {
     env: {
       ...process.env,

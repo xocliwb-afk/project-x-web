@@ -132,6 +132,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const lensVisibilityClass = visible
     ? "opacity-100 scale-100"
     : "opacity-0 scale-50";
+  const pointerClass = visible ? "pointer-events-auto" : "pointer-events-none";
   const listOnRight = mapSide === "left";
   const [previewOnRight, setPreviewOnRight] = useState(listOnRight);
   const [previewKey, setPreviewKey] = useState(0);
@@ -317,7 +318,8 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   return (
     <div
       ref={lensRef}
-      className={`pointer-events-auto ${lensTransitionClass} ${lensVisibilityClass}`}
+      data-testid="map-lens"
+      className={`${pointerClass} ${lensTransitionClass} ${lensVisibilityClass}`}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="relative flex flex-col items-center">

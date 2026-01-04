@@ -56,14 +56,32 @@ export default function SearchLayoutClient({
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchedParamsKeyRef = useRef<string | null>(null);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
+  const autoFillControllerRef = useRef<AbortController | null>(null);
   const baseQueryKeyRef = useRef<string | null>(null);
   const hasCompletedInitialFetch = useRef(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const CARDS_PER_PAGE = 25;
+  const [listPage, setListPage] = useState(1);
+
+  const TARGET_RESULTS = 100;
+  const PAGE_SIZE = 50;
 
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const inFlightPagesRef = useRef<Set<string>>(new Set());
+  const loadedPagesRef = useRef<Set<string>>(new Set());
+  const autofillKeyRef = useRef<string | null>(null);
+  const autofillRunningRef = useRef(false);
+  const pinCount = useMemo(
+    () =>
+      listings.filter(
+        (l) => Number.isFinite(l.address?.lat) && Number.isFinite(l.address?.lng),
+      ).length,
+    [listings],
+  );
 
   const hasAnyNonPagingFilterFrontend = useCallback((p: FetchListingsParams) => {
     return Boolean(
@@ -132,6 +150,7 @@ export default function SearchLayoutClient({
         (!!parsedParams.bbox && parsedParams.bbox !== bbox);
       return {
         ...parsedParams,
+        limit: parsedParams.limit ?? PAGE_SIZE,
         bbox,
         swLat: mapBounds.swLat,
         swLng: mapBounds.swLng,
@@ -141,7 +160,7 @@ export default function SearchLayoutClient({
       };
     }
 
-    if (parsedParams.bbox) return parsedParams;
+    if (parsedParams.bbox) return { ...parsedParams, limit: parsedParams.limit ?? PAGE_SIZE };
     if (hasFilters) return parsedParams;
 
     // Fallback: if bounds wait timed out, allow bbox-less fetch once
@@ -161,8 +180,13 @@ export default function SearchLayoutClient({
     const { page: _page, ...rest } = effectiveParams as any;
     return JSON.stringify({ ...rest, page: 1 });
   }, [effectiveParams]);
+  const queryKey = baseQueryKey ?? paramsKey ?? 'none';
 
   useEffect(() => {
+    inFlightPagesRef.current.clear();
+    loadedPagesRef.current.clear();
+    autofillKeyRef.current = null;
+    autofillRunningRef.current = false;
     if (!paramsKey) return;
     if (paramsKey === lastFetchedParamsKeyRef.current) return;
     // reset load-more state when base params change
@@ -170,7 +194,12 @@ export default function SearchLayoutClient({
       loadMoreControllerRef.current.abort();
       loadMoreControllerRef.current = null;
     }
+    if (autoFillControllerRef.current) {
+      autoFillControllerRef.current.abort();
+      autoFillControllerRef.current = null;
+    }
     setIsLoadingMore(false);
+    setIsAutoFilling(false);
     setLoadMoreError(null);
     baseQueryKeyRef.current = baseQueryKey;
 
@@ -179,6 +208,11 @@ export default function SearchLayoutClient({
     }
 
     const parsed: FetchListingsParams = JSON.parse(paramsKey);
+    const pageKey = `${queryKey}|page=${parsed.page ?? 1}`;
+    if (inFlightPagesRef.current.has(pageKey) || loadedPagesRef.current.has(pageKey)) {
+      return;
+    }
+    inFlightPagesRef.current.add(pageKey);
     const controller = new AbortController();
 
     fetchTimeoutRef.current = setTimeout(async () => {
@@ -192,6 +226,7 @@ export default function SearchLayoutClient({
           controller.signal,
         );
         if (controller.signal.aborted) return;
+        loadedPagesRef.current.add(pageKey);
         setListings(results);
         setPagination(newPagination);
         setError(null);
@@ -205,6 +240,7 @@ export default function SearchLayoutClient({
           setIsLoading(false);
           hasCompletedInitialFetch.current = true;
         }
+        inFlightPagesRef.current.delete(pageKey);
       }
     }, 400);
 
@@ -214,7 +250,121 @@ export default function SearchLayoutClient({
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [paramsKey, baseQueryKey]);
+  }, [paramsKey, baseQueryKey, queryKey]);
+
+  // Auto-fill up to TARGET_RESULTS when bbox is active
+  useEffect(() => {
+    const shouldAutoFill =
+      effectiveParams?.bbox &&
+      pagination &&
+      listings.length < TARGET_RESULTS &&
+      pagination.hasMore &&
+      !isLoading &&
+      !isLoadingMore &&
+      !isAutoFilling;
+
+    if (!shouldAutoFill) return;
+    const autoKey = `${queryKey}|autofill`;
+    if (autofillRunningRef.current && autofillKeyRef.current === autoKey) return;
+    if (autofillKeyRef.current === autoKey) return;
+
+    if (autoFillControllerRef.current) {
+      autoFillControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    autoFillControllerRef.current = controller;
+    setIsAutoFilling(true);
+    autofillKeyRef.current = autoKey;
+    autofillRunningRef.current = true;
+
+    const baseKey = baseQueryKeyRef.current;
+    let currentPage = pagination.page ?? 1;
+    let hasMore = pagination.hasMore;
+    let merged = [...listings];
+    let finalPagination = pagination;
+
+    const run = async () => {
+      try {
+        while (
+          !controller.signal.aborted &&
+          merged.length < TARGET_RESULTS &&
+          hasMore
+        ) {
+          const nextPage = currentPage + 1;
+          const pageKey = `${queryKey}|page=${nextPage}`;
+          if (inFlightPagesRef.current.has(pageKey) || loadedPagesRef.current.has(pageKey)) {
+            hasMore = false;
+            break;
+          }
+          inFlightPagesRef.current.add(pageKey);
+          const params = {
+            ...effectiveParams,
+            page: nextPage,
+            limit: effectiveParams.limit ?? PAGE_SIZE,
+          };
+          try {
+            const { results: moreResults, pagination: nextPagination } = await fetchListings(
+              params,
+              controller.signal,
+            );
+            if (controller.signal.aborted) return;
+            if (baseKey && baseQueryKeyRef.current && baseQueryKeyRef.current !== baseKey) {
+              return;
+            }
+
+            const existingIds = new Set(
+              merged.map((l) => (l.mlsId ?? l.id ?? '').toString()).filter(Boolean),
+            );
+            moreResults.forEach((l) => {
+              const key = (l.mlsId ?? l.id ?? '').toString();
+              if (key && !existingIds.has(key)) {
+                existingIds.add(key);
+                merged.push(l);
+              }
+            });
+
+            finalPagination = nextPagination;
+            loadedPagesRef.current.add(pageKey);
+            currentPage = nextPagination.page ?? nextPage;
+            hasMore = nextPagination.hasMore;
+          } finally {
+            inFlightPagesRef.current.delete(pageKey);
+          }
+        }
+        if (controller.signal.aborted) return;
+        if (baseKey && baseQueryKeyRef.current && baseQueryKeyRef.current !== baseKey) {
+          return;
+        }
+        // Apply batched updates once after autofill completes.
+        setListings(merged);
+        setPagination(finalPagination);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        console.warn('[SearchLayoutClient] auto-fill failed', err);
+      } finally {
+        if (autoFillControllerRef.current === controller) {
+          setIsAutoFilling(false);
+          autoFillControllerRef.current = null;
+          autofillRunningRef.current = false;
+        }
+      }
+    };
+
+    run();
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    effectiveParams,
+    pagination,
+    listings,
+    isLoading,
+    isLoadingMore,
+    isAutoFilling,
+    queryKey,
+  ]);
 
   // Bounds wait timeout: trigger fallback fetch if map bounds never arrive
   useEffect(() => {
@@ -253,12 +403,20 @@ export default function SearchLayoutClient({
     }
   }, [mapBounds, updateUrlWithBounds]);
 
+  useEffect(() => {
+    setListPage(1);
+  }, [baseQueryKey]);
+
   const leftPaneClass =
     paneDominance === 'left' ? 'md:basis-3/5' : 'md:basis-2/5';
   const rightPaneClass =
     paneDominance === 'right' ? 'md:basis-3/5' : 'md:basis-2/5';
   const mapPaneClass = mapSide === 'left' ? leftPaneClass : rightPaneClass;
   const listPaneClass = mapSide === 'left' ? rightPaneClass : leftPaneClass;
+  const visibleListings = useMemo(
+    () => listings.slice(0, listPage * CARDS_PER_PAGE),
+    [listings, listPage],
+  );
 
   const handleBoundsChange = useCallback((bounds: MapBounds) => {
     setMapBounds((prev) => {
@@ -285,13 +443,30 @@ export default function SearchLayoutClient({
     setSelectedListingId(id);
   };
 
+  useEffect(() => {
+    if (!selectedListingId) return;
+
+    const idx = listings.findIndex((l) => l.id === selectedListingId);
+    if (idx === -1) return;
+
+    const requiredPage = Math.floor(idx / CARDS_PER_PAGE) + 1;
+    if (requiredPage > listPage) {
+      setListPage(requiredPage);
+    }
+    // Do not scroll here; ListingsList handles scroll-to-selected.
+  }, [selectedListingId, listings, listPage]);
+
   const handleLoadMore = useCallback(async () => {
     if (!effectiveParams) return;
-    if (isLoadingMore || isWaitingForBounds) return;
+    if (isLoadingMore || isWaitingForBounds || isAutoFilling) return;
     if (!pagination?.hasMore) return;
 
     const currentPage = pagination?.page ?? 1;
     const nextPage = currentPage + 1;
+    const pageKey = `${queryKey}|page=${nextPage}`;
+    if (inFlightPagesRef.current.has(pageKey) || loadedPagesRef.current.has(pageKey)) {
+      return;
+    }
 
     if (loadMoreControllerRef.current) {
       loadMoreControllerRef.current.abort();
@@ -301,6 +476,7 @@ export default function SearchLayoutClient({
     setIsLoadingMore(true);
     setLoadMoreError(null);
 
+    inFlightPagesRef.current.add(pageKey);
     const nextParams = { ...effectiveParams, page: nextPage };
     const currentBaseKey = baseQueryKey;
 
@@ -328,6 +504,7 @@ export default function SearchLayoutClient({
 
       setListings(merged);
       setPagination(nextPagination);
+      loadedPagesRef.current.add(pageKey);
     } catch (err: any) {
       if (controller.signal.aborted) return;
       setLoadMoreError(err instanceof Error ? err.message : 'Failed to load more');
@@ -336,12 +513,15 @@ export default function SearchLayoutClient({
         setIsLoadingMore(false);
         loadMoreControllerRef.current = null;
       }
+      inFlightPagesRef.current.delete(pageKey);
     }
   }, [
     baseQueryKey,
     effectiveParams,
+    queryKey,
     isLoadingMore,
     isWaitingForBounds,
+    isAutoFilling,
     listings,
     pagination,
   ]);
@@ -426,8 +606,14 @@ export default function SearchLayoutClient({
             )}
             {viewMode === 'list' && (
               <div className="h-full overflow-y-auto px-4 pt-4 pb-6">
+                <div className="mb-3 text-sm text-text-main/70">
+                  {isLoading || isWaitingForBounds
+                    ? 'Loading...'
+                    : `Showing ${visibleListings.length.toLocaleString()} / ${TARGET_RESULTS} results`}{" "}
+                  · Pins: {pinCount.toLocaleString()} {isAutoFilling ? '(loading...)' : ''}
+                </div>
                 <ListingsList
-                  listings={listings}
+                  listings={visibleListings}
                   isLoading={isLoading}
                   isWaiting={isWaitingForBounds}
                   hasMore={pagination?.hasMore}
@@ -440,6 +626,18 @@ export default function SearchLayoutClient({
                   onSelectListing={handleSelectListing}
                   onCardClick={handleCardClick}
                 />
+                {visibleListings.length < listings.length && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setListPage((p) => p + 1)}
+                      className="w-full rounded-md bg-surface-muted px-4 py-2 text-sm font-semibold text-text-main hover:bg-surface-accent"
+                    >
+                      Show next{' '}
+                      {Math.min(CARDS_PER_PAGE, listings.length - visibleListings.length)} results
+                    </button>
+                  </div>
+                )}
                 <div className="mt-6">
                   <Footer />
                 </div>
@@ -478,7 +676,11 @@ export default function SearchLayoutClient({
                     <p className="text-sm text-text-main/70">
                       {isLoading || isWaitingForBounds
                         ? 'Loading...'
-                        : `${listings.length.toLocaleString()} results`}
+                        : `Showing ${visibleListings.length.toLocaleString()} / ${TARGET_RESULTS} results`}
+                      {isAutoFilling ? ' (loading...)' : ''}
+                    </p>
+                    <p className="text-xs text-text-main/60">
+                      Pins: {pinCount.toLocaleString()}
                     </p>
                     {error && (
                       <p className="text-xs text-red-500">
@@ -490,7 +692,7 @@ export default function SearchLayoutClient({
 
                 <div className="flex-1 p-4">
                   <ListingsList
-                    listings={listings}
+                    listings={visibleListings}
                     isLoading={isLoading}
                     isWaiting={isWaitingForBounds}
                     hasMore={pagination?.hasMore}
@@ -503,6 +705,18 @@ export default function SearchLayoutClient({
                     onSelectListing={handleSelectListing}
                     onCardClick={handleCardClick}
                   />
+                  {visibleListings.length < listings.length && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => setListPage((p) => p + 1)}
+                        className="w-full rounded-md bg-surface-muted px-4 py-2 text-sm font-semibold text-text-main hover:bg-surface-accent"
+                      >
+                        Show next{' '}
+                        {Math.min(CARDS_PER_PAGE, listings.length - visibleListings.length)} results
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="px-4 pb-6">
                   <Footer />

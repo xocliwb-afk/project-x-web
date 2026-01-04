@@ -21,6 +21,7 @@ const run = (cmd, args) =>
   });
 
 const main = async () => {
+  const specPath = process.argv[2] ?? 'apps/web/e2e/search-bbox-coupling.spec.ts';
   const servers = spawn('node', ['scripts/e2e-servers.mjs'], { stdio: 'inherit' });
   let serversClosed = false;
   const cleanup = () => {
@@ -56,7 +57,7 @@ const main = async () => {
     'test',
     '-c',
     'playwright.config.ts',
-    'e2e/search-bbox-coupling.spec.ts',
+    specPath,
   ]);
 
   cleanup();

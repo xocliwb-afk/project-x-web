@@ -57,40 +57,78 @@ test('search listings use bbox-filtered results and render matching IDs', async 
 
   expect(listingsResponses.length).toBeGreaterThan(0);
 
-  const bboxResponse =
-    [...listingsResponses].reverse().find((r) => r.url.includes('bbox=')) ??
-    listingsResponses[listingsResponses.length - 1];
+  const bboxResponsesByKey = new Map<string, { url: string; json: any }[]>();
+  for (const resp of listingsResponses) {
+    const u = new URL(resp.url);
+    const bbox = u.searchParams.get('bbox') ?? '';
+    if (!bbox) continue;
+    if (!bboxResponsesByKey.has(bbox)) bboxResponsesByKey.set(bbox, []);
+    bboxResponsesByKey.get(bbox)!.push(resp);
+  }
 
-  if (!bboxResponse?.url.includes('bbox=')) {
+  const lastBboxEntry = [...bboxResponsesByKey.entries()].pop();
+  if (!lastBboxEntry) {
     throw new Error(
-      `No /api/listings response with bbox found. Last url=${bboxResponse?.url ?? 'none'}`,
+      `No /api/listings response with bbox found.\nRequests seen: ${listingsRequests
+        .slice(-10)
+        .join(' | ') || 'none'}`,
     );
   }
 
-  const responseIds = Array.isArray(bboxResponse.json?.results)
-    ? bboxResponse.json.results.map((r: any) => String(r.id ?? r.mlsId ?? '')).filter(Boolean)
-    : [];
+  const [latestBboxKey, latestBboxResponses] = lastBboxEntry;
+  const concatenatedIds: string[] = [];
+  for (const resp of latestBboxResponses) {
+    const ids = Array.isArray(resp.json?.results)
+      ? resp.json.results.map((r: any) => String(r.id ?? r.mlsId ?? '')).filter(Boolean)
+      : [];
+    concatenatedIds.push(...ids);
+  }
 
-  const compareLen = Math.min(renderedIds.length, responseIds.length);
+  const compareLen = Math.min(renderedIds.length, concatenatedIds.length, 100);
   if (compareLen === 0) {
     throw new Error(
-      `No comparable IDs. url=${bboxResponse.url}\nresp first5=${responseIds.slice(
+      `No comparable IDs.\nlast bbox=${latestBboxKey}\nresp first5=${concatenatedIds.slice(
         0,
         5,
-      )}\ndom first5=${renderedIds.slice(0, 5)}`,
+      )}\ndom first5=${renderedIds.slice(0, 5)}\nRequests seen: ${listingsRequests
+        .slice(-10)
+        .join(' | ') || 'none'}`,
     );
   }
 
-  const respSlice = responseIds.slice(0, compareLen);
+  // If API returned at least 50 for this bbox, expect DOM to render at least 50
+  const available = concatenatedIds.length;
+  if (available >= 50 && renderedIds.length < 50) {
+    throw new Error(
+      `Expected at least 50 rendered cards when API returned ${available} for bbox=${latestBboxKey}. Rendered=${renderedIds.length}\nRequests seen: ${listingsRequests
+        .slice(-10)
+        .join(' | ') || 'none'}`,
+    );
+  }
+
+  const respSlice = concatenatedIds.slice(0, compareLen);
   const domSlice = renderedIds.slice(0, compareLen);
   if (JSON.stringify(respSlice) !== JSON.stringify(domSlice)) {
     throw new Error(
-      `Rendered IDs do not match response.\nurl=${bboxResponse.url}\nresp first5=${responseIds.slice(
+      `Rendered IDs do not match concatenated bbox responses.\nbbox=${latestBboxKey}\nresp first5=${respSlice.slice(
         0,
         5,
-      )}\ndom first5=${renderedIds.slice(0, 5)}`,
+      )}\ndom first5=${domSlice.slice(0, 5)}\nRequests seen: ${listingsRequests
+        .slice(-10)
+        .join(' | ') || 'none'}`,
     );
   }
 
-  expect(true).toBe(true);
+  const firstCard = page.locator('[data-listing-id]:visible').first();
+  await expect(firstCard).toBeVisible({ timeout: 60000 });
+  await firstCard.scrollIntoViewIfNeeded();
+  await firstCard.click({ timeout: 10000 });
+  const modal = page.getByRole('dialog');
+  await expect(modal).toBeVisible({ timeout: 10000 });
+  await page.keyboard.press('Escape');
+  await expect(modal).toBeHidden({ timeout: 5000 });
+  await firstCard.click({ timeout: 10000 });
+  await expect(modal).toBeVisible({ timeout: 10000 });
+  await page.keyboard.press('Escape');
+  await expect(modal).toBeHidden({ timeout: 5000 });
 });
