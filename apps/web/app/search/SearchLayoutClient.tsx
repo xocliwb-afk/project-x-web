@@ -52,6 +52,7 @@ export default function SearchLayoutClient({
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [boundsWaitTimedOut, setBoundsWaitTimedOut] = useState(false);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
   const baseQueryKeyRef = useRef<string | null>(null);
@@ -142,13 +143,18 @@ export default function SearchLayoutClient({
     if (parsedParams.bbox) return parsedParams;
     if (hasFilters) return parsedParams;
 
+    // Fallback: if bounds wait timed out, allow bbox-less fetch once
+    if (boundsWaitTimedOut) {
+      return { ...parsedParams, page: 1 };
+    }
+
     return null;
-  }, [mapBounds, parsedParams, hasFilters]);
+  }, [mapBounds, parsedParams, hasFilters, boundsWaitTimedOut]);
 
   const paramsKey = useMemo(() => (effectiveParams ? JSON.stringify(effectiveParams) : null), [
     effectiveParams,
   ]);
-  const isWaitingForBounds = effectiveParams === null;
+  const isWaitingForBounds = effectiveParams === null && !boundsWaitTimedOut;
   const baseQueryKey = useMemo(() => {
     if (!effectiveParams) return null;
     const { page: _page, ...rest } = effectiveParams as any;
@@ -206,6 +212,24 @@ export default function SearchLayoutClient({
       }
     };
   }, [paramsKey, baseQueryKey]);
+
+  // Bounds wait timeout: trigger fallback fetch if map bounds never arrive
+  useEffect(() => {
+    if (mapBounds) {
+      setBoundsWaitTimedOut(false);
+      return;
+    }
+    if (parsedParams.bbox || hasFilters) return;
+    if (boundsWaitTimedOut) return;
+
+    const timeoutId = setTimeout(() => {
+      setBoundsWaitTimedOut(true);
+    }, 1500);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [mapBounds, parsedParams.bbox, hasFilters, boundsWaitTimedOut]);
 
   const updateUrlWithBounds = useCallback(
     (bbox: string) => {
