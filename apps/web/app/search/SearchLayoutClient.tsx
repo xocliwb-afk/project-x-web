@@ -403,6 +403,26 @@ export default function SearchLayoutClient({
     setSelectedListingId(id);
   };
 
+  useEffect(() => {
+    if (!selectedListingId) return;
+
+    const idx = listings.findIndex((l) => l.id === selectedListingId);
+    if (idx === -1) return;
+
+    const requiredPage = Math.floor(idx / CARDS_PER_PAGE) + 1;
+    if (requiredPage > listPage) {
+      setListPage(requiredPage);
+      return;
+    }
+
+    if (typeof document !== 'undefined') {
+      const target = document.querySelector(
+        `[data-listing-id="${selectedListingId}"]`,
+      ) as HTMLElement | null;
+      target?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedListingId, listings, listPage]);
+
   const handleLoadMore = useCallback(async () => {
     if (!effectiveParams) return;
     if (isLoadingMore || isWaitingForBounds || isAutoFilling) return;

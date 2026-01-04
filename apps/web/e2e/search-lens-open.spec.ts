@@ -43,45 +43,59 @@ test('map lens opens and closes on cluster click', async ({ page }) => {
     for (let i = 0; i < 10; i++) {
       await zoomOut.click({ timeout: 5000 });
       await page.waitForTimeout(250);
-      const hasCluster = await page.locator('.marker-cluster').count();
+      const hasCluster = await page.locator('div.leaflet-marker-icon', { hasText: /\d+/ }).count();
       if (hasCluster > 0) break;
     }
   }
 
-  const cluster = page.locator('.marker-cluster').first();
-  const clusterCount = await cluster.count();
+  const clusterLocator = page.locator('div.leaflet-marker-icon', { hasText: /\d+/ });
+  let target = clusterLocator.first();
+  let usingCluster = true;
+  let clusterCount = await clusterLocator.count();
   if (clusterCount === 0) {
-    const markerCount = await page.locator('.leaflet-marker-icon').count();
-    throw new Error(
-      `No marker-cluster after zooming out. markerCount=${markerCount}. Requests: ${listingsRequests
-        .slice(-10)
-        .join(' | ') || 'none'}`,
-    );
+    const markerLocator = page.locator('div.leaflet-marker-icon');
+    const markerCount = await markerLocator.count();
+    if (markerCount === 0) {
+      throw new Error(
+        `No clusters or markers after zooming out. Requests: ${listingsRequests
+          .slice(-10)
+          .join(' | ') || 'none'}`,
+      );
+    }
+    target = markerLocator.first();
+    usingCluster = false;
   }
 
-  const clickClusterWithRetry = async () => {
+  const clickTargetWithRetry = async () => {
     for (let i = 0; i < 5; i++) {
       try {
-        const c = page.locator('.marker-cluster').first();
-        await c.click({ timeout: 5000 });
+        await target.click({ timeout: 5000 });
         return;
       } catch {
         await page.waitForTimeout(300);
       }
     }
     throw new Error(
-      `Failed to click cluster after retries. Requests: ${listingsRequests
+      `Failed to click ${usingCluster ? 'cluster' : 'marker'} after retries. Requests: ${listingsRequests
         .slice(-10)
         .join(' | ') || 'none'}`,
     );
   };
 
-  await clickClusterWithRetry();
+  await clickTargetWithRetry();
 
   const lens = page.locator('[data-testid="map-lens"]');
-  await expect(lens).toBeVisible({ timeout: 10000 });
+  try {
+    await expect(lens).toBeVisible({ timeout: 10000 });
+  } catch {
+    throw new Error(
+      `Lens did not become visible after ${usingCluster ? 'cluster' : 'marker'} click. Requests: ${listingsRequests
+        .slice(-10)
+        .join(' | ') || 'none'}`,
+    );
+  }
 
-  await clickClusterWithRetry();
+  await clickTargetWithRetry();
   try {
     await expect(lens).toBeHidden({ timeout: 1000 });
   } catch {

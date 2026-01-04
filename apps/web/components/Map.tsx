@@ -99,12 +99,11 @@ export default function Map({
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
   const [previewListing, setPreviewListing] = useState<NormalizedListing | null>(null);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
-  const lensOpen = useMapLensStore((s) => Boolean(s.activeClusterData));
   const router = useRouter();
   const { openImmediate } = useMapLens();
   const activeClusterData = useMapLensStore((s) => s.activeClusterData);
   const isMobile = useIsMobile();
-  const overlayOpen = lensOpen || Boolean(previewListing);
+  const overlayOpen = Boolean(previewListing);
   const clusterClickHandlerRef = useRef<(e: any) => void>(() => {});
   const defaultCenter: [number, number] = [42.9634, -85.6681];
 
