@@ -412,15 +412,8 @@ export default function SearchLayoutClient({
     const requiredPage = Math.floor(idx / CARDS_PER_PAGE) + 1;
     if (requiredPage > listPage) {
       setListPage(requiredPage);
-      return;
     }
-
-    if (typeof document !== 'undefined') {
-      const target = document.querySelector(
-        `[data-listing-id="${selectedListingId}"]`,
-      ) as HTMLElement | null;
-      target?.scrollIntoView({ block: 'nearest' });
-    }
+    // Do not scroll here; ListingsList handles scroll-to-selected.
   }, [selectedListingId, listings, listPage]);
 
   const handleLoadMore = useCallback(async () => {
