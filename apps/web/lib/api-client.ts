@@ -30,6 +30,12 @@ export async function fetchListings(
   signal?: AbortSignal,
 ): Promise<PaginatedListingsResponse> {
   const searchParams = new URLSearchParams();
+  const useLimit =
+    params.limit != null
+      ? params.limit
+      : params.bbox || (params.swLat != null && params.swLng != null && params.neLat != null && params.neLng != null)
+      ? 50
+      : undefined;
 
   const bboxFromCorners =
     params.swLat != null &&
@@ -44,7 +50,7 @@ export async function fetchListings(
   if (bbox) searchParams.set('bbox', bbox);
   if (params.q) searchParams.set('q', params.q);
   if (params.page != null) searchParams.set('page', String(params.page));
-  if (params.limit != null) searchParams.set('limit', String(params.limit));
+  if (useLimit != null) searchParams.set('limit', String(useLimit));
   if (params.minPrice != null) searchParams.set('minPrice', String(params.minPrice));
   if (params.maxPrice != null) searchParams.set('maxPrice', String(params.maxPrice));
   if (params.beds != null) searchParams.set('beds', String(params.beds));
