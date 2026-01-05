@@ -39,6 +39,7 @@ export default function MapboxMap({
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
   const clusterClickReqIdRef = useRef(0);
   const lastOpenClusterIdRef = useRef<number | null>(null);
+  const inFlightClusterIdRef = useRef<number | null>(null);
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
@@ -281,8 +282,19 @@ export default function MapboxMap({
             }
             clusterClickReqIdRef.current += 1;
             lastOpenClusterIdRef.current = null;
+            inFlightClusterIdRef.current = null;
             dismissLens();
             return;
+          }
+
+          if (!lensIsOpen && inFlightClusterIdRef.current === clusterId) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[MB CLUSTER CLICK]', 'stage=inflight-ignore', { clusterId });
+            }
+            return;
+          }
+          if (!lensIsOpen) {
+            inFlightClusterIdRef.current = clusterId;
           }
 
           const clusterKey = `mb:${clusterId}`;
@@ -293,6 +305,12 @@ export default function MapboxMap({
           const limit = Math.min(typeof pointCount === 'number' ? pointCount : 500, 500);
           const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
           source.getClusterLeaves(clusterId, limit, 0, (err, leaves) => {
+            if (inFlightClusterIdRef.current === clusterId) {
+              inFlightClusterIdRef.current = null;
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[MB CLUSTER CLICK]', 'stage=inflight-clear', { clusterId });
+              }
+            }
             if (reqId !== clusterClickReqIdRef.current) return;
             if (err || !leaves) {
               console.warn('[MapboxMap] getClusterLeaves failed', err);
@@ -323,6 +341,7 @@ export default function MapboxMap({
 
         if (lensIsOpen && hits.length === 0 && !isLocked) {
           lastOpenClusterIdRef.current = null;
+          inFlightClusterIdRef.current = null;
           dismissLens();
         }
       };
