@@ -179,12 +179,7 @@ export function LensMiniMapbox({
         source: SOURCE_ID,
         layout: {
           "text-field": ["get", "priceLabel"],
-          "text-size": [
-            "case",
-            ["boolean", ["feature-state", "focused"], false],
-            12,
-            11,
-          ],
+          "text-size": 11,
           "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
           "text-allow-overlap": true,
           "text-ignore-placement": true,

@@ -231,7 +231,14 @@ export default function MapboxMap({
         paint: {
           'circle-color': '#2563eb',
           'circle-radius': 12,
-          'circle-opacity': 0.05,
+          'circle-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'selected'], false],
+            0.25,
+            ['boolean', ['feature-state', 'hovered'], false],
+            0.15,
+            0.0,
+          ],
           'circle-stroke-width': 0,
         },
       });
@@ -243,7 +250,7 @@ export default function MapboxMap({
         filter: ['!', ['has', 'point_count']],
         layout: {
           'text-field': ['get', 'priceLabel'],
-          'text-size': ['case', ['boolean', ['feature-state', 'selected'], false], 14, ['boolean', ['feature-state', 'hovered'], false], 13, 12],
+          'text-size': 12,
           'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
