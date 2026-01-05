@@ -39,6 +39,7 @@ export default function MapboxMap({
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
   const clusterClickReqIdRef = useRef(0);
   const lastClusterClickTsRef = useRef<number | null>(null);
+  const lastOpenClusterIdRef = useRef<number | null>(null);
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
@@ -243,10 +244,12 @@ export default function MapboxMap({
       map.on('click', 'unclustered-point', handleClick);
 
       handleClusterClick = (e: mapboxgl.MapLayerMouseEvent) => {
-        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-        const feature = features[0];
+        const feature =
+          e.features?.[0] ??
+          map.queryRenderedFeatures(e.point, { layers: ['clusters', 'cluster-count'] })[0];
         if (!feature) return;
         const clusterId = feature.properties?.cluster_id as number | undefined;
+        if (clusterId == null) return;
         const pointCount = feature.properties?.point_count as number | undefined;
         const coords =
           feature?.geometry && 'coordinates' in feature.geometry
@@ -254,7 +257,7 @@ export default function MapboxMap({
             : null;
         if (!Array.isArray(coords) || coords.length < 2) return;
         const [lng, lat] = coords as [number, number];
-        if (clusterId == null || lat == null || lng == null) return;
+        if (lat == null || lng == null) return;
 
         const ts = (e.originalEvent as any)?.timeStamp;
         if (typeof ts === 'number' && lastClusterClickTsRef.current === ts) {
@@ -264,14 +267,15 @@ export default function MapboxMap({
           lastClusterClickTsRef.current = ts;
         }
 
-        const clusterKey = `mb:${clusterId}`;
-        const { activeClusterData } = useMapLensStore.getState();
-        if (activeClusterData?.clusterKey === clusterKey) {
+        const lensIsOpen = Boolean(useMapLensStore.getState().activeClusterData);
+        if (lensIsOpen && lastOpenClusterIdRef.current === clusterId) {
           clusterClickReqIdRef.current += 1;
+          lastOpenClusterIdRef.current = null;
           dismissLens();
           return;
         }
 
+        const clusterKey = `mb:${clusterId}`;
         const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
         if (!source || typeof source.getClusterLeaves !== 'function') return;
 
@@ -291,6 +295,7 @@ export default function MapboxMap({
             })
             .filter(Boolean) as NormalizedListing[];
           if (!leafListings.length) return;
+          lastOpenClusterIdRef.current = clusterId;
           openImmediate(leafListings, { lat, lng }, { clusterKey });
         });
       };
@@ -305,6 +310,7 @@ export default function MapboxMap({
           layers: ['clusters', 'cluster-count', 'unclustered-point'],
         });
         if (featuresAtPoint.length === 0) {
+          lastOpenClusterIdRef.current = null;
           dismissLens();
         }
       };
