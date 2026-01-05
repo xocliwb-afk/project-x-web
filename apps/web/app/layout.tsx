@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "mapbox-gl/dist/mapbox-gl.css";
 import Header from "@/components/Header";
 import { ThemeProvider } from "@/context/ThemeContext";
 import LeadModalContainer from "@/components/LeadModalContainer";
