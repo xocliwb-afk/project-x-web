@@ -22,6 +22,14 @@ const MapPanel = dynamic(() => import('@/components/Map'), {
     </div>
   ),
 });
+const MapboxMap = dynamic(() => import('@/components/map/mapbox/MapboxMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-main/60">
+      Loading map...
+    </div>
+  ),
+});
 
 type SearchLayoutClientProps = {
   initialListings: Listing[];
@@ -75,6 +83,11 @@ export default function SearchLayoutClient({
   const loadedPagesRef = useRef<Set<string>>(new Set());
   const autofillKeyRef = useRef<string | null>(null);
   const autofillRunningRef = useRef(false);
+
+  // Feature flag: use Mapbox when NEXT_PUBLIC_USE_MAPBOX === 'true', default to Leaflet
+  const useMapbox = process.env.NEXT_PUBLIC_USE_MAPBOX === 'true';
+  const MapComponent = useMapbox ? MapboxMap : MapPanel;
+
   const pinCount = useMemo(
     () =>
       listings.filter(
@@ -595,7 +608,7 @@ export default function SearchLayoutClient({
           <div className="h-full w-full md:hidden">
             {viewMode === 'map' && (
               <div className="h-[420px]">
-                <MapPanel
+                <MapComponent
                   listings={listings}
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
@@ -655,7 +668,7 @@ export default function SearchLayoutClient({
             {/* Map Column */}
             <div className={`relative min-w-0 ${mapPaneClass}`}>
               <div className="sticky top-24 h-[calc(100vh-120px)] overflow-hidden rounded-lg border border-border">
-                <MapPanel
+                <MapComponent
                   listings={listings}
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
