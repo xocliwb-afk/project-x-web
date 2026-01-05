@@ -32,8 +32,11 @@ export const buildBboxFromBounds = (
 const formatPriceLabel = (listing: { listPrice?: number | null }): string => {
   const price = Number(listing.listPrice);
   if (!Number.isFinite(price) || price <= 0) return '—';
+  if (price >= 1_000_000) {
+    return `$${(price / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
   const roundedThousands = Math.round(price / 1000);
-  return `$${roundedThousands}`;
+  return `$${roundedThousands}K`;
 };
 
 export type GeoJSONFeatureCollection = {
