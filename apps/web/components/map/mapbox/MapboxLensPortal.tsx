@@ -65,6 +65,7 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       if (isLocked) return;
       const target = event.target as Element | null;
       if (!target) return;
+      if (mapInstance?.getContainer()?.contains(target)) return;
       if (container.contains(target)) return;
       dismissLens();
     };

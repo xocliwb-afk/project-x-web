@@ -38,6 +38,7 @@ export default function MapboxMap({
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
   const clusterClickReqIdRef = useRef(0);
+  const lastClusterClickTsRef = useRef<number | null>(null);
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
@@ -124,6 +125,7 @@ export default function MapboxMap({
     let handleMouseLeave: (() => void) | null = null;
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleClusterClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+    let handleMapBackgroundClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
 
     map.on('load', () => {
       map.addSource(sourceId, {
@@ -254,6 +256,14 @@ export default function MapboxMap({
         const [lng, lat] = coords as [number, number];
         if (clusterId == null || lat == null || lng == null) return;
 
+        const ts = (e.originalEvent as any)?.timeStamp;
+        if (typeof ts === 'number' && lastClusterClickTsRef.current === ts) {
+          return;
+        }
+        if (typeof ts === 'number') {
+          lastClusterClickTsRef.current = ts;
+        }
+
         const clusterKey = `mb:${clusterId}`;
         const { activeClusterData } = useMapLensStore.getState();
         if (activeClusterData?.clusterKey === clusterKey) {
@@ -286,6 +296,20 @@ export default function MapboxMap({
       };
 
       map.on('click', 'clusters', handleClusterClick);
+      map.on('click', 'cluster-count', handleClusterClick);
+
+      handleMapBackgroundClick = (e: mapboxgl.MapMouseEvent) => {
+        const { activeClusterData, isLocked } = useMapLensStore.getState();
+        if (!activeClusterData || isLocked) return;
+        const featuresAtPoint = map.queryRenderedFeatures(e.point, {
+          layers: ['clusters', 'cluster-count', 'unclustered-point'],
+        });
+        if (featuresAtPoint.length === 0) {
+          dismissLens();
+        }
+      };
+
+      map.on('click', handleMapBackgroundClick);
 
       sourceReadyRef.current = true;
       emitBounds();
@@ -310,6 +334,10 @@ export default function MapboxMap({
       }
       if (handleClusterClick) {
         map.off('click', 'clusters', handleClusterClick);
+        map.off('click', 'cluster-count', handleClusterClick);
+      }
+      if (handleMapBackgroundClick) {
+        map.off('click', handleMapBackgroundClick);
       }
       map.remove();
       mapRef.current = null;
