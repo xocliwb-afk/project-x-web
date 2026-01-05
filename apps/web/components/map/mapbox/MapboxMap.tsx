@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import type { Listing as NormalizedListing } from '@project-x/shared-types';
 import mapboxgl from 'mapbox-gl';
 import { buildBboxFromBounds, listingsToGeoJSON } from './mapbox-utils';
+import { MapboxLensPortal } from './MapboxLensPortal';
 
 type MapboxMapProps = {
   listings: NormalizedListing[];
@@ -33,6 +34,7 @@ export default function MapboxMap({
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
@@ -103,6 +105,7 @@ export default function MapboxMap({
     });
 
     mapRef.current = map;
+    setMapInstance(map);
 
     const emitBounds = () => {
       if (!onBoundsChangeRef.current) return;
@@ -250,6 +253,7 @@ export default function MapboxMap({
       }
       map.remove();
       mapRef.current = null;
+      setMapInstance(null);
       sourceReadyRef.current = false;
     };
   }, [token, applyFeatureStates, setFeatureState]);
@@ -297,5 +301,14 @@ export default function MapboxMap({
     );
   }
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return (
+    <>
+      <div ref={containerRef} className="h-full w-full" />
+      <MapboxLensPortal
+        map={mapInstance}
+        onHoverListing={onHoverListing}
+        onSelectListing={onSelectListing}
+      />
+    </>
+  );
 }
