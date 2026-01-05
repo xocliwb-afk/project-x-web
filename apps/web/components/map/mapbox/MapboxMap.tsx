@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import type { Listing as NormalizedListing } from '@project-x/shared-types';
 import mapboxgl from 'mapbox-gl';
 import { buildBboxFromBounds, listingsToGeoJSON } from './mapbox-utils';
@@ -37,7 +37,32 @@ export default function MapboxMap({
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
   const listingsRef = useRef(listings);
+  const resolveInitialCenter = () => {
+    const firstWithCoords = listings.find(
+      (l) => Number.isFinite(l.address.lat) && Number.isFinite(l.address.lng),
+    );
+    return firstWithCoords
+      ? ([firstWithCoords.address.lat, firstWithCoords.address.lng] as [number, number])
+      : defaultCenter;
+  };
+  const initialCenterRef = useRef<[number, number]>(resolveInitialCenter());
+  const initialZoomRef = useRef<number>(defaultZoom);
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  const onHoverListingRef = useRef(onHoverListing);
+  const onSelectListingRef = useRef(onSelectListing);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
+
+  useEffect(() => {
+    onHoverListingRef.current = onHoverListing;
+  }, [onHoverListing]);
+
+  useEffect(() => {
+    onSelectListingRef.current = onSelectListing;
+  }, [onSelectListing]);
 
   const setFeatureState = useCallback((id: string, key: 'selected' | 'hovered', value: boolean) => {
     const map = mapRef.current;
@@ -60,15 +85,6 @@ export default function MapboxMap({
     }
   }, [setFeatureState]);
 
-  const center: [number, number] = useMemo(() => {
-    const firstWithCoords = listings.find(
-      (l) => Number.isFinite(l.address.lat) && Number.isFinite(l.address.lng),
-    );
-    return firstWithCoords
-      ? ([firstWithCoords.address.lat, firstWithCoords.address.lng] as [number, number])
-      : defaultCenter;
-  }, [listings]);
-
   useEffect(() => {
     listingsRef.current = listings;
   }, [listings]);
@@ -82,17 +98,17 @@ export default function MapboxMap({
     const map = new mapboxgl.Map({
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/streets-v11',
-      center: [center[1], center[0]],
-      zoom: defaultZoom,
+      center: [initialCenterRef.current[1], initialCenterRef.current[0]],
+      zoom: initialZoomRef.current,
     });
 
     mapRef.current = map;
 
     const emitBounds = () => {
-      if (!onBoundsChange) return;
+      if (!onBoundsChangeRef.current) return;
       const bounds = map.getBounds() as mapboxgl.LngLatBounds;
       const bbox = buildBboxFromBounds(bounds);
-      onBoundsChange(bbox);
+      onBoundsChangeRef.current?.(bbox);
     };
 
     const sourceId = 'listings';
@@ -189,7 +205,7 @@ export default function MapboxMap({
         if (!id) return;
         setFeatureState(id, 'hovered', true);
         lastHoveredIdRef.current = id;
-        onHoverListing?.(id);
+        onHoverListingRef.current?.(id);
       };
 
       handleMouseLeave = () => {
@@ -198,13 +214,13 @@ export default function MapboxMap({
           setFeatureState(lastHoveredIdRef.current, 'hovered', false);
           lastHoveredIdRef.current = null;
         }
-        onHoverListing?.(null);
+        onHoverListingRef.current?.(null);
       };
 
       handleClick = (e: mapboxgl.MapLayerMouseEvent) => {
         const id = e.features?.[0]?.properties?.id as string | undefined;
         if (!id) return;
-        onSelectListing?.(id);
+        onSelectListingRef.current?.(id);
       };
 
       map.on('mouseenter', 'unclustered-point', handleMouseEnter);
@@ -236,7 +252,7 @@ export default function MapboxMap({
       mapRef.current = null;
       sourceReadyRef.current = false;
     };
-  }, [center, onBoundsChange, token, applyFeatureStates, setFeatureState, onHoverListing, onSelectListing]);
+  }, [token, applyFeatureStates, setFeatureState]);
 
   useEffect(() => {
     const map = mapRef.current;
