@@ -244,8 +244,12 @@ export default function MapboxMap({
         const feature = e.features?.[0];
         const clusterId = feature?.properties?.cluster_id as number | undefined;
         const pointCount = feature?.properties?.point_count as number | undefined;
-        const coords = feature?.geometry?.type === 'Point' ? feature.geometry.coordinates : null;
-        const [lng, lat] = (coords as [number, number] | null) ?? [];
+        const coords =
+          feature?.geometry && 'coordinates' in feature.geometry
+            ? (feature.geometry as any).coordinates
+            : null;
+        if (!Array.isArray(coords) || coords.length < 2) return;
+        const [lng, lat] = coords as [number, number];
         if (clusterId == null || lat == null || lng == null) return;
 
         const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
