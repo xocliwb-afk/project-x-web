@@ -28,3 +28,41 @@ export const buildBboxFromBounds = (
     bbox: `${swLng},${swLat},${neLng},${neLat}`,
   };
 };
+
+export type GeoJSONFeatureCollection = {
+  type: 'FeatureCollection';
+  features: Array<{
+    type: 'Feature';
+    id: string;
+    geometry: {
+      type: 'Point';
+      coordinates: [number, number];
+    };
+    properties: {
+      id: string;
+    };
+  }>;
+};
+
+export const listingsToGeoJSON = (
+  listings: { id?: string | number; address?: { lat?: number; lng?: number } }[],
+): GeoJSONFeatureCollection => {
+  const features = listings
+    .filter((l) => Number.isFinite(l.address?.lat) && Number.isFinite(l.address?.lng))
+    .map((l) => ({
+      type: 'Feature' as const,
+      id: String(l.id ?? ''),
+      geometry: {
+        type: 'Point' as const,
+        coordinates: [Number(l.address!.lng), Number(l.address!.lat)] as [number, number],
+      },
+      properties: {
+        id: String(l.id ?? ''),
+      },
+    }));
+
+  return {
+    type: 'FeatureCollection',
+    features,
+  };
+};

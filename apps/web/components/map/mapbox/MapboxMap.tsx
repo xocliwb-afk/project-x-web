@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Listing as NormalizedListing } from '@project-x/shared-types';
 import mapboxgl from 'mapbox-gl';
-import { buildBboxFromBounds } from './mapbox-utils';
+import { buildBboxFromBounds, listingsToGeoJSON } from './mapbox-utils';
 
 type MapboxMapProps = {
   listings: NormalizedListing[];
@@ -26,10 +26,38 @@ const defaultZoom = 12;
 export default function MapboxMap({
   listings,
   onBoundsChange,
+  selectedListingId,
+  hoveredListingId,
+  onSelectListing,
+  onHoverListing,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const sourceReadyRef = useRef(false);
+  const lastSelectedIdRef = useRef<string | null>(null);
+  const lastHoveredIdRef = useRef<string | null>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  const setFeatureState = useCallback((id: string, key: 'selected' | 'hovered', value: boolean) => {
+    const map = mapRef.current;
+    if (!map || !sourceReadyRef.current) return;
+    const source = map.getSource('listings');
+    if (!source) return;
+    try {
+      map.setFeatureState({ source: 'listings', id }, { [key]: value });
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  const applyFeatureStates = useCallback(() => {
+    if (lastSelectedIdRef.current) {
+      setFeatureState(lastSelectedIdRef.current, 'selected', true);
+    }
+    if (lastHoveredIdRef.current) {
+      setFeatureState(lastHoveredIdRef.current, 'hovered', true);
+    }
+  }, [setFeatureState]);
 
   const center: [number, number] = useMemo(() => {
     const firstWithCoords = listings.find(
@@ -62,7 +90,130 @@ export default function MapboxMap({
       onBoundsChange(bbox);
     };
 
-    map.on('load', emitBounds);
+    const sourceId = 'listings';
+
+    let handleMouseEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+    let handleMouseLeave: (() => void) | null = null;
+    let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+
+    map.on('load', () => {
+        map.addSource(sourceId, {
+          type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [],
+        },
+        cluster: true,
+        clusterRadius: 50,
+        clusterMaxZoom: 14,
+      });
+
+      map.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: sourceId,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': [
+            'step',
+            ['get', 'point_count'],
+            '#93c5fd',
+            10,
+            '#60a5fa',
+            25,
+            '#3b82f6',
+            50,
+            '#1d4ed8',
+          ],
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            14,
+            10,
+            18,
+            25,
+            22,
+            50,
+            28,
+          ],
+        },
+      });
+
+      map.addLayer({
+        id: 'cluster-count',
+        type: 'symbol',
+        source: sourceId,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': ['get', 'point_count_abbreviated'],
+          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+          'text-size': 12,
+        },
+        paint: {
+          'text-color': '#0f172a',
+        },
+      });
+
+      map.addLayer({
+        id: 'unclustered-point',
+        type: 'circle',
+        source: sourceId,
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': [
+            'case',
+            ['boolean', ['feature-state', 'selected'], false],
+            '#1d4ed8',
+            ['boolean', ['feature-state', 'hovered'], false],
+            '#38bdf8',
+            '#0ea5e9',
+          ],
+          'circle-radius': [
+            'case',
+            ['boolean', ['feature-state', 'selected'], false],
+            9,
+            ['boolean', ['feature-state', 'hovered'], false],
+            8,
+            6,
+          ],
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#0f172a',
+        },
+      });
+
+      handleMouseEnter = (e: mapboxgl.MapLayerMouseEvent) => {
+        map.getCanvas().style.cursor = 'pointer';
+        const id = e.features?.[0]?.properties?.id as string | undefined;
+        if (!id) return;
+        setFeatureState(id, 'hovered', true);
+        lastHoveredIdRef.current = id;
+        onHoverListing?.(id);
+      };
+
+      handleMouseLeave = () => {
+        map.getCanvas().style.cursor = '';
+        if (lastHoveredIdRef.current) {
+          setFeatureState(lastHoveredIdRef.current, 'hovered', false);
+          lastHoveredIdRef.current = null;
+        }
+        onHoverListing?.(null);
+      };
+
+      handleClick = (e: mapboxgl.MapLayerMouseEvent) => {
+        const id = e.features?.[0]?.properties?.id as string | undefined;
+        if (!id) return;
+        onSelectListing?.(id);
+      };
+
+      map.on('mouseenter', 'unclustered-point', handleMouseEnter);
+      map.on('mouseleave', 'unclustered-point', handleMouseLeave);
+      map.on('click', 'unclustered-point', handleClick);
+
+      sourceReadyRef.current = true;
+      emitBounds();
+      applyFeatureStates();
+    });
+
     map.on('moveend', emitBounds);
     map.on('zoomend', emitBounds);
 
@@ -70,10 +221,55 @@ export default function MapboxMap({
       map.off('load', emitBounds);
       map.off('moveend', emitBounds);
       map.off('zoomend', emitBounds);
+      if (handleMouseEnter) {
+        map.off('mouseenter', 'unclustered-point', handleMouseEnter);
+      }
+      if (handleMouseLeave) {
+        map.off('mouseleave', 'unclustered-point', handleMouseLeave);
+      }
+      if (handleClick) {
+        map.off('click', 'unclustered-point', handleClick);
+      }
       map.remove();
       mapRef.current = null;
+      sourceReadyRef.current = false;
     };
-  }, [center, onBoundsChange, token]);
+  }, [center, onBoundsChange, token, applyFeatureStates, setFeatureState, onHoverListing, onSelectListing]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !sourceReadyRef.current) return;
+    const source = map.getSource('listings') as mapboxgl.GeoJSONSource | undefined;
+    if (!source) return;
+    source.setData(listingsToGeoJSON(listings));
+    applyFeatureStates();
+  }, [listings, applyFeatureStates]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !sourceReadyRef.current) return;
+    if (lastSelectedIdRef.current && lastSelectedIdRef.current !== selectedListingId) {
+      setFeatureState(lastSelectedIdRef.current, 'selected', false);
+      lastSelectedIdRef.current = null;
+    }
+    if (selectedListingId) {
+      setFeatureState(selectedListingId, 'selected', true);
+      lastSelectedIdRef.current = selectedListingId;
+    }
+  }, [selectedListingId, setFeatureState]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !sourceReadyRef.current) return;
+    if (lastHoveredIdRef.current && lastHoveredIdRef.current !== hoveredListingId) {
+      setFeatureState(lastHoveredIdRef.current, 'hovered', false);
+      lastHoveredIdRef.current = null;
+    }
+    if (hoveredListingId) {
+      setFeatureState(hoveredListingId, 'hovered', true);
+      lastHoveredIdRef.current = hoveredListingId;
+    }
+  }, [hoveredListingId, setFeatureState]);
 
   if (!token) {
     return (
