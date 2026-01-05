@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import mapboxgl from 'mapbox-gl';
 import { useMapLensStore } from '@/stores/useMapLensStore';
@@ -20,6 +20,7 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
     isLocked: s.isLocked,
   }));
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null);
   const isMobile = useIsMobile();
 
   const ensureContainer = useCallback(() => {
@@ -34,6 +35,7 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
     });
     el.dataset.testid = 'mapbox-lens-portal';
     containerRef.current = el;
+    setPortalContainer(el);
     return el;
   }, []);
 
@@ -54,10 +56,17 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       if (containerRef.current && document.body.contains(containerRef.current)) {
         document.body.removeChild(containerRef.current);
       }
+      if (portalContainer) {
+        setPortalContainer(null);
+        containerRef.current = null;
+      }
       return;
     }
 
-    const container = ensureContainer();
+    let container = portalContainer;
+    if (!container) {
+      container = ensureContainer();
+    }
     if (!document.body.contains(container)) {
       document.body.appendChild(container);
     }
@@ -96,12 +105,18 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       if (containerRef.current && document.body.contains(containerRef.current)) {
         document.body.removeChild(containerRef.current);
       }
+      setPortalContainer(null);
+      containerRef.current = null;
+      if (process.env.NODE_ENV === 'development') {
+        // noop log to aid tracing cleanup timing if needed
+        // console.log('[MB LENS PORTAL]', 'cleanup');
+      }
     };
-  }, [map, activeClusterData, ensureContainer, updatePosition, dismissLens, isLocked, isMobile]);
+  }, [map, activeClusterData, ensureContainer, updatePosition, dismissLens, isLocked, isMobile, portalContainer]);
 
   if (isMobile) return null;
   if (!activeClusterData) return null;
-  const container = containerRef.current;
+  const container = portalContainer;
   if (!container) return null;
 
   return createPortal(
