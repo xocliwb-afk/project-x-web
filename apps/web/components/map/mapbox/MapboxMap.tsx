@@ -7,6 +7,10 @@ import { buildBboxFromBounds, listingsToGeoJSON } from './mapbox-utils';
 import { MapboxLensPortal } from './MapboxLensPortal';
 import { useMapLensStore } from '@/stores/useMapLensStore';
 import { useMapLens } from '@/hooks/useMapLens';
+import ListingPreviewModal from '../ListingPreviewModal';
+import { getThumbnailUrl } from '@/lib/listingFormat';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useMemo } from 'react';
 
 type MapboxMapProps = {
   listings: NormalizedListing[];
@@ -44,6 +48,8 @@ export default function MapboxMap({
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
+  const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const [previewListing, setPreviewListing] = useState<NormalizedListing | null>(null);
   const listingsRef = useRef(listings);
   const resolveInitialCenter = () => {
     const firstWithCoords = listings.find(
@@ -60,6 +66,24 @@ export default function MapboxMap({
   const onSelectListingRef = useRef(onSelectListing);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const { openImmediate, dismissLens } = useMapLens();
+  const isMobile = useIsMobile();
+
+  const escapeHtml = useCallback((input: unknown) => {
+    const str = String(input ?? '');
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }, []);
+
+  const safeUrl = useCallback((input: unknown) => {
+    const str = String(input ?? '').trim();
+    if (!str) return '';
+    if (str.startsWith('http://') || str.startsWith('https://')) return str;
+    return '';
+  }, []);
 
   useEffect(() => {
     onBoundsChangeRef.current = onBoundsChange;
@@ -251,9 +275,79 @@ export default function MapboxMap({
 
       handleClick = (e: mapboxgl.MapLayerMouseEvent) => {
         if (lensOpen()) return;
-        const id = e.features?.[0]?.properties?.id as string | undefined;
+        const feature = e.features?.[0];
+        const id = feature?.properties?.id as string | undefined;
         if (!id) return;
+        const listing = listingsRef.current.find((l) => String(l.id) === id);
+        if (!listing) return;
+
+        const coords =
+          feature?.geometry && 'coordinates' in feature.geometry
+            ? (feature.geometry as any).coordinates
+            : null;
+
+        if (isMobile) {
+          setPreviewListing(listing);
+          return;
+        }
+
         onSelectListingRef.current?.(id);
+
+        if (!Array.isArray(coords) || coords.length < 2) return;
+        const [lng, lat] = coords as [number, number];
+
+        const priceNumber = typeof listing.listPrice === 'number' ? listing.listPrice : 0;
+        const priceLabel =
+          typeof listing.listPriceFormatted === 'string' && listing.listPriceFormatted.length > 0
+            ? listing.listPriceFormatted
+            : priceNumber > 0
+              ? `$${priceNumber.toLocaleString()}`
+              : '$0';
+        const beds = listing.details?.beds ?? 0;
+        const baths = listing.details?.baths ?? 0;
+        const sqft = listing.details?.sqft ?? null;
+        const fullAddress = listing.address?.full ?? 'Address unavailable';
+        const cityLine = `${listing.address.city}, ${listing.address.state} ${listing.address.zip}`.trim();
+        const thumbUrl = safeUrl(getThumbnailUrl(listing));
+        const escapedFullAddress = escapeHtml(fullAddress);
+        const escapedCityLine = escapeHtml(cityLine);
+        const escapedPrice = escapeHtml(priceLabel);
+        const escapedBedsBathsSqft = escapeHtml(
+          `${beds} bds • ${baths} ba • ${typeof sqft === 'number' && sqft > 0 ? sqft.toLocaleString() : '—'} sqft`,
+        );
+
+        const htmlThumb = thumbUrl
+          ? `<img src="${thumbUrl}" alt="${escapedFullAddress}" style="width:100%; height:100%; object-fit:cover;" loading="lazy" />`
+          : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:11px; background:#e5e7eb;">No photo</div>`;
+
+        const html = `
+          <div style="max-width: 240px; font-family: system-ui, -apple-system, sans-serif; color: #0f172a;">
+            <div style="display:flex; gap:10px;">
+              <div style="flex-shrink:0; width:96px; height:72px; border-radius:8px; overflow:hidden; background:#e5e7eb;">
+                ${htmlThumb}
+              </div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-weight:700; font-size:14px; margin-bottom:2px;">${escapedPrice}</div>
+                <div style="font-size:12px; color:#475569; line-height:1.3;">${escapedFullAddress}</div>
+                <div style="font-size:11px; color:#64748b;">${escapedCityLine}</div>
+                <div style="font-size:11px; color:#475569; margin-top:4px;">${escapedBedsBathsSqft}</div>
+              </div>
+            </div>
+            <div style="margin-top:8px;">
+              <a href="/listing/${listing.id}" style="font-size:12px; font-weight:600; color:#2563eb; text-decoration:none;">View Details →</a>
+            </div>
+          </div>
+        `;
+
+        if (!popupRef.current) {
+          popupRef.current = new mapboxgl.Popup({
+            closeButton: false,
+            closeOnClick: false,
+            maxWidth: '280px',
+            className: 'mapbox-listing-popup',
+          });
+        }
+        popupRef.current.setLngLat([lng, lat]).setHTML(html).addTo(map);
       };
 
       map.on('mouseenter', 'unclustered-point', handleMouseEnter);
@@ -302,6 +396,9 @@ export default function MapboxMap({
             clusterClickReqIdRef.current += 1;
             lastOpenClusterIdRef.current = null;
             inFlightClusterIdRef.current = null;
+            if (popupRef.current) {
+              popupRef.current.remove();
+            }
             dismissLens();
             return;
           }
@@ -342,9 +439,22 @@ export default function MapboxMap({
           return;
         }
 
+        if (hits.length === 0) {
+          if (popupRef.current) {
+            popupRef.current.remove();
+          }
+          if (!lensIsOpen) {
+            setPreviewListing(null);
+          }
+        }
+
         if (lensIsOpen && hits.length === 0 && !isLocked) {
           lastOpenClusterIdRef.current = null;
           inFlightClusterIdRef.current = null;
+          setPreviewListing(null);
+          if (popupRef.current) {
+            popupRef.current.remove();
+          }
           dismissLens();
         }
       };
@@ -391,7 +501,7 @@ export default function MapboxMap({
       setMapInstance(null);
       sourceReadyRef.current = false;
     };
-  }, [token, applyFeatureStates, setFeatureState, openImmediate, dismissLens]);
+  }, [token, applyFeatureStates, setFeatureState, openImmediate, dismissLens, isMobile, escapeHtml, safeUrl]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -443,6 +553,11 @@ export default function MapboxMap({
         map={mapInstance}
         onHoverListing={onHoverListing}
         onSelectListing={onSelectListing}
+      />
+      <ListingPreviewModal
+        listing={previewListing}
+        isOpen={Boolean(previewListing)}
+        onClose={() => setPreviewListing(null)}
       />
     </>
   );
