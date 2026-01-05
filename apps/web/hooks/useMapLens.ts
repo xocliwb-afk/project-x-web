@@ -62,7 +62,6 @@ export function useMapLens() {
           options,
         });
       }
-      useMapLensStore.setState({ isLocked: true });
       openLens(listings, position, options);
     },
     [openLens]
