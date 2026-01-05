@@ -122,6 +122,9 @@ export function LensMiniMapbox({
       attributionControl: false,
     });
 
+    const canvas = map.getCanvas();
+    canvas.style.cursor = "grab";
+
     map.dragPan.disable();
     map.scrollZoom.disable();
     map.doubleClickZoom.disable();
@@ -145,6 +148,14 @@ export function LensMiniMapbox({
       onMarkerClickRef.current?.(listing);
     };
 
+    const handlePointEnter = () => {
+      canvas.style.cursor = "pointer";
+    };
+
+    const handlePointLeave = () => {
+      canvas.style.cursor = "grab";
+    };
+
     const handleLoad = () => {
       const sourceData = listingsToGeoJSON(listingsRef.current);
       map.addSource(SOURCE_ID, {
@@ -163,6 +174,8 @@ export function LensMiniMapbox({
         },
       });
 
+      map.on("mouseenter", LAYER_ID, handlePointEnter);
+      map.on("mouseleave", LAYER_ID, handlePointLeave);
       map.on("click", LAYER_ID, handlePointClick);
       sourceReadyRef.current = true;
 
@@ -182,6 +195,8 @@ export function LensMiniMapbox({
 
     return () => {
       map.off("load", handleLoad);
+      map.off("mouseenter", LAYER_ID, handlePointEnter);
+      map.off("mouseleave", LAYER_ID, handlePointLeave);
       map.off("click", LAYER_ID, handlePointClick);
       resizeObserver.disconnect();
       sourceReadyRef.current = false;
