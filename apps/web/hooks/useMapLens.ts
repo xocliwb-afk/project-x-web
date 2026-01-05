@@ -22,23 +22,11 @@ export function useMapLens() {
       position: LatLngLike,
       options?: OpenLensOptions,
     ) => {
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[useMapLens] openLens()", {
-          listingsCount: listings.length,
-          position,
-          clusterKey: options?.clusterKey,
-        });
-      }
-
       const anchorLatLng = Array.isArray(position)
         ? { lat: Number(position[0]), lng: Number(position[1]) }
         : { lat: Number((position as any)?.lat), lng: Number((position as any)?.lng) };
 
       if (!anchorLatLng) return;
-
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[useMapLens] openLens -> activateLens");
-      }
       activateLens({
         listings,
         anchorLatLng,
@@ -55,14 +43,6 @@ export function useMapLens() {
       position: LatLngLike,
       options?: OpenLensOptions,
     ) => {
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[openImmediate]", {
-          count: listings.length,
-          pos: position,
-          options,
-        });
-      }
-      useMapLensStore.setState({ isLocked: true });
       openLens(listings, position, options);
     },
     [openLens]

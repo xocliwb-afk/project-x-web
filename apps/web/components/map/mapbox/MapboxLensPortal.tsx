@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import mapboxgl from 'mapbox-gl';
 import { useMapLensStore } from '@/stores/useMapLensStore';
@@ -20,7 +20,13 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
     isLocked: s.isLocked,
   }));
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null);
+  const isLockedRef = useRef(isLocked);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    isLockedRef.current = isLocked;
+  }, [isLocked]);
 
   const ensureContainer = useCallback(() => {
     if (containerRef.current) return containerRef.current;
@@ -29,10 +35,12 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       position: 'fixed',
       zIndex: '10000',
       pointerEvents: 'none',
-      transform: 'translate(-50%, -50%)',
+      transform: 'translate(-50%, -100%)',
+      marginTop: '8px',
     });
     el.dataset.testid = 'mapbox-lens-portal';
     containerRef.current = el;
+    setPortalContainer(el);
     return el;
   }, []);
 
@@ -50,22 +58,30 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
   useEffect(() => {
     const mapInstance = map;
     if (!mapInstance || !activeClusterData || isMobile) {
-      if (containerRef.current && document.body.contains(containerRef.current)) {
-        document.body.removeChild(containerRef.current);
+      const existing = containerRef.current;
+      if (existing && document.body.contains(existing)) {
+        document.body.removeChild(existing);
       }
+      setPortalContainer(null);
+      containerRef.current = null;
       return;
     }
 
-    const container = ensureContainer();
+    let container = containerRef.current;
+    if (!container) {
+      container = ensureContainer();
+    }
     if (!document.body.contains(container)) {
       document.body.appendChild(container);
     }
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (isLocked) return;
       const target = event.target as Element | null;
-      if (!target) return;
-      if (container.contains(target)) return;
+      const inMap = Boolean(target && mapInstance?.getContainer()?.contains(target));
+      const inLens = Boolean(target && container.contains(target));
+      if (isLockedRef.current) return;
+      if (inMap) return;
+      if (inLens) return;
       dismissLens();
     };
 
@@ -84,15 +100,12 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition);
       document.removeEventListener('pointerdown', handlePointerDown, true);
-      if (containerRef.current && document.body.contains(containerRef.current)) {
-        document.body.removeChild(containerRef.current);
-      }
     };
-  }, [map, activeClusterData, ensureContainer, updatePosition, dismissLens, isLocked, isMobile]);
+  }, [map, activeClusterData, ensureContainer, updatePosition, dismissLens, isMobile]);
 
   if (isMobile) return null;
   if (!activeClusterData) return null;
-  const container = containerRef.current;
+  const container = portalContainer;
   if (!container) return null;
 
   return createPortal(

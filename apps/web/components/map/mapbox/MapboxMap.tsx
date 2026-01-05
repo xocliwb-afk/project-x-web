@@ -5,6 +5,8 @@ import type { Listing as NormalizedListing } from '@project-x/shared-types';
 import mapboxgl from 'mapbox-gl';
 import { buildBboxFromBounds, listingsToGeoJSON } from './mapbox-utils';
 import { MapboxLensPortal } from './MapboxLensPortal';
+import { useMapLensStore } from '@/stores/useMapLensStore';
+import { useMapLens } from '@/hooks/useMapLens';
 
 type MapboxMapProps = {
   listings: NormalizedListing[];
@@ -35,6 +37,9 @@ export default function MapboxMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
+  const clusterClickReqIdRef = useRef(0);
+  const lastOpenClusterIdRef = useRef<number | null>(null);
+  const inFlightClusterIdRef = useRef<number | null>(null);
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
@@ -53,6 +58,7 @@ export default function MapboxMap({
   const onHoverListingRef = useRef(onHoverListing);
   const onSelectListingRef = useRef(onSelectListing);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const { openImmediate, dismissLens } = useMapLens();
 
   useEffect(() => {
     onBoundsChangeRef.current = onBoundsChange;
@@ -119,6 +125,7 @@ export default function MapboxMap({
     let handleMouseEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleMouseLeave: (() => void) | null = null;
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+    let handleMapClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
 
     map.on('load', () => {
       map.addSource(sourceId, {
@@ -202,7 +209,10 @@ export default function MapboxMap({
         },
       });
 
+      const lensOpen = () => Boolean(useMapLensStore.getState().activeClusterData);
+
       handleMouseEnter = (e: mapboxgl.MapLayerMouseEvent) => {
+        if (lensOpen()) return;
         map.getCanvas().style.cursor = 'pointer';
         const id = e.features?.[0]?.properties?.id as string | undefined;
         if (!id) return;
@@ -212,6 +222,7 @@ export default function MapboxMap({
       };
 
       handleMouseLeave = () => {
+        if (lensOpen()) return;
         map.getCanvas().style.cursor = '';
         if (lastHoveredIdRef.current) {
           setFeatureState(lastHoveredIdRef.current, 'hovered', false);
@@ -221,6 +232,7 @@ export default function MapboxMap({
       };
 
       handleClick = (e: mapboxgl.MapLayerMouseEvent) => {
+        if (lensOpen()) return;
         const id = e.features?.[0]?.properties?.id as string | undefined;
         if (!id) return;
         onSelectListingRef.current?.(id);
@@ -229,6 +241,83 @@ export default function MapboxMap({
       map.on('mouseenter', 'unclustered-point', handleMouseEnter);
       map.on('mouseleave', 'unclustered-point', handleMouseLeave);
       map.on('click', 'unclustered-point', handleClick);
+
+      handleMapClick = (e: mapboxgl.MapMouseEvent) => {
+        const { activeClusterData, isLocked } = useMapLensStore.getState();
+        const lensIsOpen = Boolean(activeClusterData);
+        if (lensIsOpen && isLocked) return;
+
+        const hits = map.queryRenderedFeatures(e.point, {
+          layers: ['cluster-count', 'clusters', 'unclustered-point'],
+        });
+
+        const clusterFeature = hits.find(
+          (f) => f.layer?.id === 'cluster-count' || f.layer?.id === 'clusters',
+        );
+
+        if (clusterFeature) {
+          const clusterId = clusterFeature.properties?.cluster_id as number | undefined;
+          const pointCount = clusterFeature.properties?.point_count as number | undefined;
+          const coords =
+            clusterFeature?.geometry && 'coordinates' in clusterFeature.geometry
+              ? (clusterFeature.geometry as any).coordinates
+              : null;
+          if (!Array.isArray(coords) || coords.length < 2) return;
+          const [lng, lat] = coords as [number, number];
+          if (clusterId == null || lng == null || lat == null) return;
+
+          if (lensIsOpen && lastOpenClusterIdRef.current === clusterId) {
+            clusterClickReqIdRef.current += 1;
+            lastOpenClusterIdRef.current = null;
+            inFlightClusterIdRef.current = null;
+            dismissLens();
+            return;
+          }
+
+          if (!lensIsOpen && inFlightClusterIdRef.current === clusterId) {
+            return;
+          }
+          if (!lensIsOpen) {
+            inFlightClusterIdRef.current = clusterId;
+          }
+
+          const clusterKey = `mb:${clusterId}`;
+          const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
+          if (!source || typeof source.getClusterLeaves !== 'function') return;
+
+          const reqId = ++clusterClickReqIdRef.current;
+          const limit = Math.min(typeof pointCount === 'number' ? pointCount : 500, 500);
+          source.getClusterLeaves(clusterId, limit, 0, (err, leaves) => {
+            if (inFlightClusterIdRef.current === clusterId) {
+              inFlightClusterIdRef.current = null;
+            }
+            if (reqId !== clusterClickReqIdRef.current) return;
+            if (err || !leaves) {
+              console.warn('[MapboxMap] getClusterLeaves failed', err);
+              return;
+            }
+            const byId = new Map(listingsRef.current.map((l) => [String(l.id), l]));
+            const leafListings = leaves
+              .map((leaf) => {
+                const id = leaf?.properties?.id;
+                return id != null ? byId.get(String(id)) : undefined;
+              })
+              .filter(Boolean) as NormalizedListing[];
+            if (!leafListings.length) return;
+            lastOpenClusterIdRef.current = clusterId;
+            openImmediate(leafListings, { lat, lng }, { clusterKey });
+          });
+          return;
+        }
+
+        if (lensIsOpen && hits.length === 0 && !isLocked) {
+          lastOpenClusterIdRef.current = null;
+          inFlightClusterIdRef.current = null;
+          dismissLens();
+        }
+      };
+
+      map.on('click', handleMapClick);
 
       sourceReadyRef.current = true;
       emitBounds();
@@ -251,12 +340,15 @@ export default function MapboxMap({
       if (handleClick) {
         map.off('click', 'unclustered-point', handleClick);
       }
+      if (handleMapClick) {
+        map.off('click', handleMapClick);
+      }
       map.remove();
       mapRef.current = null;
       setMapInstance(null);
       sourceReadyRef.current = false;
     };
-  }, [token, applyFeatureStates, setFeatureState]);
+  }, [token, applyFeatureStates, setFeatureState, openImmediate, dismissLens]);
 
   useEffect(() => {
     const map = mapRef.current;
