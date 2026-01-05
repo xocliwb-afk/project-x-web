@@ -29,13 +29,9 @@ export const buildBboxFromBounds = (
   };
 };
 
-const formatPriceLabel = (listing: {
-  listPrice?: number | null;
-}): string => {
+const formatPriceLabel = (listing: { listPrice?: number | null }): string => {
   const price = Number(listing.listPrice);
-  if (!Number.isFinite(price) || price <= 0) {
-    return '—';
-  }
+  if (!Number.isFinite(price) || price <= 0) return '—';
   const roundedThousands = Math.round(price / 1000);
   return `$${roundedThousands}`;
 };
