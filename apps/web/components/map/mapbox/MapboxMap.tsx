@@ -10,6 +10,7 @@ import { useMapLens } from '@/hooks/useMapLens';
 import ListingPreviewModal from '../ListingPreviewModal';
 import { getThumbnailUrl } from '@/lib/listingFormat';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useMemo } from 'react';
 
 type MapboxMapProps = {
   listings: NormalizedListing[];
@@ -66,6 +67,23 @@ export default function MapboxMap({
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const { openImmediate, dismissLens } = useMapLens();
   const isMobile = useIsMobile();
+
+  const escapeHtml = useCallback((input: unknown) => {
+    const str = String(input ?? '');
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }, []);
+
+  const safeUrl = useCallback((input: unknown) => {
+    const str = String(input ?? '').trim();
+    if (!str) return '';
+    if (str.startsWith('http://') || str.startsWith('https://')) return str;
+    return '';
+  }, []);
 
   useEffect(() => {
     onBoundsChangeRef.current = onBoundsChange;
@@ -290,21 +308,29 @@ export default function MapboxMap({
         const sqft = listing.details?.sqft ?? null;
         const fullAddress = listing.address?.full ?? 'Address unavailable';
         const cityLine = `${listing.address.city}, ${listing.address.state} ${listing.address.zip}`.trim();
-        const thumb = getThumbnailUrl(listing);
+        const thumbUrl = safeUrl(getThumbnailUrl(listing));
+        const escapedFullAddress = escapeHtml(fullAddress);
+        const escapedCityLine = escapeHtml(cityLine);
+        const escapedPrice = escapeHtml(priceLabel);
+        const escapedBedsBathsSqft = escapeHtml(
+          `${beds} bds • ${baths} ba • ${typeof sqft === 'number' && sqft > 0 ? sqft.toLocaleString() : '—'} sqft`,
+        );
+
+        const htmlThumb = thumbUrl
+          ? `<img src="${thumbUrl}" alt="${escapedFullAddress}" style="width:100%; height:100%; object-fit:cover;" loading="lazy" />`
+          : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:11px; background:#e5e7eb;">No photo</div>`;
 
         const html = `
           <div style="max-width: 240px; font-family: system-ui, -apple-system, sans-serif; color: #0f172a;">
             <div style="display:flex; gap:10px;">
               <div style="flex-shrink:0; width:96px; height:72px; border-radius:8px; overflow:hidden; background:#e5e7eb;">
-                <img src="${thumb}" alt="${fullAddress}" style="width:100%; height:100%; object-fit:cover;" loading="lazy" />
+                ${htmlThumb}
               </div>
               <div style="flex:1; min-width:0;">
-                <div style="font-weight:700; font-size:14px; margin-bottom:2px;">${priceLabel}</div>
-                <div style="font-size:12px; color:#475569; line-height:1.3;">${fullAddress}</div>
-                <div style="font-size:11px; color:#64748b;">${cityLine}</div>
-                <div style="font-size:11px; color:#475569; margin-top:4px;">${beds} bds • ${baths} ba • ${
-                typeof sqft === 'number' && sqft > 0 ? sqft.toLocaleString() : '—'
-              } sqft</div>
+                <div style="font-weight:700; font-size:14px; margin-bottom:2px;">${escapedPrice}</div>
+                <div style="font-size:12px; color:#475569; line-height:1.3;">${escapedFullAddress}</div>
+                <div style="font-size:11px; color:#64748b;">${escapedCityLine}</div>
+                <div style="font-size:11px; color:#475569; margin-top:4px;">${escapedBedsBathsSqft}</div>
               </div>
             </div>
             <div style="margin-top:8px;">
@@ -475,7 +501,7 @@ export default function MapboxMap({
       setMapInstance(null);
       sourceReadyRef.current = false;
     };
-  }, [token, applyFeatureStates, setFeatureState, openImmediate, dismissLens, isMobile]);
+  }, [token, applyFeatureStates, setFeatureState, openImmediate, dismissLens, isMobile, escapeHtml, safeUrl]);
 
   useEffect(() => {
     const map = mapRef.current;
