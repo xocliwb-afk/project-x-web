@@ -62,11 +62,18 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
     }
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (isLocked) return;
       const target = event.target as Element | null;
-      if (!target) return;
-      if (mapInstance?.getContainer()?.contains(target)) return;
-      if (container.contains(target)) return;
+      const inMap = Boolean(target && mapInstance?.getContainer()?.contains(target));
+      const inLens = Boolean(target && container.contains(target));
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[MB LENS POINTERDOWN]', { isLocked, inMap, inLens });
+      }
+      if (isLocked) return;
+      if (inMap) return;
+      if (inLens) return;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[MB LENS POINTERDOWN]', 'DISMISS');
+      }
       dismissLens();
     };
 
