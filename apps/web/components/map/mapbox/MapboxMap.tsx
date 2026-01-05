@@ -244,6 +244,17 @@ export default function MapboxMap({
       map.on('click', 'unclustered-point', handleClick);
 
       handleClusterClick = (e: mapboxgl.MapLayerMouseEvent) => {
+        const ts = (e.originalEvent as any)?.timeStamp;
+        if (process.env.NODE_ENV === 'development') {
+          const hasLens = Boolean(useMapLensStore.getState().activeClusterData);
+          console.log('[MB CLUSTER CLICK]', 'stage=received', {
+            hasLens,
+            lastOpenClusterId: lastOpenClusterIdRef.current,
+            point: e.point,
+            ts,
+          });
+        }
+
         const feature =
           e.features?.[0] ??
           map.queryRenderedFeatures(e.point, { layers: ['clusters', 'cluster-count'] })[0];
@@ -258,8 +269,15 @@ export default function MapboxMap({
         if (!Array.isArray(coords) || coords.length < 2) return;
         const [lng, lat] = coords as [number, number];
         if (lat == null || lng == null) return;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[MB CLUSTER CLICK]', 'stage=feature', {
+            layerId: feature.layer?.id,
+            clusterId,
+            pointCount,
+            hasCoords: Array.isArray(coords),
+          });
+        }
 
-        const ts = (e.originalEvent as any)?.timeStamp;
         if (typeof ts === 'number' && lastClusterClickTsRef.current === ts) {
           return;
         }
@@ -268,7 +286,17 @@ export default function MapboxMap({
         }
 
         const lensIsOpen = Boolean(useMapLensStore.getState().activeClusterData);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[MB CLUSTER CLICK]', 'stage=toggle-check', {
+            lensIsOpen,
+            lastOpenClusterId: lastOpenClusterIdRef.current,
+            clickedClusterId: clusterId,
+          });
+        }
         if (lensIsOpen && lastOpenClusterIdRef.current === clusterId) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[MB CLUSTER CLICK]', 'stage=toggle-close', { clusterId });
+          }
           clusterClickReqIdRef.current += 1;
           lastOpenClusterIdRef.current = null;
           dismissLens();
@@ -281,6 +309,7 @@ export default function MapboxMap({
 
         const reqId = ++clusterClickReqIdRef.current;
         const limit = Math.min(typeof pointCount === 'number' ? pointCount : 500, 500);
+        const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
         source.getClusterLeaves(clusterId, limit, 0, (err, leaves) => {
           if (reqId !== clusterClickReqIdRef.current) return;
           if (err || !leaves) {
@@ -294,6 +323,15 @@ export default function MapboxMap({
               return id != null ? byId.get(String(id)) : undefined;
             })
             .filter(Boolean) as NormalizedListing[];
+          if (process.env.NODE_ENV === 'development') {
+            const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            console.log('[MB CLUSTER CLICK]', 'stage=leaves', {
+              elapsedMs: Math.round(t1 - t0),
+              leaves: leaves?.length ?? 0,
+              listings: leafListings.length,
+              clusterId,
+            });
+          }
           if (!leafListings.length) return;
           lastOpenClusterIdRef.current = clusterId;
           openImmediate(leafListings, { lat, lng }, { clusterKey });
