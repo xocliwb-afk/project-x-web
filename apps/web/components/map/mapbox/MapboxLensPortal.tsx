@@ -29,7 +29,8 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       position: 'fixed',
       zIndex: '10000',
       pointerEvents: 'none',
-      transform: 'translate(-50%, -50%)',
+      transform: 'translate(-50%, -100%)',
+      marginTop: '8px',
     });
     el.dataset.testid = 'mapbox-lens-portal';
     containerRef.current = el;
