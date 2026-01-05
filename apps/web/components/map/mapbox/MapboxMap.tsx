@@ -5,8 +5,6 @@ import type { Listing as NormalizedListing } from '@project-x/shared-types';
 import mapboxgl from 'mapbox-gl';
 import { buildBboxFromBounds, listingsToGeoJSON } from './mapbox-utils';
 import { MapboxLensPortal } from './MapboxLensPortal';
-import { useMapLensStore } from '@/stores/useMapLensStore';
-import { useMapLens } from '@/hooks/useMapLens';
 
 type MapboxMapProps = {
   listings: NormalizedListing[];
@@ -37,7 +35,6 @@ export default function MapboxMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
-  const clusterClickReqIdRef = useRef(0);
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
@@ -56,7 +53,6 @@ export default function MapboxMap({
   const onHoverListingRef = useRef(onHoverListing);
   const onSelectListingRef = useRef(onSelectListing);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-  const { openImmediate, dismissLens } = useMapLens();
 
   useEffect(() => {
     onBoundsChangeRef.current = onBoundsChange;
@@ -123,7 +119,6 @@ export default function MapboxMap({
     let handleMouseEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleMouseLeave: (() => void) | null = null;
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
-    let handleClusterClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
 
     map.on('load', () => {
       map.addSource(sourceId, {
@@ -207,10 +202,7 @@ export default function MapboxMap({
         },
       });
 
-      const lensOpen = () => Boolean(useMapLensStore.getState().activeClusterData);
-
       handleMouseEnter = (e: mapboxgl.MapLayerMouseEvent) => {
-        if (lensOpen()) return;
         map.getCanvas().style.cursor = 'pointer';
         const id = e.features?.[0]?.properties?.id as string | undefined;
         if (!id) return;
@@ -220,7 +212,6 @@ export default function MapboxMap({
       };
 
       handleMouseLeave = () => {
-        if (lensOpen()) return;
         map.getCanvas().style.cursor = '';
         if (lastHoveredIdRef.current) {
           setFeatureState(lastHoveredIdRef.current, 'hovered', false);
@@ -230,7 +221,6 @@ export default function MapboxMap({
       };
 
       handleClick = (e: mapboxgl.MapLayerMouseEvent) => {
-        if (lensOpen()) return;
         const id = e.features?.[0]?.properties?.id as string | undefined;
         if (!id) return;
         onSelectListingRef.current?.(id);
@@ -239,48 +229,6 @@ export default function MapboxMap({
       map.on('mouseenter', 'unclustered-point', handleMouseEnter);
       map.on('mouseleave', 'unclustered-point', handleMouseLeave);
       map.on('click', 'unclustered-point', handleClick);
-
-      handleClusterClick = (e: mapboxgl.MapLayerMouseEvent) => {
-        const feature = e.features?.[0];
-        const clusterId = feature?.properties?.cluster_id as number | undefined;
-        const pointCount = feature?.properties?.point_count as number | undefined;
-        const coords = feature?.geometry?.type === 'Point' ? feature.geometry.coordinates : null;
-        const [lng, lat] = (coords as [number, number] | null) ?? [];
-        if (clusterId == null || lat == null || lng == null) return;
-
-        const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
-        if (!source || typeof source.getClusterLeaves !== 'function') return;
-
-        const reqId = ++clusterClickReqIdRef.current;
-        const limit = Math.min(typeof pointCount === 'number' ? pointCount : 500, 500);
-        source.getClusterLeaves(clusterId, limit, 0, (err, leaves) => {
-          if (reqId !== clusterClickReqIdRef.current) return;
-          if (err || !leaves) {
-            console.warn('[MapboxMap] getClusterLeaves failed', err);
-            return;
-          }
-          const byId = new Map(listingsRef.current.map((l) => [String(l.id), l]));
-          const leafListings = leaves
-            .map((leaf) => {
-              const id = leaf?.properties?.id;
-              return id != null ? byId.get(String(id)) : undefined;
-            })
-            .filter(Boolean) as NormalizedListing[];
-          if (!leafListings.length) return;
-          const clusterKey = leafListings
-            .map((l) => String(l.id))
-            .sort()
-            .join('|');
-          const { activeClusterData } = useMapLensStore.getState();
-          if (activeClusterData?.clusterKey === clusterKey) {
-            dismissLens();
-            return;
-          }
-          openImmediate(leafListings, { lat, lng }, { clusterKey });
-        });
-      };
-
-      map.on('click', 'clusters', handleClusterClick);
 
       sourceReadyRef.current = true;
       emitBounds();
@@ -303,15 +251,12 @@ export default function MapboxMap({
       if (handleClick) {
         map.off('click', 'unclustered-point', handleClick);
       }
-      if (handleClusterClick) {
-        map.off('click', 'clusters', handleClusterClick);
-      }
       map.remove();
       mapRef.current = null;
       setMapInstance(null);
       sourceReadyRef.current = false;
     };
-  }, [token, applyFeatureStates, setFeatureState, openImmediate, dismissLens]);
+  }, [token, applyFeatureStates, setFeatureState]);
 
   useEffect(() => {
     const map = mapRef.current;
