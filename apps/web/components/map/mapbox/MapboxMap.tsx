@@ -38,7 +38,6 @@ export default function MapboxMap({
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
   const clusterClickReqIdRef = useRef(0);
-  const lastClusterClickTsRef = useRef<number | null>(null);
   const lastOpenClusterIdRef = useRef<number | null>(null);
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
@@ -125,8 +124,7 @@ export default function MapboxMap({
     let handleMouseEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleMouseLeave: (() => void) | null = null;
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
-    let handleClusterClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
-    let handleMapBackgroundClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
+    let handleMapClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
 
     map.on('load', () => {
       map.addSource(sourceId, {
@@ -243,114 +241,93 @@ export default function MapboxMap({
       map.on('mouseleave', 'unclustered-point', handleMouseLeave);
       map.on('click', 'unclustered-point', handleClick);
 
-      handleClusterClick = (e: mapboxgl.MapLayerMouseEvent) => {
-        const ts = (e.originalEvent as any)?.timeStamp;
-        if (typeof ts === 'number') {
-          if (lastClusterClickTsRef.current === ts) return;
-          lastClusterClickTsRef.current = ts;
-        }
-        if (process.env.NODE_ENV === 'development') {
-          const hasLens = Boolean(useMapLensStore.getState().activeClusterData);
-          console.log('[MB CLUSTER CLICK]', 'stage=received', {
-            hasLens,
-            lastOpenClusterId: lastOpenClusterIdRef.current,
-            point: e.point,
-            ts,
-          });
-        }
+      handleMapClick = (e: mapboxgl.MapMouseEvent) => {
+        const { activeClusterData, isLocked } = useMapLensStore.getState();
+        const lensIsOpen = Boolean(activeClusterData);
+        if (lensIsOpen && isLocked) return;
 
-        const feature =
-          e.features?.[0] ??
-          map.queryRenderedFeatures(e.point, { layers: ['clusters', 'cluster-count'] })[0];
-        if (!feature) return;
-        const clusterId = feature.properties?.cluster_id as number | undefined;
-        if (clusterId == null) return;
-        const pointCount = feature.properties?.point_count as number | undefined;
-        const coords =
-          feature?.geometry && 'coordinates' in feature.geometry
-            ? (feature.geometry as any).coordinates
-            : null;
-        if (!Array.isArray(coords) || coords.length < 2) return;
-        const [lng, lat] = coords as [number, number];
-        if (lat == null || lng == null) return;
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[MB CLUSTER CLICK]', 'stage=feature', {
-            layerId: feature.layer?.id,
-            clusterId,
-            pointCount,
-            hasCoords: Array.isArray(coords),
-          });
-        }
+        const hits = map.queryRenderedFeatures(e.point, {
+          layers: ['cluster-count', 'clusters', 'unclustered-point'],
+        });
 
-        const lensIsOpen = Boolean(useMapLensStore.getState().activeClusterData);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[MB CLUSTER CLICK]', 'stage=toggle-check', {
-            lensIsOpen,
-            lastOpenClusterId: lastOpenClusterIdRef.current,
-            clickedClusterId: clusterId,
-          });
-        }
-        if (lensIsOpen && lastOpenClusterIdRef.current === clusterId) {
+        const clusterFeature = hits.find(
+          (f) => f.layer?.id === 'cluster-count' || f.layer?.id === 'clusters',
+        );
+
+        if (clusterFeature) {
+          const clusterId = clusterFeature.properties?.cluster_id as number | undefined;
+          const pointCount = clusterFeature.properties?.point_count as number | undefined;
+          const coords =
+            clusterFeature?.geometry && 'coordinates' in clusterFeature.geometry
+              ? (clusterFeature.geometry as any).coordinates
+              : null;
+          if (!Array.isArray(coords) || coords.length < 2) return;
+          const [lng, lat] = coords as [number, number];
+          if (clusterId == null || lng == null || lat == null) return;
+
           if (process.env.NODE_ENV === 'development') {
-            console.log('[MB CLUSTER CLICK]', 'stage=toggle-close', { clusterId });
+            console.log('[MB CLUSTER CLICK]', 'stage=received', {
+              hasLens: lensIsOpen,
+              lastOpenClusterId: lastOpenClusterIdRef.current,
+              clusterId,
+              pointCount,
+              point: e.point,
+            });
           }
-          clusterClickReqIdRef.current += 1;
-          lastOpenClusterIdRef.current = null;
-          dismissLens();
+
+          if (lensIsOpen && lastOpenClusterIdRef.current === clusterId) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[MB CLUSTER CLICK]', 'stage=toggle-close', { clusterId });
+            }
+            clusterClickReqIdRef.current += 1;
+            lastOpenClusterIdRef.current = null;
+            dismissLens();
+            return;
+          }
+
+          const clusterKey = `mb:${clusterId}`;
+          const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
+          if (!source || typeof source.getClusterLeaves !== 'function') return;
+
+          const reqId = ++clusterClickReqIdRef.current;
+          const limit = Math.min(typeof pointCount === 'number' ? pointCount : 500, 500);
+          const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+          source.getClusterLeaves(clusterId, limit, 0, (err, leaves) => {
+            if (reqId !== clusterClickReqIdRef.current) return;
+            if (err || !leaves) {
+              console.warn('[MapboxMap] getClusterLeaves failed', err);
+              return;
+            }
+            const byId = new Map(listingsRef.current.map((l) => [String(l.id), l]));
+            const leafListings = leaves
+              .map((leaf) => {
+                const id = leaf?.properties?.id;
+                return id != null ? byId.get(String(id)) : undefined;
+              })
+              .filter(Boolean) as NormalizedListing[];
+            if (process.env.NODE_ENV === 'development') {
+              const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+              console.log('[MB CLUSTER CLICK]', 'stage=leaves', {
+                elapsedMs: Math.round(t1 - t0),
+                leaves: leaves?.length ?? 0,
+                listings: leafListings.length,
+                clusterId,
+              });
+            }
+            if (!leafListings.length) return;
+            lastOpenClusterIdRef.current = clusterId;
+            openImmediate(leafListings, { lat, lng }, { clusterKey });
+          });
           return;
         }
 
-        const clusterKey = `mb:${clusterId}`;
-        const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
-        if (!source || typeof source.getClusterLeaves !== 'function') return;
-
-        const reqId = ++clusterClickReqIdRef.current;
-        const limit = Math.min(typeof pointCount === 'number' ? pointCount : 500, 500);
-        const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
-        source.getClusterLeaves(clusterId, limit, 0, (err, leaves) => {
-          if (reqId !== clusterClickReqIdRef.current) return;
-          if (err || !leaves) {
-            console.warn('[MapboxMap] getClusterLeaves failed', err);
-            return;
-          }
-          const byId = new Map(listingsRef.current.map((l) => [String(l.id), l]));
-          const leafListings = leaves
-            .map((leaf) => {
-              const id = leaf?.properties?.id;
-              return id != null ? byId.get(String(id)) : undefined;
-            })
-            .filter(Boolean) as NormalizedListing[];
-          if (process.env.NODE_ENV === 'development') {
-            const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
-            console.log('[MB CLUSTER CLICK]', 'stage=leaves', {
-              elapsedMs: Math.round(t1 - t0),
-              leaves: leaves?.length ?? 0,
-              listings: leafListings.length,
-              clusterId,
-            });
-          }
-          if (!leafListings.length) return;
-          lastOpenClusterIdRef.current = clusterId;
-          openImmediate(leafListings, { lat, lng }, { clusterKey });
-        });
-      };
-
-      map.on('click', 'clusters', handleClusterClick);
-      map.on('click', 'cluster-count', handleClusterClick);
-
-      handleMapBackgroundClick = (e: mapboxgl.MapMouseEvent) => {
-        const { activeClusterData, isLocked } = useMapLensStore.getState();
-        if (!activeClusterData || isLocked) return;
-        const featuresAtPoint = map.queryRenderedFeatures(e.point, {
-          layers: ['clusters', 'cluster-count', 'unclustered-point'],
-        });
-        if (featuresAtPoint.length === 0) {
+        if (lensIsOpen && hits.length === 0 && !isLocked) {
           lastOpenClusterIdRef.current = null;
           dismissLens();
         }
       };
 
-      map.on('click', handleMapBackgroundClick);
+      map.on('click', handleMapClick);
 
       sourceReadyRef.current = true;
       emitBounds();
@@ -373,12 +350,8 @@ export default function MapboxMap({
       if (handleClick) {
         map.off('click', 'unclustered-point', handleClick);
       }
-      if (handleClusterClick) {
-        map.off('click', 'clusters', handleClusterClick);
-        map.off('click', 'cluster-count', handleClusterClick);
-      }
-      if (handleMapBackgroundClick) {
-        map.off('click', handleMapBackgroundClick);
+      if (handleMapClick) {
+        map.off('click', handleMapClick);
       }
       map.remove();
       mapRef.current = null;
