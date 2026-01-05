@@ -167,16 +167,49 @@ export function LensMiniMapbox({
         type: "circle",
         source: SOURCE_ID,
         paint: {
-          "circle-radius": ["case", ["boolean", ["feature-state", "focused"], false], 9, 6],
+          "circle-radius": ["case", ["boolean", ["feature-state", "focused"], false], 9, 7],
           "circle-color": ["case", ["boolean", ["feature-state", "focused"], false], "#2563eb", "#111827"],
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 1,
+        },
+      });
+      map.addLayer({
+        id: "lens-mini-price",
+        type: "symbol",
+        source: SOURCE_ID,
+        layout: {
+          "text-field": ["get", "priceLabel"],
+          "text-size": [
+            "case",
+            ["boolean", ["feature-state", "focused"], false],
+            12,
+            11,
+          ],
+          "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+          "text-anchor": "center",
+          "text-offset": [0, 0],
+          "text-padding": 2,
+        },
+        paint: {
+          "text-color": "#0f172a",
+          "text-halo-color": "#ffffff",
+          "text-halo-width": [
+            "case",
+            ["boolean", ["feature-state", "focused"], false],
+            3,
+            2,
+          ],
         },
       });
 
       map.on("mouseenter", LAYER_ID, handlePointEnter);
       map.on("mouseleave", LAYER_ID, handlePointLeave);
       map.on("click", LAYER_ID, handlePointClick);
+      map.on("mouseenter", "lens-mini-price", handlePointEnter);
+      map.on("mouseleave", "lens-mini-price", handlePointLeave);
+      map.on("click", "lens-mini-price", handlePointClick);
       sourceReadyRef.current = true;
 
       if (pendingBoundsRef.current) {
@@ -198,6 +231,9 @@ export function LensMiniMapbox({
       map.off("mouseenter", LAYER_ID, handlePointEnter);
       map.off("mouseleave", LAYER_ID, handlePointLeave);
       map.off("click", LAYER_ID, handlePointClick);
+      map.off("mouseenter", "lens-mini-price", handlePointEnter);
+      map.off("mouseleave", "lens-mini-price", handlePointLeave);
+      map.off("click", "lens-mini-price", handlePointClick);
       resizeObserver.disconnect();
       sourceReadyRef.current = false;
       lastFocusedIdRef.current = null;
