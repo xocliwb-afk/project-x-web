@@ -29,6 +29,16 @@ export const buildBboxFromBounds = (
   };
 };
 
+const formatPriceLabel = (listing: { listPrice?: number | null }): string => {
+  const price = Number(listing.listPrice);
+  if (!Number.isFinite(price) || price <= 0) return '—';
+  if (price >= 1_000_000) {
+    return `$${(price / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  const roundedThousands = Math.round(price / 1000);
+  return `$${roundedThousands}K`;
+};
+
 export type GeoJSONFeatureCollection = {
   type: 'FeatureCollection';
   features: Array<{
@@ -40,12 +50,17 @@ export type GeoJSONFeatureCollection = {
     };
     properties: {
       id: string;
+      priceLabel: string;
     };
   }>;
 };
 
 export const listingsToGeoJSON = (
-  listings: { id?: string | number; address?: { lat?: number; lng?: number } }[],
+  listings: {
+    id?: string | number;
+    address?: { lat?: number; lng?: number };
+    listPrice?: number | null;
+  }[],
 ): GeoJSONFeatureCollection => {
   const features = listings
     .filter((l) => Number.isFinite(l.address?.lat) && Number.isFinite(l.address?.lng))
@@ -58,6 +73,7 @@ export const listingsToGeoJSON = (
       },
       properties: {
         id: String(l.id ?? ''),
+        priceLabel: formatPriceLabel(l),
       },
     }));
 

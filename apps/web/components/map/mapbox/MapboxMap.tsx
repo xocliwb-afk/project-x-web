@@ -10,7 +10,6 @@ import { useMapLens } from '@/hooks/useMapLens';
 import ListingPreviewModal from '../ListingPreviewModal';
 import { getThumbnailUrl } from '@/lib/listingFormat';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useMemo } from 'react';
 
 type MapboxMapProps = {
   listings: NormalizedListing[];
@@ -170,6 +169,39 @@ export default function MapboxMap({
     let handleClusterLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
 
     map.on('load', () => {
+      const pillId = 'price-pill';
+      if (!map.hasImage(pillId)) {
+        const width = 80;
+        const height = 36;
+        const radius = 18;
+        const canvas = document.createElement('canvas');
+        canvas.width = width * 2;
+        canvas.height = height * 2;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.scale(2, 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(radius, 0);
+          ctx.lineTo(width - radius, 0);
+          ctx.quadraticCurveTo(width, 0, width, radius);
+          ctx.lineTo(width, height - radius);
+          ctx.quadraticCurveTo(width, height, width - radius, height);
+          ctx.lineTo(radius, height);
+          ctx.quadraticCurveTo(0, height, 0, height - radius);
+          ctx.lineTo(0, radius);
+          ctx.quadraticCurveTo(0, 0, radius, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          map.addImage(pillId, ctx.getImageData(0, 0, canvas.width, canvas.height), {
+            pixelRatio: 2,
+          });
+        }
+      }
+
       map.addSource(sourceId, {
         type: 'geojson',
         data: listingsToGeoJSON(listingsRef.current),
@@ -230,24 +262,45 @@ export default function MapboxMap({
         source: sourceId,
         filter: ['!', ['has', 'point_count']],
         paint: {
-          'circle-color': [
+          'circle-color': '#2563eb',
+          'circle-radius': 12,
+          'circle-opacity': [
             'case',
             ['boolean', ['feature-state', 'selected'], false],
-            '#1d4ed8',
+            0.25,
             ['boolean', ['feature-state', 'hovered'], false],
-            '#38bdf8',
-            '#0ea5e9',
+            0.15,
+            0.0,
           ],
-          'circle-radius': [
-            'case',
-            ['boolean', ['feature-state', 'selected'], false],
-            9,
-            ['boolean', ['feature-state', 'hovered'], false],
-            8,
-            6,
-          ],
-          'circle-stroke-width': 1,
-          'circle-stroke-color': '#0f172a',
+          'circle-stroke-width': 0,
+        },
+      });
+
+      map.addLayer({
+        id: 'unclustered-price',
+        type: 'symbol',
+        source: sourceId,
+        filter: ['!', ['has', 'point_count']],
+        layout: {
+          'text-field': ['get', 'priceLabel'],
+          'text-size': 14,
+          'icon-image': 'price-pill',
+          'icon-text-fit': 'both',
+          'icon-text-fit-padding': [6, 10, 6, 10],
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'icon-anchor': 'center',
+          'text-font': ['DIN Offc Pro Bold', 'DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-anchor': 'center',
+          'text-offset': [0, 0],
+          'text-padding': 2,
+        },
+        paint: {
+          'text-color': '#0f172a',
+          'text-halo-color': '#0f172a',
+          'text-halo-width': 0,
         },
       });
 
@@ -353,6 +406,9 @@ export default function MapboxMap({
       map.on('mouseenter', 'unclustered-point', handleMouseEnter);
       map.on('mouseleave', 'unclustered-point', handleMouseLeave);
       map.on('click', 'unclustered-point', handleClick);
+      map.on('mouseenter', 'unclustered-price', handleMouseEnter);
+      map.on('mouseleave', 'unclustered-price', handleMouseLeave);
+      map.on('click', 'unclustered-price', handleClick);
 
       handleClusterEnter = () => {
         if (lensOpen()) return;
@@ -374,7 +430,7 @@ export default function MapboxMap({
         if (lensIsOpen && isLocked) return;
 
         const hits = map.queryRenderedFeatures(e.point, {
-          layers: ['cluster-count', 'clusters', 'unclustered-point'],
+          layers: ['cluster-count', 'clusters', 'unclustered-point', 'unclustered-price'],
         });
 
         const clusterFeature = hits.find(
@@ -475,12 +531,15 @@ export default function MapboxMap({
       map.off('zoomend', emitBounds);
       if (handleMouseEnter) {
         map.off('mouseenter', 'unclustered-point', handleMouseEnter);
+        map.off('mouseenter', 'unclustered-price', handleMouseEnter);
       }
       if (handleMouseLeave) {
         map.off('mouseleave', 'unclustered-point', handleMouseLeave);
+        map.off('mouseleave', 'unclustered-price', handleMouseLeave);
       }
       if (handleClick) {
         map.off('click', 'unclustered-point', handleClick);
+        map.off('click', 'unclustered-price', handleClick);
       }
       if (handleClusterEnter) {
         map.off('mouseenter', 'clusters', handleClusterEnter);

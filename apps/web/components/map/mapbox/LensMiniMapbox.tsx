@@ -138,6 +138,39 @@ export function LensMiniMapbox({
     });
     resizeObserver.observe(container);
 
+    const pillId = "lens-price-pill";
+    if (!map.hasImage(pillId)) {
+      const width = 72;
+      const height = 30;
+      const radius = 15;
+      const canvas = document.createElement("canvas");
+      canvas.width = width * 2;
+      canvas.height = height * 2;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.scale(2, 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(width - radius, 0);
+        ctx.quadraticCurveTo(width, 0, width, radius);
+        ctx.lineTo(width, height - radius);
+        ctx.quadraticCurveTo(width, height, width - radius, height);
+        ctx.lineTo(radius, height);
+        ctx.quadraticCurveTo(0, height, 0, height - radius);
+        ctx.lineTo(0, radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        map.addImage(pillId, ctx.getImageData(0, 0, canvas.width, canvas.height), {
+          pixelRatio: 2,
+        });
+      }
+    }
+
     const handlePointClick = (e: mapboxgl.MapLayerMouseEvent) => {
       e.originalEvent?.stopPropagation?.();
       const feature = e.features?.[0];
@@ -167,16 +200,45 @@ export function LensMiniMapbox({
         type: "circle",
         source: SOURCE_ID,
         paint: {
-          "circle-radius": ["case", ["boolean", ["feature-state", "focused"], false], 9, 6],
+          "circle-radius": ["case", ["boolean", ["feature-state", "focused"], false], 9, 7],
           "circle-color": ["case", ["boolean", ["feature-state", "focused"], false], "#2563eb", "#111827"],
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 1,
+        },
+      });
+      map.addLayer({
+        id: "lens-mini-price",
+        type: "symbol",
+        source: SOURCE_ID,
+        layout: {
+          "text-field": ["get", "priceLabel"],
+          "text-size": 14,
+          "icon-image": "lens-price-pill",
+          "icon-text-fit": "both",
+          "icon-text-fit-padding": [5, 8, 5, 8],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "icon-anchor": "center",
+          "text-font": ["DIN Offc Pro Bold", "DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+          "text-anchor": "center",
+          "text-offset": [0, 0],
+          "text-padding": 2,
+        },
+        paint: {
+          "text-color": "#0f172a",
+          "text-halo-color": "#0f172a",
+          "text-halo-width": 0,
         },
       });
 
       map.on("mouseenter", LAYER_ID, handlePointEnter);
       map.on("mouseleave", LAYER_ID, handlePointLeave);
       map.on("click", LAYER_ID, handlePointClick);
+      map.on("mouseenter", "lens-mini-price", handlePointEnter);
+      map.on("mouseleave", "lens-mini-price", handlePointLeave);
+      map.on("click", "lens-mini-price", handlePointClick);
       sourceReadyRef.current = true;
 
       if (pendingBoundsRef.current) {
@@ -198,6 +260,9 @@ export function LensMiniMapbox({
       map.off("mouseenter", LAYER_ID, handlePointEnter);
       map.off("mouseleave", LAYER_ID, handlePointLeave);
       map.off("click", LAYER_ID, handlePointClick);
+      map.off("mouseenter", "lens-mini-price", handlePointEnter);
+      map.off("mouseleave", "lens-mini-price", handlePointLeave);
+      map.off("click", "lens-mini-price", handlePointClick);
       resizeObserver.disconnect();
       sourceReadyRef.current = false;
       lastFocusedIdRef.current = null;
