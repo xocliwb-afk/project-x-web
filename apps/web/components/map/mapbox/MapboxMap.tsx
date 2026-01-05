@@ -169,6 +169,39 @@ export default function MapboxMap({
     let handleClusterLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
 
     map.on('load', () => {
+      const pillId = 'price-pill';
+      if (!map.hasImage(pillId)) {
+        const width = 80;
+        const height = 36;
+        const radius = 18;
+        const canvas = document.createElement('canvas');
+        canvas.width = width * 2;
+        canvas.height = height * 2;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.scale(2, 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(radius, 0);
+          ctx.lineTo(width - radius, 0);
+          ctx.quadraticCurveTo(width, 0, width, radius);
+          ctx.lineTo(width, height - radius);
+          ctx.quadraticCurveTo(width, height, width - radius, height);
+          ctx.lineTo(radius, height);
+          ctx.quadraticCurveTo(0, height, 0, height - radius);
+          ctx.lineTo(0, radius);
+          ctx.quadraticCurveTo(0, 0, radius, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          map.addImage(pillId, ctx.getImageData(0, 0, canvas.width, canvas.height), {
+            pixelRatio: 2,
+          });
+        }
+      }
+
       map.addSource(sourceId, {
         type: 'geojson',
         data: listingsToGeoJSON(listingsRef.current),
@@ -251,6 +284,12 @@ export default function MapboxMap({
         layout: {
           'text-field': ['get', 'priceLabel'],
           'text-size': 12,
+          'icon-image': 'price-pill',
+          'icon-text-fit': 'both',
+          'icon-text-fit-padding': [6, 10, 6, 10],
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'icon-anchor': 'center',
           'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -259,9 +298,9 @@ export default function MapboxMap({
           'text-padding': 2,
         },
         paint: {
-          'text-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#0f172a', ['boolean', ['feature-state', 'hovered'], false], '#0f172a', '#0f172a'],
-          'text-halo-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#ffffff', ['boolean', ['feature-state', 'hovered'], false], '#ffffff', '#ffffff'],
-          'text-halo-width': ['case', ['boolean', ['feature-state', 'selected'], false], 3, ['boolean', ['feature-state', 'hovered'], false], 3, 2],
+          'text-color': '#0f172a',
+          'text-halo-color': '#0f172a',
+          'text-halo-width': 0,
         },
       });
 

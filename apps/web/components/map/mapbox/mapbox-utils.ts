@@ -30,20 +30,14 @@ export const buildBboxFromBounds = (
 };
 
 const formatPriceLabel = (listing: {
-  listPriceFormatted?: string;
   listPrice?: number | null;
 }): string => {
-  if (listing.listPriceFormatted && listing.listPriceFormatted.length > 0) {
-    return listing.listPriceFormatted;
+  const price = Number(listing.listPrice);
+  if (!Number.isFinite(price) || price <= 0) {
+    return '—';
   }
-  const price = typeof listing.listPrice === 'number' ? listing.listPrice : 0;
-  if (price >= 1_000_000) {
-    return `$${(price / 1_000_000).toFixed(1)}M`;
-  }
-  if (price >= 1_000) {
-    return `$${Math.round(price / 1000)}K`;
-  }
-  return '$0';
+  const roundedThousands = Math.round(price / 1000);
+  return `$${roundedThousands}`;
 };
 
 export type GeoJSONFeatureCollection = {
@@ -66,7 +60,6 @@ export const listingsToGeoJSON = (
   listings: {
     id?: string | number;
     address?: { lat?: number; lng?: number };
-    listPriceFormatted?: string;
     listPrice?: number | null;
   }[],
 ): GeoJSONFeatureCollection => {
