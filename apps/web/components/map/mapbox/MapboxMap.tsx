@@ -241,9 +241,11 @@ export default function MapboxMap({
       map.on('click', 'unclustered-point', handleClick);
 
       handleClusterClick = (e: mapboxgl.MapLayerMouseEvent) => {
-        const feature = e.features?.[0];
-        const clusterId = feature?.properties?.cluster_id as number | undefined;
-        const pointCount = feature?.properties?.point_count as number | undefined;
+        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+        const feature = features[0];
+        if (!feature) return;
+        const clusterId = feature.properties?.cluster_id as number | undefined;
+        const pointCount = feature.properties?.point_count as number | undefined;
         const coords =
           feature?.geometry && 'coordinates' in feature.geometry
             ? (feature.geometry as any).coordinates
@@ -251,6 +253,14 @@ export default function MapboxMap({
         if (!Array.isArray(coords) || coords.length < 2) return;
         const [lng, lat] = coords as [number, number];
         if (clusterId == null || lat == null || lng == null) return;
+
+        const clusterKey = `mb:${clusterId}`;
+        const { activeClusterData } = useMapLensStore.getState();
+        if (activeClusterData?.clusterKey === clusterKey) {
+          clusterClickReqIdRef.current += 1;
+          dismissLens();
+          return;
+        }
 
         const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
         if (!source || typeof source.getClusterLeaves !== 'function') return;
@@ -271,15 +281,6 @@ export default function MapboxMap({
             })
             .filter(Boolean) as NormalizedListing[];
           if (!leafListings.length) return;
-          const clusterKey = leafListings
-            .map((l) => String(l.id))
-            .sort()
-            .join('|');
-          const { activeClusterData } = useMapLensStore.getState();
-          if (activeClusterData?.clusterKey === clusterKey) {
-            dismissLens();
-            return;
-          }
           openImmediate(leafListings, { lat, lng }, { clusterKey });
         });
       };
