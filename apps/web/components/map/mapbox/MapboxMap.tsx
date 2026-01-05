@@ -36,6 +36,7 @@ export default function MapboxMap({
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
+  const listingsRef = useRef(listings);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   const setFeatureState = useCallback((id: string, key: 'selected' | 'hovered', value: boolean) => {
@@ -69,6 +70,10 @@ export default function MapboxMap({
   }, [listings]);
 
   useEffect(() => {
+    listingsRef.current = listings;
+  }, [listings]);
+
+  useEffect(() => {
     if (!token) return;
     if (!containerRef.current) return;
 
@@ -97,12 +102,9 @@ export default function MapboxMap({
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
 
     map.on('load', () => {
-        map.addSource(sourceId, {
-          type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: [],
-        },
+      map.addSource(sourceId, {
+        type: 'geojson',
+        data: listingsToGeoJSON(listingsRef.current),
         cluster: true,
         clusterRadius: 50,
         clusterMaxZoom: 14,
