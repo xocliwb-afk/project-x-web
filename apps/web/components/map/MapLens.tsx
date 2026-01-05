@@ -1,12 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMapLensStore } from "@/stores/useMapLensStore";
-import { LensMiniMap } from "./LensMiniMap";
-import type { LatLngBounds } from "leaflet";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { useTheme } from "@/context/ThemeContext";
@@ -18,6 +17,19 @@ import {
   getStatusBadgeClasses,
   getThumbnailUrl,
 } from "@/lib/listingFormat";
+import { LatLngBoundsTuple } from "./types";
+
+const LeafletLensMiniMap = dynamic(() => import("./LensMiniMap").then((m) => m.LensMiniMap), {
+  ssr: false,
+  loading: () => <div className="h-full w-full rounded-full bg-surface-muted" />,
+});
+const MapboxLensMiniMap = dynamic(
+  () => import("./mapbox/LensMiniMapbox").then((m) => m.LensMiniMapbox),
+  {
+    ssr: false,
+    loading: () => <div className="h-full w-full rounded-full bg-surface-muted" />,
+  },
+);
 
 type MapLensProps = {
   onHoverListing?: (id: string | null) => void;
@@ -39,6 +51,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const router = useRouter();
   const mobileDetected = useIsMobile();
   const { mapSide } = useTheme();
+  const useMapbox = process.env.NEXT_PUBLIC_USE_MAPBOX === "true";
 
   const allClusterListings = activeClusterData?.listings ?? [];
   const sortedAllListings = useMemo(
@@ -54,24 +67,46 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   );
   const visibleListings = sortedAllListings.slice(0, 50);
 
-  const clusterBounds = useMemo(() => {
-    if (typeof window === "undefined" || !(window as any).L || !activeClusterData)
-      return null;
-    const L = (window as any).L;
-    if (activeClusterData.bounds) {
-      const presetBounds = L.latLngBounds(activeClusterData.bounds);
-      if (presetBounds.isValid()) return presetBounds as LatLngBounds;
+  const clusterBounds: LatLngBoundsTuple | null = useMemo(() => {
+    if (!activeClusterData) return null;
+    const hasBounds = activeClusterData.bounds as any;
+    if (
+      hasBounds &&
+      Array.isArray(hasBounds) &&
+      hasBounds.length === 2 &&
+      Array.isArray(hasBounds[0]) &&
+      Array.isArray(hasBounds[1])
+    ) {
+      const south = Number(hasBounds[0][0]);
+      const west = Number(hasBounds[0][1]);
+      const north = Number(hasBounds[1][0]);
+      const east = Number(hasBounds[1][1]);
+      if ([south, west, north, east].every((n) => Number.isFinite(n))) {
+        return [
+          [south, west],
+          [north, east],
+        ];
+      }
     }
-    const bounds = L.latLngBounds([]);
+    let south = Infinity;
+    let west = Infinity;
+    let north = -Infinity;
+    let east = -Infinity;
     allClusterListings.forEach((l) => {
-      if (
-        typeof l.address?.lat === "number" &&
-        typeof l.address?.lng === "number"
-      ) {
-        bounds.extend([l.address.lat, l.address.lng]);
+      const lat = Number(l.address?.lat);
+      const lng = Number(l.address?.lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        south = Math.min(south, lat);
+        west = Math.min(west, lng);
+        north = Math.max(north, lat);
+        east = Math.max(east, lng);
       }
     });
-    return bounds.isValid() ? (bounds as LatLngBounds) : null;
+    if ([south, west, north, east].some((v) => !Number.isFinite(v))) return null;
+    return [
+      [south, west],
+      [north, east],
+    ];
   }, [activeClusterData, allClusterListings]);
 
   const lensSizePx = useMemo(() => {
@@ -87,6 +122,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     const { lat, lng } = activeClusterData.anchorLatLng;
     return `lens-${lat.toFixed(5)}-${lng.toFixed(5)}-${activeClusterData.listings.length}`;
   }, [activeClusterData]);
+  const MiniMapComponent = useMapbox ? MapboxLensMiniMap : LeafletLensMiniMap;
 
   useEffect(() => {
     setVisible(Boolean(activeClusterData));
@@ -235,7 +271,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
             onClick={(e) => e.stopPropagation()}
           >
             <div className="h-64 border-b border-border">
-              <LensMiniMap
+              <MiniMapComponent
                 key={lensKey}
                 center={[
                   activeClusterData.anchorLatLng?.lat,
@@ -243,6 +279,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
                 ]}
                 listings={sortedAllListings}
                 bounds={clusterBounds}
+                focusedListingId={focusedListingId}
                 onMarkerClick={(listing) => {
                   setFocusedListingId(listing.id);
                   onHoverListing?.(listing.id);
@@ -333,7 +370,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
             }
           }}
         >
-          <LensMiniMap
+          <MiniMapComponent
             key={lensKey}
             center={[
               activeClusterData.anchorLatLng?.lat,
@@ -341,6 +378,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
             ]}
             listings={sortedAllListings}
             bounds={clusterBounds}
+            focusedListingId={focusedListingId}
             onMarkerClick={(listing) => {
               setFocusedListingId(listing.id);
               onHoverListing?.(listing.id);
