@@ -245,6 +245,10 @@ export default function MapboxMap({
 
       handleClusterClick = (e: mapboxgl.MapLayerMouseEvent) => {
         const ts = (e.originalEvent as any)?.timeStamp;
+        if (typeof ts === 'number') {
+          if (lastClusterClickTsRef.current === ts) return;
+          lastClusterClickTsRef.current = ts;
+        }
         if (process.env.NODE_ENV === 'development') {
           const hasLens = Boolean(useMapLensStore.getState().activeClusterData);
           console.log('[MB CLUSTER CLICK]', 'stage=received', {
@@ -276,13 +280,6 @@ export default function MapboxMap({
             pointCount,
             hasCoords: Array.isArray(coords),
           });
-        }
-
-        if (typeof ts === 'number' && lastClusterClickTsRef.current === ts) {
-          return;
-        }
-        if (typeof ts === 'number') {
-          lastClusterClickTsRef.current = ts;
         }
 
         const lensIsOpen = Boolean(useMapLensStore.getState().activeClusterData);
