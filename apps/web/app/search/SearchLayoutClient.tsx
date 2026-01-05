@@ -652,7 +652,7 @@ export default function SearchLayoutClient({
                       type="button"
                       onClick={handleApplyDraftBounds}
                       disabled={isApplyDisabled}
-                      className="pointer-events-auto rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow disabled:opacity-60"
+                      className="pointer-events-auto rounded-full border border-border bg-white/90 px-4 py-2 text-sm font-semibold text-text-main shadow-lg backdrop-blur hover:bg-white hover:shadow-xl disabled:opacity-60"
                     >
                       Search this area
                     </button>
@@ -724,7 +724,7 @@ export default function SearchLayoutClient({
                       type="button"
                       onClick={handleApplyDraftBounds}
                       disabled={isApplyDisabled}
-                      className="pointer-events-auto rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow disabled:opacity-60"
+                      className="pointer-events-auto rounded-full border border-border bg-white/90 px-4 py-2 text-sm font-semibold text-text-main shadow-lg backdrop-blur hover:bg-white hover:shadow-xl disabled:opacity-60"
                     >
                       Search this area
                     </button>

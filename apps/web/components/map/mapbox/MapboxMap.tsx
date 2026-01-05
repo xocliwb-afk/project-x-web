@@ -43,6 +43,7 @@ export default function MapboxMap({
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
+  const isDraggingRef = useRef(false);
   const listingsRef = useRef(listings);
   const resolveInitialCenter = () => {
     const firstWithCoords = listings.find(
@@ -112,6 +113,21 @@ export default function MapboxMap({
 
     mapRef.current = map;
     setMapInstance(map);
+    const canvas = map.getCanvas();
+    canvas.style.cursor = 'grab';
+
+    const handleMouseDown = () => {
+      isDraggingRef.current = true;
+      canvas.style.cursor = 'grabbing';
+    };
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+      canvas.style.cursor = 'grab';
+    };
+
+    map.on('mousedown', handleMouseDown);
+    map.on('mouseup', handleMouseUp);
+    map.on('dragend', handleMouseUp);
 
     const emitBounds = () => {
       if (!onBoundsChangeRef.current) return;
@@ -123,9 +139,11 @@ export default function MapboxMap({
     const sourceId = 'listings';
 
     let handleMouseEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
-    let handleMouseLeave: (() => void) | null = null;
+    let handleMouseLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleMapClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
+    let handleClusterEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+    let handleClusterLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
 
     map.on('load', () => {
       map.addSource(sourceId, {
@@ -213,7 +231,7 @@ export default function MapboxMap({
 
       handleMouseEnter = (e: mapboxgl.MapLayerMouseEvent) => {
         if (lensOpen()) return;
-        map.getCanvas().style.cursor = 'pointer';
+        canvas.style.cursor = 'pointer';
         const id = e.features?.[0]?.properties?.id as string | undefined;
         if (!id) return;
         setFeatureState(id, 'hovered', true);
@@ -223,7 +241,7 @@ export default function MapboxMap({
 
       handleMouseLeave = () => {
         if (lensOpen()) return;
-        map.getCanvas().style.cursor = '';
+        canvas.style.cursor = isDraggingRef.current ? 'grabbing' : 'grab';
         if (lastHoveredIdRef.current) {
           setFeatureState(lastHoveredIdRef.current, 'hovered', false);
           lastHoveredIdRef.current = null;
@@ -241,6 +259,20 @@ export default function MapboxMap({
       map.on('mouseenter', 'unclustered-point', handleMouseEnter);
       map.on('mouseleave', 'unclustered-point', handleMouseLeave);
       map.on('click', 'unclustered-point', handleClick);
+
+      handleClusterEnter = () => {
+        if (lensOpen()) return;
+        canvas.style.cursor = 'zoom-in';
+      };
+
+      handleClusterLeave = () => {
+        canvas.style.cursor = isDraggingRef.current ? 'grabbing' : 'grab';
+      };
+
+      map.on('mouseenter', 'clusters', handleClusterEnter);
+      map.on('mouseleave', 'clusters', handleClusterLeave);
+      map.on('mouseenter', 'cluster-count', handleClusterEnter);
+      map.on('mouseleave', 'cluster-count', handleClusterLeave);
 
       handleMapClick = (e: mapboxgl.MapMouseEvent) => {
         const { activeClusterData, isLocked } = useMapLensStore.getState();
@@ -340,9 +372,20 @@ export default function MapboxMap({
       if (handleClick) {
         map.off('click', 'unclustered-point', handleClick);
       }
+      if (handleClusterEnter) {
+        map.off('mouseenter', 'clusters', handleClusterEnter);
+        map.off('mouseenter', 'cluster-count', handleClusterEnter);
+      }
+      if (handleClusterLeave) {
+        map.off('mouseleave', 'clusters', handleClusterLeave);
+        map.off('mouseleave', 'cluster-count', handleClusterLeave);
+      }
       if (handleMapClick) {
         map.off('click', handleMapClick);
       }
+      map.off('mousedown', handleMouseDown);
+      map.off('mouseup', handleMouseUp);
+      map.off('dragend', handleMouseUp);
       map.remove();
       mapRef.current = null;
       setMapInstance(null);
