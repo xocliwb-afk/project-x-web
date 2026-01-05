@@ -91,8 +91,9 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
   }, [map, activeClusterData, ensureContainer, updatePosition, dismissLens, isLocked, isMobile]);
 
   if (isMobile) return null;
-  const container = activeClusterData ? ensureContainer() : null;
-  if (!activeClusterData || !container) return null;
+  if (!activeClusterData) return null;
+  const container = containerRef.current;
+  if (!container) return null;
 
   return createPortal(
     <div className="pointer-events-auto">
