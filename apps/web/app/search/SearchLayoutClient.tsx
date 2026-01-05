@@ -88,7 +88,6 @@ export default function SearchLayoutClient({
   const autofillRunningRef = useRef(false);
 
   // Feature flag: use Mapbox when NEXT_PUBLIC_USE_MAPBOX === 'true', default to Leaflet
-  const useMapbox = process.env.NEXT_PUBLIC_USE_MAPBOX === 'true';
   const MapComponent = useMapbox ? MapboxMap : MapPanel;
 
   const pinCount = useMemo(
