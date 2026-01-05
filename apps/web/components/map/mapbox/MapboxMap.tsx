@@ -266,20 +266,7 @@ export default function MapboxMap({
           const [lng, lat] = coords as [number, number];
           if (clusterId == null || lng == null || lat == null) return;
 
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[MB CLUSTER CLICK]', 'stage=received', {
-              hasLens: lensIsOpen,
-              lastOpenClusterId: lastOpenClusterIdRef.current,
-              clusterId,
-              pointCount,
-              point: e.point,
-            });
-          }
-
           if (lensIsOpen && lastOpenClusterIdRef.current === clusterId) {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[MB CLUSTER CLICK]', 'stage=toggle-close', { clusterId });
-            }
             clusterClickReqIdRef.current += 1;
             lastOpenClusterIdRef.current = null;
             inFlightClusterIdRef.current = null;
@@ -288,9 +275,6 @@ export default function MapboxMap({
           }
 
           if (!lensIsOpen && inFlightClusterIdRef.current === clusterId) {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[MB CLUSTER CLICK]', 'stage=inflight-ignore', { clusterId });
-            }
             return;
           }
           if (!lensIsOpen) {
@@ -303,13 +287,9 @@ export default function MapboxMap({
 
           const reqId = ++clusterClickReqIdRef.current;
           const limit = Math.min(typeof pointCount === 'number' ? pointCount : 500, 500);
-          const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
           source.getClusterLeaves(clusterId, limit, 0, (err, leaves) => {
             if (inFlightClusterIdRef.current === clusterId) {
               inFlightClusterIdRef.current = null;
-              if (process.env.NODE_ENV === 'development') {
-                console.log('[MB CLUSTER CLICK]', 'stage=inflight-clear', { clusterId });
-              }
             }
             if (reqId !== clusterClickReqIdRef.current) return;
             if (err || !leaves) {
@@ -323,15 +303,6 @@ export default function MapboxMap({
                 return id != null ? byId.get(String(id)) : undefined;
               })
               .filter(Boolean) as NormalizedListing[];
-            if (process.env.NODE_ENV === 'development') {
-              const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
-              console.log('[MB CLUSTER CLICK]', 'stage=leaves', {
-                elapsedMs: Math.round(t1 - t0),
-                leaves: leaves?.length ?? 0,
-                listings: leafListings.length,
-                clusterId,
-              });
-            }
             if (!leafListings.length) return;
             lastOpenClusterIdRef.current = clusterId;
             openImmediate(leafListings, { lat, lng }, { clusterKey });
