@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { NormalizedListing } from "@project-x/shared-types";
+import type { LatLngBoundsTuple } from "./types";
 
 type LensMiniMapProps = {
   center: [number, number];
   listings: NormalizedListing[];
-  bounds?: L.LatLngBounds | null;
+  bounds?: LatLngBoundsTuple | null;
+  focusedListingId?: string | null;
   onMarkerClick: (listing: NormalizedListing) => void;
 };
 
@@ -26,13 +28,14 @@ const DefaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-function FitBounds({ bounds }: { bounds?: L.LatLngBounds | null }) {
+function FitBounds({ bounds }: { bounds?: LatLngBoundsTuple | null }) {
   const map = useMap();
+  const leafletBounds = useMemo(() => (bounds ? L.latLngBounds(bounds) : null), [bounds]);
 
   useEffect(() => {
-    if (!bounds || !bounds.isValid()) return;
-    map.fitBounds(bounds, { padding: [20, 20], animate: false });
-  }, [map, bounds]);
+    if (!leafletBounds || !leafletBounds.isValid()) return;
+    map.fitBounds(leafletBounds, { padding: [20, 20], animate: false });
+  }, [map, leafletBounds]);
 
   return null;
 }
