@@ -243,14 +243,7 @@ export default function MapboxMap({
         filter: ['!', ['has', 'point_count']],
         layout: {
           'text-field': ['get', 'priceLabel'],
-          'text-size': [
-            'case',
-            ['boolean', ['feature-state', 'selected'], false],
-            14,
-            ['boolean', ['feature-state', 'hovered'], false],
-            13,
-            12,
-          ],
+          'text-size': ['case', ['boolean', ['feature-state', 'selected'], false], 14, ['boolean', ['feature-state', 'hovered'], false], 13, 12],
           'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -259,16 +252,9 @@ export default function MapboxMap({
           'text-padding': 2,
         },
         paint: {
-          'text-color': '#0f172a',
-          'text-halo-color': '#ffffff',
-          'text-halo-width': [
-            'case',
-            ['boolean', ['feature-state', 'selected'], false],
-            3,
-            ['boolean', ['feature-state', 'hovered'], false],
-            3,
-            2,
-          ],
+          'text-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#0f172a', ['boolean', ['feature-state', 'hovered'], false], '#0f172a', '#0f172a'],
+          'text-halo-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#ffffff', ['boolean', ['feature-state', 'hovered'], false], '#ffffff', '#ffffff'],
+          'text-halo-width': ['case', ['boolean', ['feature-state', 'selected'], false], 3, ['boolean', ['feature-state', 'hovered'], false], 3, 2],
         },
       });
 
