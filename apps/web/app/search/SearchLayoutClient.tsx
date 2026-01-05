@@ -52,6 +52,7 @@ export default function SearchLayoutClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { mapSide, paneDominance } = useTheme();
+  const useMapbox = process.env.NEXT_PUBLIC_USE_MAPBOX === 'true';
   const [listings, setListings] = useState<Listing[]>(initialListings);
   const [pagination, setPagination] =
     useState<PaginatedListingsResponse['pagination']>(initialPagination);
@@ -60,6 +61,7 @@ export default function SearchLayoutClient({
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [draftBounds, setDraftBounds] = useState<MapBounds | null>(null);
   const [boundsWaitTimedOut, setBoundsWaitTimedOut] = useState(false);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchedParamsKeyRef = useRef<string | null>(null);
@@ -67,6 +69,7 @@ export default function SearchLayoutClient({
   const autoFillControllerRef = useRef<AbortController | null>(null);
   const baseQueryKeyRef = useRef<string | null>(null);
   const hasCompletedInitialFetch = useRef(false);
+  const didAutoApplyInitialBoundsRef = useRef(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const CARDS_PER_PAGE = 25;
   const [listPage, setListPage] = useState(1);
@@ -85,7 +88,6 @@ export default function SearchLayoutClient({
   const autofillRunningRef = useRef(false);
 
   // Feature flag: use Mapbox when NEXT_PUBLIC_USE_MAPBOX === 'true', default to Leaflet
-  const useMapbox = process.env.NEXT_PUBLIC_USE_MAPBOX === 'true';
   const MapComponent = useMapbox ? MapboxMap : MapPanel;
 
   const pinCount = useMemo(
@@ -187,7 +189,8 @@ export default function SearchLayoutClient({
   const paramsKey = useMemo(() => (effectiveParams ? JSON.stringify(effectiveParams) : null), [
     effectiveParams,
   ]);
-  const isWaitingForBounds = effectiveParams === null && !boundsWaitTimedOut;
+  const isWaitingForBounds =
+    !useMapbox && effectiveParams === null && !boundsWaitTimedOut;
   const baseQueryKey = useMemo(() => {
     if (!effectiveParams) return null;
     const { page: _page, ...rest } = effectiveParams as any;
@@ -381,6 +384,7 @@ export default function SearchLayoutClient({
 
   // Bounds wait timeout: trigger fallback fetch if map bounds never arrive
   useEffect(() => {
+    if (useMapbox) return;
     if (mapBounds) {
       setBoundsWaitTimedOut(false);
       return;
@@ -395,7 +399,7 @@ export default function SearchLayoutClient({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [mapBounds, parsedParams.bbox, hasFilters, boundsWaitTimedOut]);
+  }, [mapBounds, parsedParams.bbox, hasFilters, boundsWaitTimedOut, useMapbox]);
 
   const updateUrlWithBounds = useCallback(
     (bbox: string) => {
@@ -410,11 +414,12 @@ export default function SearchLayoutClient({
   );
 
   useEffect(() => {
+    if (useMapbox) return;
     if (!mapBounds) return;
     if (mapBounds.bbox) {
       updateUrlWithBounds(mapBounds.bbox);
     }
-  }, [mapBounds, updateUrlWithBounds]);
+  }, [mapBounds, updateUrlWithBounds, useMapbox]);
 
   useEffect(() => {
     setListPage(1);
@@ -431,20 +436,53 @@ export default function SearchLayoutClient({
     [listings, listPage],
   );
 
-  const handleBoundsChange = useCallback((bounds: MapBounds) => {
-    setMapBounds((prev) => {
-      if (
-        prev &&
-        prev.swLat === bounds.swLat &&
-        prev.swLng === bounds.swLng &&
-        prev.neLat === bounds.neLat &&
-        prev.neLng === bounds.neLng
-      ) {
-        return prev;
+  const appliedBbox = mapBounds?.bbox ?? parsedParams.bbox ?? null;
+
+  const handleBoundsChange = useCallback(
+    (bounds: MapBounds) => {
+      if (useMapbox) {
+        setDraftBounds(bounds);
+        if (
+          !didAutoApplyInitialBoundsRef.current &&
+          !appliedBbox &&
+          bounds.bbox
+        ) {
+          didAutoApplyInitialBoundsRef.current = true;
+          setMapBounds(bounds);
+          updateUrlWithBounds(bounds.bbox);
+          setDraftBounds(null);
+        }
+        return;
       }
-      return bounds;
-    });
-  }, []);
+      setDraftBounds(null);
+      setMapBounds((prev) => {
+        if (
+          prev &&
+          prev.swLat === bounds.swLat &&
+          prev.swLng === bounds.swLng &&
+          prev.neLat === bounds.neLat &&
+          prev.neLng === bounds.neLng
+        ) {
+          return prev;
+        }
+        return bounds;
+      });
+    },
+    [useMapbox, appliedBbox, setMapBounds, setDraftBounds, updateUrlWithBounds],
+  );
+
+  const showSearchThisArea =
+    useMapbox && draftBounds?.bbox && appliedBbox && draftBounds.bbox !== appliedBbox;
+  const isApplyDisabled = isLoading || isAutoFilling || isLoadingMore;
+  const handleApplyDraftBounds = useCallback(() => {
+    if (!useMapbox) return;
+    if (!draftBounds) return;
+    setMapBounds(draftBounds);
+    if (draftBounds.bbox) {
+      updateUrlWithBounds(draftBounds.bbox);
+    }
+    setDraftBounds(null);
+  }, [useMapbox, draftBounds, updateUrlWithBounds, setMapBounds, setDraftBounds]);
 
   const handleCardClick = (listing: Listing) => {
     setSelectedListingId(listing.id);
@@ -607,7 +645,19 @@ export default function SearchLayoutClient({
           {/* Mobile View */}
           <div className="h-full w-full md:hidden">
             {viewMode === 'map' && (
-              <div className="h-[420px]">
+              <div className="relative h-[420px]">
+                {showSearchThisArea && (
+                  <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2">
+                    <button
+                      type="button"
+                      onClick={handleApplyDraftBounds}
+                      disabled={isApplyDisabled}
+                      className="pointer-events-auto rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow disabled:opacity-60"
+                    >
+                      Search this area
+                    </button>
+                  </div>
+                )}
                 <MapComponent
                   listings={listings}
                   selectedListingId={selectedListingId}
@@ -667,7 +717,19 @@ export default function SearchLayoutClient({
           >
             {/* Map Column */}
             <div className={`relative min-w-0 ${mapPaneClass}`}>
-              <div className="sticky top-24 h-[calc(100vh-120px)] overflow-hidden rounded-lg border border-border">
+              <div className="sticky top-24 h-[calc(100vh-120px)] overflow-hidden rounded-lg border border-border relative">
+                {showSearchThisArea && (
+                  <div className="pointer-events-none absolute left-1/2 top-4 z-20 flex -translate-x-1/2">
+                    <button
+                      type="button"
+                      onClick={handleApplyDraftBounds}
+                      disabled={isApplyDisabled}
+                      className="pointer-events-auto rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow disabled:opacity-60"
+                    >
+                      Search this area
+                    </button>
+                  </div>
+                )}
                 <MapComponent
                   listings={listings}
                   selectedListingId={selectedListingId}
