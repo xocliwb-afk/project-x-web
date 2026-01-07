@@ -33,6 +33,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.log
+stabilization_baseline_*/
 
 # ----------------------------
 # Local env (do not commit)
