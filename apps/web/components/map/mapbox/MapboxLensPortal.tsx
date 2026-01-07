@@ -85,7 +85,7 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       if (isLockedRef.current) return;
       if (inMap) return;
       if (inLens) return;
-      dismissLens();
+      dismissLensRef.current?.();
     };
 
     mapInstance.on('move', updatePosition);
@@ -104,7 +104,7 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       window.removeEventListener('scroll', updatePosition);
       document.removeEventListener('pointerdown', handlePointerDown, true);
     };
-  }, [map, activeClusterData, ensureContainer, updatePosition, dismissLens, isMobile]);
+  }, [map, activeClusterData, ensureContainer, updatePosition, isMobile]);
 
   useEffect(() => {
     // Unmount cleanup only.
@@ -118,18 +118,6 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       dismissLensRef.current?.();
     };
   }, []);
-
-  useEffect(() => {
-    return () => {
-      const existing = containerRef.current;
-      if (existing && document.body.contains(existing)) {
-        document.body.removeChild(existing);
-      }
-      containerRef.current = null;
-      setPortalContainer(null);
-      dismissLens();
-    };
-  }, [dismissLens]);
 
   if (isMobile) return null;
   if (!activeClusterData) return null;
