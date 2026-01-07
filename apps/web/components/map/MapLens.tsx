@@ -47,6 +47,9 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   );
   const focusedListingId = useMapLensStore((s) => s.focusedListingId);
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
+  const dismissLensRef = useRef(dismissLens);
+  const setFocusedListingIdRef = useRef(setFocusedListingId);
+  const hoverListingRef = useRef(onHoverListing);
   const lensRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const mobileDetected = useIsMobile();
@@ -139,6 +142,16 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     };
   }, []);
 
+  useEffect(() => {
+    dismissLensRef.current = dismissLens;
+  }, [dismissLens]);
+  useEffect(() => {
+    setFocusedListingIdRef.current = setFocusedListingId;
+  }, [setFocusedListingId]);
+  useEffect(() => {
+    hoverListingRef.current = onHoverListing;
+  }, [onHoverListing]);
+
   const handleDismiss = useCallback(() => {
     setFocusedListingId(null);
     dismissLens();
@@ -187,12 +200,13 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   }, [isMobileView, activeClusterData]);
 
   useEffect(() => {
+    // Unmount cleanup only; refs avoid dependency churn triggering premature cleanup.
     return () => {
-      setFocusedListingId(null);
-      dismissLens();
-      onHoverListing?.(null);
+      setFocusedListingIdRef.current?.(null);
+      dismissLensRef.current?.();
+      hoverListingRef.current?.(null);
     };
-  }, [dismissLens, onHoverListing, setFocusedListingId]);
+  }, []);
 
   useEffect(() => {
     if (!focusedListing) {

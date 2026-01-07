@@ -22,11 +22,15 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null);
   const isLockedRef = useRef(isLocked);
+  const dismissLensRef = useRef(dismissLens);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     isLockedRef.current = isLocked;
   }, [isLocked]);
+  useEffect(() => {
+    dismissLensRef.current = dismissLens;
+  }, [dismissLens]);
 
   const ensureContainer = useCallback(() => {
     if (containerRef.current) return containerRef.current;
@@ -101,6 +105,19 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       document.removeEventListener('pointerdown', handlePointerDown, true);
     };
   }, [map, activeClusterData, ensureContainer, updatePosition, dismissLens, isMobile]);
+
+  useEffect(() => {
+    // Unmount cleanup only.
+    return () => {
+      const existing = containerRef.current;
+      if (existing && document.body.contains(existing)) {
+        document.body.removeChild(existing);
+      }
+      containerRef.current = null;
+      setPortalContainer(null);
+      dismissLensRef.current?.();
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
