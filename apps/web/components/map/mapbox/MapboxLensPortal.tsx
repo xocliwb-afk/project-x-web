@@ -23,6 +23,7 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
   const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null);
   const isLockedRef = useRef(isLocked);
   const dismissLensRef = useRef(dismissLens);
+  const openEpochRef = useRef<number>(0);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       setPortalContainer(null);
       containerRef.current = null;
       return;
+      return;
     }
 
     let container = containerRef.current;
@@ -82,6 +84,8 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       const target = event.target as Element | null;
       const inMap = Boolean(target && mapInstance?.getContainer()?.contains(target));
       const inLens = Boolean(target && container.contains(target));
+      if (!activeClusterData || !containerRef.current) return;
+      if (Date.now() - openEpochRef.current < 200) return;
       if (isLockedRef.current) return;
       if (inMap) return;
       if (inLens) return;
@@ -92,8 +96,11 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
     mapInstance.on('zoom', updatePosition);
     window.addEventListener('resize', updatePosition);
     window.addEventListener('scroll', updatePosition, { passive: true });
-    document.addEventListener('pointerdown', handlePointerDown, true);
+    if (activeClusterData && containerRef.current) {
+      document.addEventListener('pointerdown', handlePointerDown, true);
+    }
 
+    openEpochRef.current = Date.now();
     updatePosition();
     requestAnimationFrame(updatePosition);
 
