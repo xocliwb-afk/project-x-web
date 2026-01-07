@@ -102,6 +102,18 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
     };
   }, [map, activeClusterData, ensureContainer, updatePosition, dismissLens, isMobile]);
 
+  useEffect(() => {
+    return () => {
+      const existing = containerRef.current;
+      if (existing && document.body.contains(existing)) {
+        document.body.removeChild(existing);
+      }
+      containerRef.current = null;
+      setPortalContainer(null);
+      dismissLens();
+    };
+  }, [dismissLens]);
+
   if (isMobile) return null;
   if (!activeClusterData) return null;
   const container = portalContainer;
