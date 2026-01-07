@@ -516,6 +516,23 @@ export default function MapboxMap({
       };
 
       map.on('click', handleMapClick);
+      map.on('dragstart', () => {
+        isDraggingRef.current = true;
+        canvas.style.cursor = 'grabbing';
+      });
+      map.on('dragend', () => {
+        isDraggingRef.current = false;
+        canvas.style.cursor = 'grab';
+      });
+      map.on('drag', () => {
+        if (isDraggingRef.current) {
+          canvas.style.cursor = 'grabbing';
+        }
+      });
+      map.on('mouseout', () => {
+        isDraggingRef.current = false;
+        canvas.style.cursor = 'grab';
+      });
 
       sourceReadyRef.current = true;
       emitBounds();
