@@ -68,7 +68,7 @@ export default function ListingsList({
   return (
     <>
       <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2">
-        {listings.map((listing) => (
+        {listings.map((listing, idx) => (
           <div
             key={listing.id}
             data-listing-id={listing.id}
@@ -87,6 +87,7 @@ export default function ListingsList({
                 selectedListingId === listing.id ||
                 hoveredListingId === listing.id
               }
+              priority={idx === 0}
               onMouseEnter={() => onHoverListing?.(listing.id)}
               onMouseLeave={() => onHoverListing?.(null)}
               onClick={(item) => {
