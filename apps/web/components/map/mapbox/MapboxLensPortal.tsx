@@ -24,6 +24,7 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
   const isLockedRef = useRef(isLocked);
   const dismissLensRef = useRef(dismissLens);
   const openEpochRef = useRef<number>(0);
+  const wasOpenRef = useRef(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -68,7 +69,7 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       }
       setPortalContainer(null);
       containerRef.current = null;
-      return;
+      wasOpenRef.current = false;
       return;
     }
 
@@ -78,6 +79,11 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
     }
     if (!document.body.contains(container)) {
       document.body.appendChild(container);
+    }
+
+    if (!wasOpenRef.current) {
+      openEpochRef.current = Date.now();
+      wasOpenRef.current = true;
     }
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -100,7 +106,6 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
       document.addEventListener('pointerdown', handlePointerDown, true);
     }
 
-    openEpochRef.current = Date.now();
     updatePosition();
     requestAnimationFrame(updatePosition);
 
