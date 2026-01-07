@@ -170,7 +170,7 @@ export default function MapboxMap({
 
     map.on('load', () => {
       const pillId = 'price-pill';
-      if (!map.hasImage(pillId)) {
+      if (map.hasImage(pillId) === false) {
         const width = 80;
         const height = 36;
         const radius = 18;
@@ -196,113 +196,159 @@ export default function MapboxMap({
           ctx.closePath();
           ctx.fill();
           ctx.stroke();
-          map.addImage(pillId, ctx.getImageData(0, 0, canvas.width, canvas.height), {
-            pixelRatio: 2,
-          });
+          try {
+            map.addImage(pillId, ctx.getImageData(0, 0, canvas.width, canvas.height), {
+              pixelRatio: 2,
+            });
+          } catch (err) {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[MapboxMap] Failed to add price-pill image:', err);
+            }
+          }
         }
       }
 
-      map.addSource(sourceId, {
-        type: 'geojson',
-        data: listingsToGeoJSON(listingsRef.current),
-        cluster: true,
-        clusterRadius: 50,
-        clusterMaxZoom: 14,
-      });
+      if (!map.getSource(sourceId)) {
+        try {
+          map.addSource(sourceId, {
+            type: 'geojson',
+            data: listingsToGeoJSON(listingsRef.current),
+            cluster: true,
+            clusterRadius: 50,
+            clusterMaxZoom: 14,
+          });
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[MapboxMap] Failed to add source:', err);
+          }
+        }
+      }
 
-      map.addLayer({
-        id: 'clusters',
-        type: 'circle',
-        source: sourceId,
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            '#93c5fd',
-            10,
-            '#60a5fa',
-            25,
-            '#3b82f6',
-            50,
-            '#1d4ed8',
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            14,
-            10,
-            18,
-            25,
-            22,
-            50,
-            28,
-          ],
-        },
-      });
+      if (!map.getLayer('clusters')) {
+        try {
+          map.addLayer({
+            id: 'clusters',
+            type: 'circle',
+            source: sourceId,
+            filter: ['has', 'point_count'],
+            paint: {
+              'circle-color': [
+                'step',
+                ['get', 'point_count'],
+                '#93c5fd',
+                10,
+                '#60a5fa',
+                25,
+                '#3b82f6',
+                50,
+                '#1d4ed8',
+              ],
+              'circle-radius': [
+                'step',
+                ['get', 'point_count'],
+                14,
+                10,
+                18,
+                25,
+                22,
+                50,
+                28,
+              ],
+            },
+          });
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[MapboxMap] Failed to add clusters layer:', err);
+          }
+        }
+      }
 
-      map.addLayer({
-        id: 'cluster-count',
-        type: 'symbol',
-        source: sourceId,
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': ['get', 'point_count_abbreviated'],
-          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-          'text-size': 12,
-        },
-        paint: {
-          'text-color': '#0f172a',
-        },
-      });
+      if (!map.getLayer('cluster-count')) {
+        try {
+          map.addLayer({
+            id: 'cluster-count',
+            type: 'symbol',
+            source: sourceId,
+            filter: ['has', 'point_count'],
+            layout: {
+              'text-field': ['get', 'point_count_abbreviated'],
+              'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+              'text-size': 12,
+            },
+            paint: {
+              'text-color': '#0f172a',
+            },
+          });
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[MapboxMap] Failed to add cluster-count layer:', err);
+          }
+        }
+      }
 
-      map.addLayer({
-        id: 'unclustered-point',
-        type: 'circle',
-        source: sourceId,
-        filter: ['!', ['has', 'point_count']],
-        paint: {
-          'circle-color': '#2563eb',
-          'circle-radius': 12,
-          'circle-opacity': [
-            'case',
-            ['boolean', ['feature-state', 'selected'], false],
-            0.25,
-            ['boolean', ['feature-state', 'hovered'], false],
-            0.15,
-            0.0,
-          ],
-          'circle-stroke-width': 0,
-        },
-      });
+      if (!map.getLayer('unclustered-point')) {
+        try {
+          map.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: sourceId,
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+              'circle-color': '#2563eb',
+              'circle-radius': 12,
+              'circle-opacity': [
+                'case',
+                ['boolean', ['feature-state', 'selected'], false],
+                0.25,
+                ['boolean', ['feature-state', 'hovered'], false],
+                0.15,
+                0.0,
+              ],
+              'circle-stroke-width': 0,
+            },
+          });
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[MapboxMap] Failed to add unclustered-point layer:', err);
+          }
+        }
+      }
 
-      map.addLayer({
-        id: 'unclustered-price',
-        type: 'symbol',
-        source: sourceId,
-        filter: ['!', ['has', 'point_count']],
-        layout: {
-          'text-field': ['get', 'priceLabel'],
-          'text-size': 14,
-          'icon-image': 'price-pill',
-          'icon-text-fit': 'both',
-          'icon-text-fit-padding': [6, 10, 6, 10],
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-          'icon-anchor': 'center',
-          'text-font': ['DIN Offc Pro Bold', 'DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-          'text-allow-overlap': true,
-          'text-ignore-placement': true,
-          'text-anchor': 'center',
-          'text-offset': [0, 0],
-          'text-padding': 2,
-        },
-        paint: {
-          'text-color': '#0f172a',
-          'text-halo-color': '#0f172a',
-          'text-halo-width': 0,
-        },
-      });
+      if (!map.getLayer('unclustered-price')) {
+        try {
+          map.addLayer({
+            id: 'unclustered-price',
+            type: 'symbol',
+            source: sourceId,
+            filter: ['!', ['has', 'point_count']],
+            layout: {
+              'text-field': ['get', 'priceLabel'],
+              'text-size': 14,
+              'icon-image': 'price-pill',
+              'icon-text-fit': 'both',
+              'icon-text-fit-padding': [6, 10, 6, 10],
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+              'icon-anchor': 'center',
+              'text-font': ['DIN Offc Pro Bold', 'DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+              'text-allow-overlap': true,
+              'text-ignore-placement': true,
+              'text-anchor': 'center',
+              'text-offset': [0, 0],
+              'text-padding': 2,
+            },
+            paint: {
+              'text-color': '#0f172a',
+              'text-halo-color': '#0f172a',
+              'text-halo-width': 0,
+            },
+          });
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[MapboxMap] Failed to add unclustered-price layer:', err);
+          }
+        }
+      }
 
       const lensOpen = () => Boolean(useMapLensStore.getState().activeClusterData);
 
