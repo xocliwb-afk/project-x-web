@@ -67,6 +67,18 @@ const getSortValue = (listing: NormalizedListing, sort?: SortKey): number | null
   }
 };
 
+const buildStableId = (listing: NormalizedListing): string => {
+  const meta = (listing as any)?.meta ?? {};
+  return String(
+    listing.mlsId ??
+      listing.id ??
+      meta.listingId ??
+      meta.providerId ??
+      listing.address?.full ??
+      'unknown',
+  );
+};
+
 export const stableSortListings = (listings: NormalizedListing[], sort?: SortKey) => {
   // Keep original order if no sort requested
   if (!sort) return listings.slice();
@@ -75,30 +87,29 @@ export const stableSortListings = (listings: NormalizedListing[], sort?: SortKey
   if (sort === 'price-desc' || sort === 'newest') dir = 'desc';
   if (sort === 'dom') dir = 'asc';
 
-  const withIndex = listings.map((item, index) => ({
+  const withId = listings.map((item) => ({
     item,
-    index,
-    id: String(item.mlsId ?? item.id ?? index),
+    id: buildStableId(item),
   }));
 
-  withIndex.sort((a, b) => {
+  withId.sort((a, b) => {
     const aVal = getSortValue(a.item, sort);
     const bVal = getSortValue(b.item, sort);
     const aMissing = aVal == null || Number.isNaN(aVal);
     const bMissing = bVal == null || Number.isNaN(bVal);
 
     if (aMissing && bMissing) {
-      return a.id.localeCompare(b.id) || a.index - b.index;
+      return a.id.localeCompare(b.id);
     }
     if (aMissing) return 1;
     if (bMissing) return -1;
 
     if (aVal === bVal) {
-      return a.id.localeCompare(b.id) || a.index - b.index;
+      return a.id.localeCompare(b.id);
     }
 
     return dir === 'desc' ? (bVal as number) - (aVal as number) : (aVal as number) - (bVal as number);
   });
 
-  return withIndex.map((w) => w.item);
+  return withId.map((w) => w.item);
 };

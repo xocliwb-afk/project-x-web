@@ -7,6 +7,11 @@ let simplyRetsProvider: SimplyRetsListingProvider | null = null;
 
 export function getListingProvider(): ListingProvider {
   const providerName = process.env.DATA_PROVIDER?.toLowerCase();
+  const allowedProviders = new Set(['mock', 'simplyrets', undefined]);
+
+  if (!allowedProviders.has(providerName)) {
+    throw new Error(`Unsupported DATA_PROVIDER value "${providerName}". Allowed: mock, simplyrets.`);
+  }
 
   switch (providerName) {
     case 'simplyrets': {
@@ -15,8 +20,8 @@ export function getListingProvider(): ListingProvider {
       }
       return simplyRetsProvider;
     }
-
     case 'mock':
+    case undefined:
     default:
       return mockProvider;
   }

@@ -64,8 +64,9 @@ router.get('/', async (req, res) => {
       if (bboxString) {
         const { minLng, minLat, maxLng, maxLat } = parseBbox(bboxString);
         bboxString = `${minLng},${minLat},${maxLng},${maxLat}`;
-      } else if (!hasAnyNonPagingFilter(params)) {
-        if (page > 1) {
+      } else {
+        const hasFilters = hasAnyNonPagingFilter(params);
+        if (!hasFilters && page > 1) {
           const error: ApiError = {
             error: true,
             message: 'bbox is required when paging without other filters',
@@ -74,7 +75,7 @@ router.get('/', async (req, res) => {
           };
           return res.status(400).json(error);
         }
-        // Allow page 1 without bbox but cap limit to default for safety
+        // Cap limit when bbox is missing regardless of page to protect providers
         if (limit > DEFAULT_LIMIT) {
           limit = DEFAULT_LIMIT;
         }
