@@ -70,6 +70,8 @@ export default function SearchLayoutClient({
   const baseQueryKeyRef = useRef<string | null>(null);
   const hasCompletedInitialFetch = useRef(false);
   const didAutoApplyInitialBoundsRef = useRef(false);
+  const fetchRequestIdRef = useRef(0);
+  const autofillRequestIdRef = useRef(0);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const CARDS_PER_PAGE = 25;
   const [listPage, setListPage] = useState(1);
@@ -230,6 +232,7 @@ export default function SearchLayoutClient({
     }
     inFlightPagesRef.current.add(pageKey);
     const controller = new AbortController();
+    const fetchRequestId = ++fetchRequestIdRef.current;
 
     fetchTimeoutRef.current = setTimeout(async () => {
       if (hasCompletedInitialFetch.current) {
@@ -241,18 +244,18 @@ export default function SearchLayoutClient({
           parsed,
           controller.signal,
         );
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || fetchRequestId !== fetchRequestIdRef.current) return;
         loadedPagesRef.current.add(pageKey);
         setListings(results);
         setPagination(newPagination);
         setError(null);
         lastFetchedParamsKeyRef.current = paramsKey;
       } catch (err) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || fetchRequestId !== fetchRequestIdRef.current) return;
         console.error('[SearchLayoutClient] failed to fetch listings', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch listings');
       } finally {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && fetchRequestId === fetchRequestIdRef.current) {
           setIsLoading(false);
           hasCompletedInitialFetch.current = true;
         }
@@ -293,6 +296,7 @@ export default function SearchLayoutClient({
     setIsAutoFilling(true);
     autofillKeyRef.current = autoKey;
     autofillRunningRef.current = true;
+    const autofillRequestId = ++autofillRequestIdRef.current;
 
     const baseKey = baseQueryKeyRef.current;
     let currentPage = pagination.page ?? 1;
@@ -324,7 +328,9 @@ export default function SearchLayoutClient({
               params,
               controller.signal,
             );
-            if (controller.signal.aborted) return;
+            if (controller.signal.aborted || autofillRequestId !== autofillRequestIdRef.current) {
+              return;
+            }
             if (baseKey && baseQueryKeyRef.current && baseQueryKeyRef.current !== baseKey) {
               return;
             }
@@ -344,11 +350,16 @@ export default function SearchLayoutClient({
             loadedPagesRef.current.add(pageKey);
             currentPage = nextPagination.page ?? nextPage;
             hasMore = nextPagination.hasMore;
+            if (controller.signal.aborted || autofillRequestId !== autofillRequestIdRef.current) {
+              return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 120));
           } finally {
             inFlightPagesRef.current.delete(pageKey);
           }
         }
         if (controller.signal.aborted) return;
+        if (autofillRequestId !== autofillRequestIdRef.current) return;
         if (baseKey && baseQueryKeyRef.current && baseQueryKeyRef.current !== baseKey) {
           return;
         }
