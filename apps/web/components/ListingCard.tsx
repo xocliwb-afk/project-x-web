@@ -22,6 +22,7 @@ interface ListingCardProps {
   onMouseEnter: (id: string) => void;
   onMouseLeave: () => void;
   onClick?: (listing: Listing) => void;
+  priority?: boolean;
 }
 
 export function ListingCard({
@@ -30,6 +31,7 @@ export function ListingCard({
   onMouseEnter,
   onMouseLeave,
   onClick,
+  priority = false,
 }: ListingCardProps) {
   const photos = listing.media?.photos ?? [];
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -79,6 +81,8 @@ export function ListingCard({
           alt={`Image of ${fullAddress}`}
           fill
           style={{ objectFit: 'cover' }}
+          sizes="(min-width: 1280px) 480px, (min-width: 1024px) 420px, (min-width: 768px) 60vw, 100vw"
+          priority={priority}
           className="bg-slate-200"
         />
         {typeof status === 'string' && status.trim().length > 0 && (
