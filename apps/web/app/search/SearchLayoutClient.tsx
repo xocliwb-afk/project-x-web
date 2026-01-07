@@ -436,7 +436,9 @@ export default function SearchLayoutClient({
     [listings, listPage],
   );
 
-  const appliedBbox = mapBounds?.bbox ?? parsedParams.bbox ?? null;
+  const appliedBbox = useMapbox
+    ? mapBounds?.bbox ?? null
+    : mapBounds?.bbox ?? parsedParams.bbox ?? null;
 
   const handleBoundsChange = useCallback(
     (bounds: MapBounds) => {
