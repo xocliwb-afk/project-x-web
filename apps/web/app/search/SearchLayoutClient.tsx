@@ -44,6 +44,27 @@ type MapBounds = {
   bbox?: string;
 };
 
+type PinHydrationStatus = 'idle' | 'running' | 'done' | 'capped' | 'aborted' | 'error';
+
+type PinHydrationMeta = {
+  cap: number;
+  seeded: number;
+  hydrated: number;
+  aborted: number;
+  errors: number;
+};
+
+const buildPinListingsMap = (source: Listing[]) => {
+  const map = new Map<string, Listing>();
+  for (const listing of source) {
+    const listingId = listing.id ?? listing.mlsId;
+    const key = listingId != null ? listingId.toString() : null;
+    if (!key || map.has(key)) continue;
+    map.set(key, listing);
+  }
+  return map;
+};
+
 export default function SearchLayoutClient({
   initialListings,
   initialPagination,
@@ -68,6 +89,9 @@ export default function SearchLayoutClient({
   const loadMoreControllerRef = useRef<AbortController | null>(null);
   const autoFillControllerRef = useRef<AbortController | null>(null);
   const baseQueryKeyRef = useRef<string | null>(null);
+  const baseQueryInvariantWarnedRef = useRef(false);
+  const lastParamsKeyRef = useRef<string | null>(null);
+  const lastBaseQueryKeyRef = useRef<string | null>(null);
   const hasCompletedInitialFetch = useRef(false);
   const didAutoApplyInitialBoundsRef = useRef(false);
   const fetchRequestIdRef = useRef(0);
@@ -78,6 +102,22 @@ export default function SearchLayoutClient({
 
   const TARGET_RESULTS = 100;
   const PAGE_SIZE = 50;
+  const initialPinListingsMap = useMemo(
+    () => buildPinListingsMap(initialListings),
+    [initialListings],
+  );
+  const [pinHydrationStatus, setPinHydrationStatus] =
+    useState<PinHydrationStatus>('idle');
+  const [pinHydrationMeta, setPinHydrationMeta] = useState<PinHydrationMeta>({
+    cap: TARGET_RESULTS,
+    seeded: initialPinListingsMap.size,
+    hydrated: 0,
+    aborted: 0,
+    errors: 0,
+  });
+  const [pinListingsById, setPinListingsById] = useState<Map<string, Listing>>(
+    () => initialPinListingsMap,
+  );
 
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
@@ -92,12 +132,17 @@ export default function SearchLayoutClient({
   // Feature flag: use Mapbox when NEXT_PUBLIC_USE_MAPBOX === 'true', default to Leaflet
   const MapComponent = useMapbox ? MapboxMap : MapPanel;
 
+  const pinListings = useMemo(
+    () => Array.from(pinListingsById.values()),
+    [pinListingsById],
+  );
+
   const pinCount = useMemo(
     () =>
-      listings.filter(
+      pinListings.filter(
         (l) => Number.isFinite(l.address?.lat) && Number.isFinite(l.address?.lng),
       ).length,
-    [listings],
+    [pinListings],
   );
 
   const hasAnyNonPagingFilterFrontend = useCallback((p: FetchListingsParams) => {
@@ -199,6 +244,65 @@ export default function SearchLayoutClient({
     return JSON.stringify({ ...rest, page: 1 });
   }, [effectiveParams]);
   const queryKey = baseQueryKey ?? paramsKey ?? 'none';
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    const prevParamsKey = lastParamsKeyRef.current;
+    const prevBaseKey = lastBaseQueryKeyRef.current;
+
+    if (
+      paramsKey &&
+      baseQueryKey &&
+      prevParamsKey &&
+      prevBaseKey &&
+      !baseQueryInvariantWarnedRef.current
+    ) {
+      try {
+        const prevParams: FetchListingsParams = JSON.parse(prevParamsKey);
+        const currentParams: FetchListingsParams = JSON.parse(paramsKey);
+        const { page: prevPage, ...prevRest } = prevParams;
+        const { page: currentPage, ...currentRest } = currentParams;
+        const restChanged = JSON.stringify(prevRest) !== JSON.stringify(currentRest);
+        const pageChanged = prevPage !== currentPage;
+        if (pageChanged && !restChanged && baseQueryKey !== prevBaseKey) {
+          console.warn(
+            '[SearchLayoutClient] baseQueryKey changed unexpectedly when only page changed',
+          );
+          baseQueryInvariantWarnedRef.current = true;
+        }
+      } catch {
+        // ignore JSON parse failures in dev-only invariant guard
+      }
+    }
+
+    lastParamsKeyRef.current = paramsKey;
+    lastBaseQueryKeyRef.current = baseQueryKey;
+  }, [paramsKey, baseQueryKey]);
+
+  useEffect(() => {
+    const nextMap = buildPinListingsMap(listings);
+    const hydrationCap = pinHydrationMeta.cap;
+    setPinListingsById((prev) => {
+      if (prev.size === nextMap.size) {
+        let isSame = true;
+        nextMap.forEach((value, key) => {
+          if (isSame && prev.get(key) !== value) {
+            isSame = false;
+          }
+        });
+        if (isSame) return prev;
+      }
+      return nextMap;
+    });
+    setPinHydrationMeta((prev) =>
+      prev.seeded === nextMap.size && prev.cap === hydrationCap
+        ? prev
+        : { ...prev, seeded: nextMap.size, cap: hydrationCap },
+    );
+    if (pinHydrationStatus !== 'idle') {
+      setPinHydrationStatus('idle');
+    }
+  }, [listings, pinHydrationStatus, pinHydrationMeta.cap]);
 
   useEffect(() => {
     inFlightPagesRef.current.clear();
@@ -672,7 +776,7 @@ export default function SearchLayoutClient({
                   </div>
                 )}
                 <MapComponent
-                  listings={listings}
+                  listings={pinListings}
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
@@ -744,7 +848,7 @@ export default function SearchLayoutClient({
                   </div>
                 )}
                 <MapComponent
-                  listings={listings}
+                  listings={pinListings}
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
