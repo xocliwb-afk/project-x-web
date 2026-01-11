@@ -550,6 +550,12 @@ export default function SearchLayoutClient({
   useEffect(() => {
     if (!ENABLE_PIN_HYDRATION) return;
     if (!baseQueryKey || !effectiveParams) return;
+    const hasAppliedBounds =
+      (typeof effectiveParams.bbox === 'string' && effectiveParams.bbox.trim().length > 0) ||
+      ([effectiveParams.swLat, effectiveParams.swLng, effectiveParams.neLat, effectiveParams.neLng] as Array<
+        number | string | undefined
+      >).every((v) => Number.isFinite(typeof v === 'string' ? Number(v) : v));
+    if (!hasAppliedBounds) return;
     if (lastPinHydrationBaseKeyRef.current === baseQueryKey) return;
 
     lastPinHydrationBaseKeyRef.current = baseQueryKey;
