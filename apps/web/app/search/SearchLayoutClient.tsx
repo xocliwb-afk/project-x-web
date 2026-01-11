@@ -178,6 +178,13 @@ export default function SearchLayoutClient({
       ).length,
     [pinListings],
   );
+  const pinHydrationSuffix = useMemo(() => {
+    if (pinHydrationStatus === 'running') return '(hydrating...)';
+    if (pinHydrationStatus === 'capped')
+      return `(capped at ${pinHydrationMeta.cap.toLocaleString()})`;
+    if (pinHydrationStatus === 'error') return '(error)';
+    return '';
+  }, [pinHydrationStatus, pinHydrationMeta.cap]);
 
   const hasAnyNonPagingFilterFrontend = useCallback((p: FetchListingsParams) => {
     return Boolean(
@@ -1007,8 +1014,14 @@ export default function SearchLayoutClient({
                   {isLoading || isWaitingForBounds
                     ? 'Loading...'
                     : `Showing ${visibleListings.length.toLocaleString()} / ${TARGET_RESULTS} results`}{" "}
-                  · Pins: {pinCount.toLocaleString()} {isAutoFilling ? '(loading...)' : ''}
+                  · Pins: {pinCount.toLocaleString()} {pinHydrationSuffix}
                 </div>
+                {pinHydrationStatus === 'capped' && (
+                  <div className="mb-3 text-xs text-text-main/60">
+                    Showing up to {pinHydrationMeta.cap.toLocaleString()} pins for this area. Zoom
+                    in or refine filters to see more.
+                  </div>
+                )}
                 <ListingsList
                   listings={visibleListings}
                   isLoading={isLoading}
@@ -1089,8 +1102,14 @@ export default function SearchLayoutClient({
                       {isAutoFilling ? ' (loading...)' : ''}
                     </p>
                     <p className="text-xs text-text-main/60">
-                      Pins: {pinCount.toLocaleString()}
+                      Pins: {pinCount.toLocaleString()} {pinHydrationSuffix}
                     </p>
+                    {pinHydrationStatus === 'capped' && (
+                      <p className="text-xs text-text-main/60">
+                        Showing up to {pinHydrationMeta.cap.toLocaleString()} pins for this area.
+                        Zoom in or refine filters to see more.
+                      </p>
+                    )}
                     {error && (
                       <p className="text-xs text-red-500">
                         Unable to refresh listings. Please try again.
