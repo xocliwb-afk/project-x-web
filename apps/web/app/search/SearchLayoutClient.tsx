@@ -54,6 +54,15 @@ type PinHydrationMeta = {
   errors: number;
 };
 
+const ENABLE_PIN_HYDRATION = true;
+const PIN_HYDRATION_HARD_CAP = 2000;
+const LOW_LIMIT_THRESHOLD = 200;
+const MAX_PIN_PAGES_PER_APPLY_FAILSAFE = 6;
+const ABSOLUTE_MAX_PIN_PAGES = 12;
+const PIN_HYDRATION_PAGE_LIMIT = 500;
+const FIRST_PIN_REQUEST_DELAY = 750;
+const MIN_DELAY_BETWEEN_PIN_REQUESTS = 500;
+
 const buildPinListingsMap = (source: Listing[]) => {
   const map = new Map<string, Listing>();
   for (const listing of source) {
@@ -92,6 +101,11 @@ export default function SearchLayoutClient({
   const baseQueryInvariantWarnedRef = useRef(false);
   const lastParamsKeyRef = useRef<string | null>(null);
   const lastBaseQueryKeyRef = useRef<string | null>(null);
+  const pinHydrationControllerRef = useRef<AbortController | null>(null);
+  const pinHydrationRunIdRef = useRef(0);
+  const pinHydrationCapRef = useRef<number>(PIN_HYDRATION_HARD_CAP);
+  const clampWarnedBaseKeyRef = useRef<string | null>(null);
+  const lastPinHydrationBaseKeyRef = useRef<string | null>(null);
   const hasCompletedInitialFetch = useRef(false);
   const didAutoApplyInitialBoundsRef = useRef(false);
   const fetchRequestIdRef = useRef(0);
@@ -109,7 +123,7 @@ export default function SearchLayoutClient({
   const [pinHydrationStatus, setPinHydrationStatus] =
     useState<PinHydrationStatus>('idle');
   const [pinHydrationMeta, setPinHydrationMeta] = useState<PinHydrationMeta>({
-    cap: TARGET_RESULTS,
+    cap: PIN_HYDRATION_HARD_CAP,
     seeded: initialPinListingsMap.size,
     hydrated: 0,
     aborted: 0,
@@ -128,6 +142,10 @@ export default function SearchLayoutClient({
   const loadedPagesRef = useRef<Set<string>>(new Set());
   const autofillKeyRef = useRef<string | null>(null);
   const autofillRunningRef = useRef(false);
+  const listingsRef = useRef(listings);
+  const pinListingsByIdRef = useRef(pinListingsById);
+  const isAutoFillingRef = useRef(isAutoFilling);
+  const isLoadingMoreRef = useRef(isLoadingMore);
 
   // Feature flag: use Mapbox when NEXT_PUBLIC_USE_MAPBOX === 'true', default to Leaflet
   const MapComponent = useMapbox ? MapboxMap : MapPanel;
@@ -136,6 +154,22 @@ export default function SearchLayoutClient({
     () => Array.from(pinListingsById.values()),
     [pinListingsById],
   );
+
+  useEffect(() => {
+    listingsRef.current = listings;
+  }, [listings]);
+
+  useEffect(() => {
+    pinListingsByIdRef.current = pinListingsById;
+  }, [pinListingsById]);
+
+  useEffect(() => {
+    isAutoFillingRef.current = isAutoFilling;
+  }, [isAutoFilling]);
+
+  useEffect(() => {
+    isLoadingMoreRef.current = isLoadingMore;
+  }, [isLoadingMore]);
 
   const pinCount = useMemo(
     () =>
@@ -280,29 +314,45 @@ export default function SearchLayoutClient({
   }, [paramsKey, baseQueryKey]);
 
   useEffect(() => {
-    const nextMap = buildPinListingsMap(listings);
-    const hydrationCap = pinHydrationMeta.cap;
-    setPinListingsById((prev) => {
-      if (prev.size === nextMap.size) {
-        let isSame = true;
-        nextMap.forEach((value, key) => {
-          if (isSame && prev.get(key) !== value) {
-            isSame = false;
-          }
-        });
-        if (isSame) return prev;
-      }
-      return nextMap;
-    });
-    setPinHydrationMeta((prev) =>
-      prev.seeded === nextMap.size && prev.cap === hydrationCap
-        ? prev
-        : { ...prev, seeded: nextMap.size, cap: hydrationCap },
-    );
-    if (pinHydrationStatus !== 'idle') {
-      setPinHydrationStatus('idle');
+    pinHydrationRunIdRef.current += 1;
+    if (pinHydrationControllerRef.current) {
+      pinHydrationControllerRef.current.abort();
+      pinHydrationControllerRef.current = null;
     }
-  }, [listings, pinHydrationStatus, pinHydrationMeta.cap]);
+    clampWarnedBaseKeyRef.current = null;
+    lastPinHydrationBaseKeyRef.current = null;
+    pinHydrationCapRef.current = PIN_HYDRATION_HARD_CAP;
+    const seededMap = buildPinListingsMap(listingsRef.current);
+    pinListingsByIdRef.current = seededMap;
+    setPinListingsById(seededMap);
+    setPinHydrationMeta({
+      cap: PIN_HYDRATION_HARD_CAP,
+      seeded: seededMap.size,
+      hydrated: 0,
+      aborted: 0,
+      errors: 0,
+    });
+    setPinHydrationStatus('idle');
+  }, [baseQueryKey]);
+
+  useEffect(() => {
+    if (!baseQueryKey) return;
+    const nextMap = new Map(pinListingsByIdRef.current);
+    let added = 0;
+    for (const listing of listings) {
+      const listingId = listing.id ?? listing.mlsId;
+      const key = listingId != null ? listingId.toString() : null;
+      if (!key || nextMap.has(key)) continue;
+      nextMap.set(key, listing);
+      added += 1;
+    }
+    if (added === 0) return;
+    pinListingsByIdRef.current = nextMap;
+    setPinListingsById(nextMap);
+    setPinHydrationMeta((prev) =>
+      prev.seeded === nextMap.size ? prev : { ...prev, seeded: nextMap.size },
+    );
+  }, [listings, baseQueryKey]);
 
   useEffect(() => {
     inFlightPagesRef.current.clear();
@@ -496,6 +546,173 @@ export default function SearchLayoutClient({
     isAutoFilling,
     queryKey,
   ]);
+
+  useEffect(() => {
+    if (!ENABLE_PIN_HYDRATION) return;
+    if (!baseQueryKey || !effectiveParams) return;
+    const hasAppliedBounds =
+      (typeof effectiveParams.bbox === 'string' && effectiveParams.bbox.trim().length > 0) ||
+      ([effectiveParams.swLat, effectiveParams.swLng, effectiveParams.neLat, effectiveParams.neLng] as Array<
+        number | string | undefined
+      >).every((v) => Number.isFinite(typeof v === 'string' ? Number(v) : v));
+    if (!hasAppliedBounds) return;
+    if (lastPinHydrationBaseKeyRef.current === baseQueryKey) return;
+
+    lastPinHydrationBaseKeyRef.current = baseQueryKey;
+
+    const runId = ++pinHydrationRunIdRef.current;
+    if (pinHydrationControllerRef.current) {
+      pinHydrationControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    pinHydrationControllerRef.current = controller;
+
+    let cap = pinHydrationCapRef.current ?? PIN_HYDRATION_HARD_CAP;
+    let hasMore = true;
+    let page = 1;
+    let pagesFetched = 0;
+    let maxPages = ABSOLUTE_MAX_PIN_PAGES;
+    let finished = false;
+    setPinHydrationStatus('running');
+
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const setStatusIfCurrent = (status: PinHydrationStatus) => {
+      setPinHydrationStatus((prev) =>
+        pinHydrationRunIdRef.current === runId ? status : prev,
+      );
+    };
+
+    const run = async () => {
+      await delay(FIRST_PIN_REQUEST_DELAY);
+      while (!controller.signal.aborted && hasMore) {
+        if (pinListingsByIdRef.current.size >= cap) {
+          finished = true;
+          setStatusIfCurrent('capped');
+          return;
+        }
+        if (pagesFetched >= maxPages || page > maxPages) {
+          finished = true;
+          setStatusIfCurrent('capped');
+          return;
+        }
+        if (isAutoFillingRef.current || isLoadingMoreRef.current) {
+          await delay(150);
+          continue;
+        }
+
+        const params = {
+          ...effectiveParams,
+          limit: PIN_HYDRATION_PAGE_LIMIT,
+          page,
+        };
+
+        let results: Listing[] = [];
+        let nextPagination: PaginatedListingsResponse['pagination'] | undefined;
+        try {
+          const response = await fetchListings(params, controller.signal);
+          results = response.results;
+          nextPagination = response.pagination;
+        } catch (err) {
+          if (controller.signal.aborted || pinHydrationRunIdRef.current !== runId) return;
+          finished = true;
+          console.warn('[SearchLayoutClient] pin hydration failed', err);
+          setStatusIfCurrent('error');
+          setPinHydrationMeta((prev) =>
+            pinHydrationRunIdRef.current === runId ? { ...prev, errors: prev.errors + 1 } : prev,
+          );
+          return;
+        }
+
+        if (controller.signal.aborted || pinHydrationRunIdRef.current !== runId) return;
+        pagesFetched += 1;
+
+        if (pagesFetched === 1) {
+          const effectiveLimit = (nextPagination?.limit ?? results.length) || 0;
+          if (effectiveLimit > 0 && effectiveLimit < LOW_LIMIT_THRESHOLD) {
+            const clampSafeCap = Math.min(
+              PIN_HYDRATION_HARD_CAP,
+              effectiveLimit * MAX_PIN_PAGES_PER_APPLY_FAILSAFE,
+            );
+            cap = clampSafeCap;
+            maxPages = Math.min(maxPages, MAX_PIN_PAGES_PER_APPLY_FAILSAFE);
+            pinHydrationCapRef.current = clampSafeCap;
+            setPinHydrationMeta((prev) => ({ ...prev, cap: clampSafeCap }));
+            if (
+              process.env.NODE_ENV === 'development' &&
+              clampWarnedBaseKeyRef.current !== baseQueryKey
+            ) {
+              console.warn('[SearchLayoutClient] pin hydration clamp-safe mode enabled');
+              clampWarnedBaseKeyRef.current = baseQueryKey;
+            }
+          }
+        }
+
+        let added = 0;
+        const nextMap = new Map(pinListingsByIdRef.current);
+        for (const listing of results) {
+          const listingId = listing.id ?? listing.mlsId;
+          const key = listingId != null ? listingId.toString() : null;
+          if (!key || nextMap.has(key)) continue;
+          nextMap.set(key, listing);
+          added += 1;
+        }
+
+        if (added > 0) {
+          pinListingsByIdRef.current = nextMap;
+          setPinListingsById(nextMap);
+          setPinHydrationMeta((prev) => ({
+            ...prev,
+            seeded: nextMap.size,
+            hydrated: prev.hydrated + added,
+          }));
+        }
+
+        if (pinListingsByIdRef.current.size >= cap) {
+          finished = true;
+          setStatusIfCurrent('capped');
+          return;
+        }
+
+        hasMore = nextPagination?.hasMore ?? false;
+        if (!hasMore) {
+          finished = true;
+          setStatusIfCurrent('done');
+          return;
+        }
+
+        page = (nextPagination?.page ?? page) + 1;
+        if (page > ABSOLUTE_MAX_PIN_PAGES) {
+          finished = true;
+          setStatusIfCurrent('capped');
+          return;
+        }
+
+        await delay(MIN_DELAY_BETWEEN_PIN_REQUESTS);
+      }
+
+      if (controller.signal.aborted || pinHydrationRunIdRef.current !== runId) return;
+      finished = true;
+      setStatusIfCurrent('done');
+    };
+
+    run();
+
+    return () => {
+      if (pinHydrationControllerRef.current === controller) {
+        controller.abort();
+        pinHydrationControllerRef.current = null;
+      }
+      setPinHydrationStatus((prev) =>
+        pinHydrationRunIdRef.current === runId && prev === 'running' ? 'aborted' : prev,
+      );
+      setPinHydrationMeta((prev) =>
+        pinHydrationRunIdRef.current === runId && !finished
+          ? { ...prev, aborted: prev.aborted + 1 }
+          : prev,
+      );
+    };
+  }, [baseQueryKey, effectiveParams]);
 
   // Bounds wait timeout: trigger fallback fetch if map bounds never arrive
   useEffect(() => {
