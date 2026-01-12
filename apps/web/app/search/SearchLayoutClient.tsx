@@ -82,7 +82,7 @@ export default function SearchLayoutClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { mapSide, paneDominance } = useTheme();
-  const useMapbox = process.env.NEXT_PUBLIC_USE_MAPBOX === 'true';
+  const useMapbox = (process.env.NEXT_PUBLIC_USE_MAPBOX ?? 'true').toLowerCase() !== 'false';
   const [listings, setListings] = useState<Listing[]>(initialListings);
   const [pagination, setPagination] =
     useState<PaginatedListingsResponse['pagination']>(initialPagination);
