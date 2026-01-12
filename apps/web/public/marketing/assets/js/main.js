@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const NEIGHBORHOOD_FILTERS = {
-    "ada": { zips: ["49301"], cities: ["Ada"] },
+    "ada": { zips: ["49301"], cities: ["Ada", "Ada Township", "Ada Twp"] },
     "grand-rapids": { zips: ["49503","49504","49505","49506","49507","49508","49525","49534","49546"], cities: ["Grand Rapids"] },
     "east-grand-rapids": { zips: ["49506"], cities: ["East Grand Rapids","Grand Rapids"] },
     "byron-center": { zips: ["49315"], cities: ["Byron Center"] },
@@ -500,6 +500,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }).format(price);
   };
 
+  const getPhotoUrl = (listing) => {
+    const thumb = (listing?.media?.thumbnailUrl || "").trim();
+    if (thumb) return thumb;
+    const photos = Array.isArray(listing?.media?.photos) ? listing.media.photos : [];
+    const first = photos[0];
+    if (typeof first === "string" && first.trim()) return first.trim();
+    if (first && typeof first === "object") {
+      const maybe = [first.href, first.url, first.src].find(
+        (v) => typeof v === "string" && v.trim()
+      );
+      if (maybe) return maybe.trim();
+    }
+    return placeholderImage;
+  };
+
   const buildCardHtml = (listing) => {
     const price = formatPrice(listing);
     const street = escapeHtml(
@@ -514,10 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
       listing?.details?.baths ?? listing?.details?.bathrooms ?? listing?.baths;
     const sqft = listing?.details?.sqft ?? listing?.sqft;
 
-    const photo =
-      listing?.media?.thumbnailUrl ||
-      (Array.isArray(listing?.media?.photos) ? listing.media.photos[0] : null) ||
-      placeholderImage;
+    const photo = getPhotoUrl(listing);
     const safePhoto = escapeHtml(photo);
     const altText = escapeHtml(street || "Featured listing");
 
@@ -526,11 +538,12 @@ document.addEventListener('DOMContentLoaded', () => {
     )} sqft`;
 
     const id = escapeHtml(listing?.id || "");
+    const attribution = escapeHtml(formatAttribution(listing)).replace(/\n/g, "<br>");
 
     return `
       <article class="property-card hp-featured-card" role="listitem" data-listing-id="${id}">
         <div class="property-card__media">
-          <img src="${safePhoto}" alt="${altText}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/placeholder-house.jpg';">
+          <img src="${safePhoto}" alt="${altText}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${placeholderImage}';">
         </div>
         <div class="property-card__body">
           <div class="property-card__price">${price}</div>
@@ -539,6 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="property-card__footer">
             <button class="btn btn-secondary hp-featured-btn btn-block" type="button" data-view-listing data-listing-id="${id}">View Details</button>
           </div>
+          <div class="property-card__attribution">${attribution}</div>
         </div>
       </article>
     `;
@@ -887,59 +901,80 @@ document.addEventListener('DOMContentLoaded', () => {
       const collected = [];
       const seen = new Set();
 
-      for (let page = 1; page <= MAX_PAGES_NEIGHBORHOOD; page += 1) {
-        const params = new URLSearchParams({
-          minPrice: String(MIN_PRICE_NEIGHBORHOOD),
-          limit: String(FETCH_LIMIT_NEIGHBORHOOD),
-          bbox: GR_METRO_BBOX,
-          sort: "price_desc",
-          page: String(page),
-        });
+      const passes = [];
+      if (zips.length && cities.length) {
+        passes.push({ zips, cities });
+        passes.push({ zips, cities: [] });
+        passes.push({ zips: [], cities });
+      } else {
+        passes.push({ zips, cities });
+      }
 
-        const res = await fetch(`/api/listings?${params.toString()}`);
-        if (!res.ok) throw new Error("Failed to fetch listings");
-        const json = await res.json();
-        const listings = Array.isArray(json?.results)
-          ? json.results
-          : Array.isArray(json?.data)
-          ? json.data
-          : [];
+      const runPass = async (pass) => {
+        const passCities = pass.cities.map((c) => normalizeCity(c));
+        for (let page = 1; page <= MAX_PAGES_NEIGHBORHOOD; page += 1) {
+          const params = new URLSearchParams({
+            minPrice: String(MIN_PRICE_NEIGHBORHOOD),
+            limit: String(FETCH_LIMIT_NEIGHBORHOOD),
+            sort: "price_desc",
+            page: String(page),
+          });
+          if (pass.zips.length === 1) params.set("zip", pass.zips[0]);
+          if (!pass.zips.length && passCities.length === 1) params.set("city", passCities[0]);
 
-        listings.forEach((listing) => {
-          const id = listing?.id != null ? String(listing.id) : "";
-          if (!id || seen.has(id)) return;
+          const res = await fetch(`/api/listings?${params.toString()}`);
+          if (!res.ok) throw new Error("Failed to fetch listings");
+          const json = await res.json();
+          const listings = Array.isArray(json?.results)
+            ? json.results
+            : Array.isArray(json?.data)
+            ? json.data
+            : [];
 
-          const rawPrice = Number(listing?.listPrice ?? listing?.price ?? 0);
-          const zipNorm = normalizeZip(listing?.address?.zip || "");
-          const cityNorm = normalizeCity(listing?.address?.city || "");
+          listings.forEach((listing) => {
+            const id =
+              listing?.id != null ? String(listing.id) : listing?.mlsId != null ? String(listing.mlsId) : "";
+            if (!id || seen.has(id)) return;
 
-          const matchesZip = zips.length ? zips.includes(zipNorm) : true;
-          const matchesCity = cities.length ? cities.includes(cityNorm) : true;
-          let match = false;
-          if (zips.length && cities.length) {
-            match = matchesZip && matchesCity;
-          } else if (zips.length) {
-            match = matchesZip;
-          } else if (cities.length) {
-            match = matchesCity;
+            const rawPrice = Number(listing?.listPrice ?? listing?.price ?? 0);
+            const zipNorm = normalizeZip(listing?.address?.zip || "");
+            const cityNorm = normalizeCity(listing?.address?.city || "");
+
+            const matchesZip = pass.zips.length ? pass.zips.includes(zipNorm) : true;
+            const matchesCity = passCities.length ? passCities.includes(cityNorm) : true;
+            let match = false;
+            if (pass.zips.length && passCities.length) {
+              match = matchesZip && matchesCity;
+            } else if (pass.zips.length) {
+              match = matchesZip;
+            } else if (passCities.length) {
+              match = matchesCity;
+            } else {
+              match = true;
+            }
+
+            if (
+              Number.isFinite(rawPrice) &&
+              rawPrice >= MIN_PRICE_NEIGHBORHOOD &&
+              match &&
+              isActiveForSale(listing)
+            ) {
+              seen.add(id);
+              collected.push(listing);
+            }
+          });
+
+          const hasMore =
+            json?.pagination?.hasMore === false ? false : listings.length >= FETCH_LIMIT_NEIGHBORHOOD;
+          if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD || !hasMore) {
+            break;
           }
-
-          if (
-            Number.isFinite(rawPrice) &&
-            rawPrice >= MIN_PRICE_NEIGHBORHOOD &&
-            match &&
-            isActiveForSale(listing)
-          ) {
-            seen.add(id);
-            collected.push(listing);
-          }
-        });
-
-        const hasMore =
-          json?.pagination?.hasMore === false ? false : listings.length >= FETCH_LIMIT_NEIGHBORHOOD;
-        if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD || !hasMore) {
-          break;
         }
+      };
+
+      for (const pass of passes) {
+        if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD) break;
+        await runPass(pass);
       }
 
       const selected = shuffle(collected).slice(0, FEATURED_COUNT_NEIGHBORHOOD);
