@@ -524,6 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const meta = `${formatNumber(beds)} Beds · ${formatNumber(baths)} Baths · ${formatNumber(
       sqft
     )} sqft`;
+    const attribution = escapeHtml(formatAttribution(listing)).replace(/\n/g, "<br>");
 
     const id = escapeHtml(listing?.id || "");
 
@@ -539,6 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="property-card__footer">
             <button class="btn btn-secondary hp-featured-btn btn-block" type="button" data-view-listing data-listing-id="${id}">View Details</button>
           </div>
+          <div class="property-card__attribution">${attribution}</div>
         </div>
       </article>
     `;
