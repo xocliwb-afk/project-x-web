@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const NEIGHBORHOOD_FILTERS = {
-    "ada": { zips: ["49301"], cities: ["Ada"] },
+    "ada": { zips: ["49301"], cities: ["Ada", "Ada Township", "Ada Twp"] },
     "grand-rapids": { zips: ["49503","49504","49505","49506","49507","49508","49525","49534","49546"], cities: ["Grand Rapids"] },
     "east-grand-rapids": { zips: ["49506"], cities: ["East Grand Rapids","Grand Rapids"] },
     "byron-center": { zips: ["49315"], cities: ["Byron Center"] },
@@ -480,13 +480,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const formatAttribution = (listing) => {
-    const name = (listing?.office?.name || "").trim();
-    const rawId = listing?.office?.id;
-    const id = rawId != null ? String(rawId).trim() : "";
-    if (name && id) {
-      return `Listed by ${name}\nData provided by SimplyRETS`;
-    }
-    return "Data provided by SimplyRETS";
+    const agent = listing?.agent || listing?.coAgent || {};
+    const agentName =
+      [agent.firstName, agent.lastName].filter(Boolean).join(" ").trim() ||
+      (agent.name || "").trim();
+    const officeName = (listing?.office?.name || "").trim();
+    const best = agentName || officeName || "Listing agent on file";
+    return `Listed by ${best}\nData provided by SimplyRETS`;
   };
 
   const formatPrice = (listing) => {
@@ -533,18 +533,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const photo = getPhotoUrl(listing);
     const safePhoto = escapeHtml(photo);
+    const safePlaceholder = escapeHtml(placeholderImage);
     const altText = escapeHtml(street || "Featured listing");
-
     const meta = `${formatNumber(beds)} Beds · ${formatNumber(baths)} Baths · ${formatNumber(
       sqft
     )} sqft`;
-
-    const id = escapeHtml(listing?.id || "");
+    const id = escapeHtml(listing?.id || listing?.mlsId || "");
+    const attribution = escapeHtml(formatAttribution(listing)).replace(/\n/g, "<br>");
 
     return `
       <article class="property-card hp-featured-card" role="listitem" data-listing-id="${id}">
         <div class="property-card__media">
-          <img src="${safePhoto}" alt="${altText}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/assets/img/1.webp';">
+          <img src="${safePhoto}" alt="${altText}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${safePlaceholder}';">
         </div>
         <div class="property-card__body">
           <div class="property-card__price">${price}</div>
@@ -553,6 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="property-card__footer">
             <button class="btn btn-secondary hp-featured-btn btn-block" type="button" data-view-listing data-listing-id="${id}">View Details</button>
           </div>
+          <div class="property-card__attribution">${attribution}</div>
         </div>
       </article>
     `;
@@ -890,7 +891,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const slug = getPageSlug();
     if (!slug || !NEIGHBORHOOD_FILTERS[slug]) return;
     const filterCfg = NEIGHBORHOOD_FILTERS[slug];
-    const zips = Array.isArray(filterCfg?.zips) ? filterCfg.zips : [];
+    const zips = Array.isArray(filterCfg?.zips)
+      ? filterCfg.zips.map((z) => normalizeZip(z)).filter(Boolean)
+      : [];
     const cities = Array.isArray(filterCfg?.cities)
       ? filterCfg.cities.map((c) => normalizeCity(c))
       : [];
@@ -901,62 +904,85 @@ document.addEventListener('DOMContentLoaded', () => {
       const collected = [];
       const seen = new Set();
 
-      for (let page = 1; page <= MAX_PAGES_NEIGHBORHOOD; page += 1) {
-        const params = new URLSearchParams({
-          minPrice: String(MIN_PRICE_NEIGHBORHOOD),
-          limit: String(FETCH_LIMIT_NEIGHBORHOOD),
-          bbox: GR_METRO_BBOX,
-          sort: "price_desc",
-          page: String(page),
+      const addListings = (listings) => {
+        listings.forEach((listing) => {
+          const id =
+            listing?.id != null ? String(listing.id) : listing?.mlsId != null ? String(listing.mlsId) : "";
+          if (!id || seen.has(id)) return;
+          const rawPrice = Number(listing?.listPrice ?? listing?.price ?? 0);
+          const zipNorm = normalizeZip(listing?.address?.zip || "");
+          const cityNorm = normalizeCity(listing?.address?.city || "");
+          if (
+            Number.isFinite(rawPrice) &&
+            rawPrice >= MIN_PRICE_NEIGHBORHOOD &&
+            isActiveForSale(listing)
+          ) {
+            seen.add(id);
+            collected.push({ listing, zipNorm, cityNorm, rawPrice });
+          }
         });
+      };
 
+      const fetchListings = async (params) => {
         const res = await fetch(`/api/listings?${params.toString()}`);
         if (!res.ok) throw new Error("Failed to fetch listings");
         const json = await res.json();
-        const listings = Array.isArray(json?.results)
+        return Array.isArray(json?.results)
           ? json.results
           : Array.isArray(json?.data)
           ? json.data
           : [];
+      };
 
-        listings.forEach((listing) => {
-          const id = listing?.id != null ? String(listing.id) : "";
-          if (!id || seen.has(id)) return;
-
-          const rawPrice = Number(listing?.listPrice ?? listing?.price ?? 0);
-          const zipNorm = normalizeZip(listing?.address?.zip || "");
-          const cityNorm = normalizeCity(listing?.address?.city || "");
-
-          const matchesZip = zips.length ? zips.includes(zipNorm) : true;
-          const matchesCity = cities.length ? cities.includes(cityNorm) : true;
-          let match = false;
-          if (zips.length && cities.length) {
-            match = matchesZip && matchesCity;
-          } else if (zips.length) {
-            match = matchesZip;
-          } else if (cities.length) {
-            match = matchesCity;
-          }
-
-          if (
-            Number.isFinite(rawPrice) &&
-            rawPrice >= MIN_PRICE_NEIGHBORHOOD &&
-            match &&
-            isActiveForSale(listing)
-          ) {
-            seen.add(id);
-            collected.push(listing);
-          }
+      // Pass 1: zip-first
+      for (const zip of zips) {
+        if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD) break;
+        const params = new URLSearchParams({
+          minPrice: String(MIN_PRICE_NEIGHBORHOOD),
+          limit: "50",
+          sort: "price_desc",
+          page: "1",
+          zip,
         });
-
-        const hasMore =
-          json?.pagination?.hasMore === false ? false : listings.length >= FETCH_LIMIT_NEIGHBORHOOD;
-        if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD || !hasMore) {
-          break;
-        }
+        const listings = await fetchListings(params);
+        addListings(listings);
       }
 
-      const selected = shuffle(collected).slice(0, FEATURED_COUNT_NEIGHBORHOOD);
+      // Pass 2: city fallback
+      if (collected.length < FEATURED_COUNT_NEIGHBORHOOD && cities.length) {
+        const city = cities[0];
+        const params = new URLSearchParams({
+          minPrice: String(MIN_PRICE_NEIGHBORHOOD),
+          limit: "50",
+          sort: "price_desc",
+          page: "1",
+          city,
+        });
+        const listings = await fetchListings(params);
+        addListings(listings);
+      }
+
+      // Pass 3: general fallback
+      if (collected.length < FEATURED_COUNT_NEIGHBORHOOD) {
+        const params = new URLSearchParams({
+          minPrice: String(MIN_PRICE_NEIGHBORHOOD),
+          limit: "50",
+          sort: "price_desc",
+          page: "1",
+        });
+        const listings = await fetchListings(params);
+        addListings(listings);
+      }
+
+      // Filter collected against intended zips/cities if present
+      const filtered = collected.filter(({ zipNorm, cityNorm }) => {
+        const matchesZip = zips.length ? zips.includes(zipNorm) : true;
+        const matchesCity = cities.length ? cities.includes(cityNorm) : true;
+        return matchesZip && matchesCity;
+      });
+
+      const pool = filtered.length ? filtered : collected;
+      const selected = shuffle(pool.map((p) => p.listing)).slice(0, FEATURED_COUNT_NEIGHBORHOOD);
       if (!selected.length) throw new Error("No listings available");
 
       featuredGrid.innerHTML = selected.map(buildCardHtml).join("");
