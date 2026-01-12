@@ -371,8 +371,10 @@ p { margin: 0; color: inherit; }
 .hp-featured__header h2 { color: var(--brand-navy); font-size: clamp(2rem, 3.6vw, 2.5rem); }
 .hp-featured__header .section__lede { color: var(--text-main); font-size: 1.05rem; margin-top: .35rem; }
 .hp-featured-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; padding-bottom: 0; overflow: visible; scroll-snap-type: none; }
+.hp-featured-grid { justify-items: center; }
 .hp-featured-grid .property-card { scroll-snap-align: unset; }
 .hp-featured-card { box-shadow: var(--soft-shadow); border: 1px solid rgba(20,36,59,0.08); border-radius: 14px; }
+.hp-featured-grid .hp-featured-card { width: 100%; max-width: 420px; }
 .hp-featured-card .property-card__media { aspect-ratio: 4 / 3; }
 .hp-featured-card .property-card__body { padding: 1rem 1.1rem 1.2rem; gap: .45rem; }
 .hp-featured-card .property-card__price { font-size: 1.3rem; letter-spacing: -0.01em; color: var(--brand-navy); }

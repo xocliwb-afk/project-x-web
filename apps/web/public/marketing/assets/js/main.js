@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const NEIGHBORHOOD_FILTERS = {
-    "ada": { zips: ["49301"], cities: ["Ada"] },
+    "ada": { zips: ["49301"], cities: ["Ada", "Ada Township", "Ada Twp"] },
     "grand-rapids": { zips: ["49503","49504","49505","49506","49507","49508","49525","49534","49546"], cities: ["Grand Rapids"] },
     "east-grand-rapids": { zips: ["49506"], cities: ["East Grand Rapids","Grand Rapids"] },
     "byron-center": { zips: ["49315"], cities: ["Byron Center"] },
@@ -887,7 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const collected = [];
       const seen = new Set();
 
-      for (let page = 1; page <= MAX_PAGES_NEIGHBORHOOD; page += 1) {
+      const collectPage = async (page) => {
         const params = new URLSearchParams({
           minPrice: String(MIN_PRICE_NEIGHBORHOOD),
           limit: String(FETCH_LIMIT_NEIGHBORHOOD),
@@ -895,7 +895,6 @@ document.addEventListener('DOMContentLoaded', () => {
           sort: "price_desc",
           page: String(page),
         });
-
         const res = await fetch(`/api/listings?${params.toString()}`);
         if (!res.ok) throw new Error("Failed to fetch listings");
         const json = await res.json();
@@ -904,26 +903,35 @@ document.addEventListener('DOMContentLoaded', () => {
           : Array.isArray(json?.data)
           ? json.data
           : [];
+        return { listings, hasMore: json?.pagination?.hasMore !== false && listings.length >= FETCH_LIMIT_NEIGHBORHOOD };
+      };
 
+      const passes = [];
+      if (zips.length && cities.length) {
+        passes.push({ zips, cities }); // strict
+        passes.push({ zips, cities: [] }); // zip-only
+        passes.push({ zips: [], cities }); // city-only
+      } else {
+        passes.push({ zips, cities }); // whatever exists
+      }
+
+      const addListings = (listings, pass) => {
         listings.forEach((listing) => {
-          const id = listing?.id != null ? String(listing.id) : "";
+          const id = listing?.id != null ? String(listing.id) : listing?.mlsId ? String(listing.mlsId) : "";
           if (!id || seen.has(id)) return;
-
           const rawPrice = Number(listing?.listPrice ?? listing?.price ?? 0);
           const zipNorm = normalizeZip(listing?.address?.zip || "");
           const cityNorm = normalizeCity(listing?.address?.city || "");
-
-          const matchesZip = zips.length ? zips.includes(zipNorm) : true;
-          const matchesCity = cities.length ? cities.includes(cityNorm) : true;
+          const matchesZip = pass.zips.length ? pass.zips.includes(zipNorm) : true;
+          const matchesCity = pass.cities.length ? pass.cities.includes(cityNorm) : true;
           let match = false;
-          if (zips.length && cities.length) {
+          if (pass.zips.length && pass.cities.length) {
             match = matchesZip && matchesCity;
-          } else if (zips.length) {
+          } else if (pass.zips.length) {
             match = matchesZip;
-          } else if (cities.length) {
+          } else if (pass.cities.length) {
             match = matchesCity;
           }
-
           if (
             Number.isFinite(rawPrice) &&
             rawPrice >= MIN_PRICE_NEIGHBORHOOD &&
@@ -934,12 +942,15 @@ document.addEventListener('DOMContentLoaded', () => {
             collected.push(listing);
           }
         });
+      };
 
-        const hasMore =
-          json?.pagination?.hasMore === false ? false : listings.length >= FETCH_LIMIT_NEIGHBORHOOD;
-        if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD || !hasMore) {
-          break;
+      for (const pass of passes) {
+        for (let page = 1; page <= MAX_PAGES_NEIGHBORHOOD; page += 1) {
+          const { listings, hasMore } = await collectPage(page);
+          addListings(listings, pass);
+          if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD || !hasMore) break;
         }
+        if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD) break;
       }
 
       const selected = shuffle(collected).slice(0, FEATURED_COUNT_NEIGHBORHOOD);
