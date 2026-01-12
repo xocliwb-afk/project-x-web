@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const NEIGHBORHOOD_FILTERS = {
-    "ada": { zips: ["49301"], cities: ["Ada", "Ada Township", "Ada Twp"] },
+    "ada": { zips: ["49301"], cities: ["Ada", "Ada Township", "Ada Twp", "Ada Charter Township"] },
     "grand-rapids": { zips: ["49503","49504","49505","49506","49507","49508","49525","49534","49546"], cities: ["Grand Rapids"] },
     "east-grand-rapids": { zips: ["49506"], cities: ["East Grand Rapids","Grand Rapids"] },
     "byron-center": { zips: ["49315"], cities: ["Byron Center"] },
@@ -925,17 +925,6 @@ document.addEventListener('DOMContentLoaded', () => {
     featuredGrid.innerHTML = '<p class="section__lede">Loading featured listings…</p>';
 
     try {
-      const fetchListings = async (params) => {
-        const res = await fetch(`/api/listings?${params.toString()}`);
-        if (!res.ok) throw new Error("Failed to fetch listings");
-        const json = await res.json();
-        return Array.isArray(json?.results)
-          ? json.results
-          : Array.isArray(json?.data)
-          ? json.data
-          : [];
-      };
-
       const collected = [];
       const seen = new Set();
       const POOL_TARGET = 24;
@@ -950,22 +939,33 @@ document.addEventListener('DOMContentLoaded', () => {
           const rawPrice = Number(listing?.listPrice ?? listing?.price ?? 0);
           if (!Number.isFinite(rawPrice) || rawPrice < minPrice) return;
           if (!isActiveForSale(listing)) return;
+          const listingZip = normalizeZip(listing?.address?.zip || "");
+          const listingCity = normalizeCity(listing?.address?.city || "");
+          const matchesZip = !zips.length || zips.includes(listingZip);
+          const matchesCity = !cities.length || cities.includes(listingCity);
+          if (!matchesZip && !matchesCity) return;
           seen.add(id);
           collected.push(listing);
         });
       };
 
-      const addFromQuery = async (extraParams, minPrice) => {
+      const addFromQuery = async (queryText, minPrice) => {
+        if (!queryText) return;
         const params = new URLSearchParams({
+          q: queryText,
           minPrice: String(minPrice),
           limit: "50",
           sort: "price_desc",
           page: "1",
         });
-        Object.entries(extraParams).forEach(([key, value]) => {
-          if (value) params.set(key, value);
-        });
-        const listings = await fetchListings(params);
+        const res = await fetch(`/api/listings?${params.toString()}`);
+        if (!res.ok) throw new Error("Failed to fetch listings");
+        const json = await res.json();
+        const listings = Array.isArray(json?.results)
+          ? json.results
+          : Array.isArray(json?.data)
+          ? json.data
+          : [];
         addListings(listings, minPrice);
       };
 
@@ -973,7 +973,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const zip of zips) {
         if (collected.length >= POOL_TARGET) break;
         // eslint-disable-next-line no-await-in-loop
-        await addFromQuery({ zip }, MIN_PRICE_NEIGHBORHOOD);
+        await addFromQuery(zip, MIN_PRICE_NEIGHBORHOOD);
       }
 
       // Pass 2: city-based fallback (if still short)
@@ -981,7 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const city of cities) {
           if (collected.length >= POOL_TARGET) break;
           // eslint-disable-next-line no-await-in-loop
-          await addFromQuery({ city }, MIN_PRICE_NEIGHBORHOOD);
+          await addFromQuery(city, MIN_PRICE_NEIGHBORHOOD);
         }
       }
 
@@ -990,7 +990,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const zip of zips) {
           if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD) break;
           // eslint-disable-next-line no-await-in-loop
-          await addFromQuery({ zip }, FALLBACK_MIN_PRICE);
+          await addFromQuery(zip, FALLBACK_MIN_PRICE);
         }
       }
 
@@ -998,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const city of cities) {
           if (collected.length >= FEATURED_COUNT_NEIGHBORHOOD) break;
           // eslint-disable-next-line no-await-in-loop
-          await addFromQuery({ city }, FALLBACK_MIN_PRICE);
+          await addFromQuery(city, FALLBACK_MIN_PRICE);
         }
       }
 
