@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, type FormEvent, type ChangeEvent } from "react";
+import { usePathname } from "next/navigation";
 import { submitLead, type LeadSubmitPayload } from "@/lib/lead-api";
+import { buildLeadContext } from "@/lib/leadContext";
 
 const DEFAULT_BROKER_ID =
   process.env.NEXT_PUBLIC_BROKER_ID || "demo-broker";
@@ -21,6 +23,7 @@ export default function LeadForm({
   onSuccess,
   onCancel,
 }: LeadFormProps) {
+  const pathname = usePathname() || "/";
   const initialMessage = listingAddress
     ? `I'm interested in ${listingAddress}`
     : "I'm interested in this property.";
@@ -82,6 +85,20 @@ export default function LeadForm({
       return;
     }
 
+    const pageType = pathname.startsWith("/search")
+      ? "search"
+      : pathname.startsWith("/listing")
+      ? "listing-detail"
+      : "app";
+
+    const context = buildLeadContext({
+      page_type: pageType,
+      page_slug: pathname.replace(/^\/+/, "") || undefined,
+      listingId,
+      listingAddress,
+      source: hasListing ? "listing-pdp" : "global-cta",
+    });
+
     const payload: LeadSubmitPayload = {
       ...(hasListing ? { listingId } : {}),
       listingAddress,
@@ -93,6 +110,7 @@ export default function LeadForm({
       agentId: DEFAULT_AGENT_ID,
       source: hasListing ? "listing-pdp" : "global-cta",
       captchaToken,
+      context,
     };
 
     try {

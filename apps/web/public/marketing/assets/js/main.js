@@ -63,6 +63,105 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const MAX_CONTEXT_LENGTH = 8192;
+  const MAX_URL_LENGTH = 1000;
+  const PII_QUERY_KEYS = [
+    "name",
+    "firstName",
+    "lastName",
+    "email",
+    "phone",
+    "message",
+    "interest",
+    "preferredArea",
+    "preferred_area",
+    "token",
+    "captcha",
+    "captchaToken",
+    "g-recaptcha-response",
+    "g-recaptcha_response",
+  ];
+
+  const sanitizeUrl = (raw) => {
+    if (!raw) return undefined;
+    try {
+      const url = new URL(raw);
+      PII_QUERY_KEYS.forEach((key) => {
+        url.searchParams.delete(key);
+        url.searchParams.delete(key.toLowerCase());
+      });
+      const output = url.toString();
+      return output.length > MAX_URL_LENGTH ? output.slice(0, MAX_URL_LENGTH) : output;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const buildLeadContext = ({ pageSlug }) => {
+    try {
+      const pageUrl = sanitizeUrl(window.location.href);
+      const referrer = sanitizeUrl(document.referrer || "");
+      const params = new URLSearchParams(window.location.search || "");
+      const pickUtm = (key) => {
+        const val = params.get(key);
+        return val ? val.slice(0, 300) : undefined;
+      };
+
+      const ctxBase = {
+        ctx_v: 1,
+        page_type: "marketing",
+        page_slug: pageSlug || getPageSlug(),
+        page_url: pageUrl,
+        referrer,
+        utm_source: pickUtm("utm_source"),
+        utm_medium: pickUtm("utm_medium"),
+        utm_campaign: pickUtm("utm_campaign"),
+        utm_term: pickUtm("utm_term"),
+        utm_content: pickUtm("utm_content"),
+        timestamp: new Date().toISOString(),
+        viewport_width: window.innerWidth,
+        viewport_height: window.innerHeight,
+      };
+
+      Object.keys(ctxBase).forEach((key) => {
+        if (ctxBase[key] === undefined || ctxBase[key] === null || ctxBase[key] === "") {
+          delete ctxBase[key];
+        }
+      });
+
+      const dropOrder = [
+        "utm_content",
+        "utm_term",
+        "referrer",
+        "viewport_width",
+        "viewport_height",
+      ];
+
+      const safeStringify = (obj) => JSON.stringify(obj);
+      let json = safeStringify(ctxBase);
+      if (json.length <= MAX_CONTEXT_LENGTH) return json;
+
+      const working = { ...ctxBase };
+      for (const key of dropOrder) {
+        if (key in working) {
+          delete working[key];
+          json = safeStringify(working);
+          if (json.length <= MAX_CONTEXT_LENGTH) return json;
+        }
+      }
+
+      return safeStringify({
+        ctx_v: 1,
+        page_url: pageUrl,
+        page_type: "marketing",
+        timestamp: ctxBase.timestamp,
+        truncated: true,
+      });
+    } catch {
+      return undefined;
+    }
+  };
+
   // --- Mobile Menu ---
   const navToggle = document.getElementById('navToggle');
   const mobileNav = document.getElementById('mobile-nav');
@@ -258,6 +357,8 @@ document.addEventListener('DOMContentLoaded', () => {
       lines.push(`Page: ${pageContext}`);
       const finalMessage = lines.join('\n');
 
+      const context = buildLeadContext({ pageSlug: pageContext });
+
       const payload = {
         name,
         email,
@@ -266,6 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         brokerId: 'demo-broker',
         source: pageContext ? `marketing:${pageContext}` : 'marketing-contact-form',
         captchaToken,
+        context,
       };
 
       if (modalStatus) modalStatus.textContent = 'Submitting...';
