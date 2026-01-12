@@ -49,6 +49,8 @@ export default function MapboxMap({
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
+  const hoverPointRef = useRef<{ point: { x: number; y: number }; featureId?: string } | null>(null);
+  const hoverRafRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const [previewListing, setPreviewListing] = useState<NormalizedListing | null>(null);
@@ -205,6 +207,7 @@ export default function MapboxMap({
     const sourceId = 'listings';
 
     let handleMouseEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+    let handleMouseMove: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleMouseLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleMapClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
@@ -393,19 +396,45 @@ export default function MapboxMap({
 
       const lensOpen = () => Boolean(useMapLensStore.getState().activeClusterData);
 
-      handleMouseEnter = (e: mapboxgl.MapLayerMouseEvent) => {
+      const runHoverCheck = (point: { x: number; y: number }, featureId?: string) => {
         if (lensOpen()) return;
-        const nearbyIds = getNearbyListingIds(e.point);
+        const nearbyIds = getNearbyListingIds(point);
         const isCrowded = nearbyIds.length >= OVERLAP_MIN_COUNT;
         canvas.style.cursor = isCrowded ? 'zoom-in' : 'pointer';
-        const id = e.features?.[0]?.properties?.id as string | undefined;
-        if (!id) return;
-        setFeatureState(id, 'hovered', true);
-        lastHoveredIdRef.current = id;
-        onHoverListingRef.current?.(id);
+        if (!featureId) return;
+        setFeatureState(featureId, 'hovered', true);
+        lastHoveredIdRef.current = featureId;
+        onHoverListingRef.current?.(featureId);
+      };
+
+      handleMouseEnter = (e: mapboxgl.MapLayerMouseEvent) => {
+        hoverPointRef.current = {
+          point: e.point,
+          featureId: e.features?.[0]?.properties?.id as string | undefined,
+        };
+        runHoverCheck(hoverPointRef.current.point, hoverPointRef.current.featureId);
+      };
+
+      handleMouseMove = (e: mapboxgl.MapLayerMouseEvent) => {
+        hoverPointRef.current = {
+          point: e.point,
+          featureId: e.features?.[0]?.properties?.id as string | undefined,
+        };
+        if (hoverRafRef.current != null) return;
+        hoverRafRef.current = window.requestAnimationFrame(() => {
+          hoverRafRef.current = null;
+          const latestHover = hoverPointRef.current;
+          if (!latestHover) return;
+          runHoverCheck(latestHover.point, latestHover.featureId);
+        });
       };
 
       handleMouseLeave = () => {
+        if (hoverRafRef.current != null) {
+          cancelAnimationFrame(hoverRafRef.current);
+          hoverRafRef.current = null;
+        }
+        hoverPointRef.current = null;
         if (lensOpen()) return;
         canvas.style.cursor = isDraggingRef.current ? 'grabbing' : 'grab';
         if (lastHoveredIdRef.current) {
@@ -496,7 +525,7 @@ export default function MapboxMap({
       map.on('mouseleave', 'unclustered-point', handleMouseLeave);
       map.on('click', 'unclustered-point', handleClick);
       map.on('mouseenter', 'unclustered-price', handleMouseEnter);
-      map.on('mousemove', 'unclustered-price', handleMouseEnter);
+      map.on('mousemove', 'unclustered-price', handleMouseMove);
       map.on('mouseleave', 'unclustered-price', handleMouseLeave);
       map.on('click', 'unclustered-price', handleClick);
 
@@ -600,7 +629,9 @@ export default function MapboxMap({
       if (handleMouseEnter) {
         map.off('mouseenter', 'unclustered-point', handleMouseEnter);
         map.off('mouseenter', 'unclustered-price', handleMouseEnter);
-        map.off('mousemove', 'unclustered-price', handleMouseEnter);
+      }
+      if (handleMouseMove) {
+        map.off('mousemove', 'unclustered-price', handleMouseMove);
       }
       if (handleMouseLeave) {
         map.off('mouseleave', 'unclustered-point', handleMouseLeave);
@@ -624,6 +655,11 @@ export default function MapboxMap({
       map.off('mousedown', handleMouseDown);
       map.off('mouseup', handleMouseUp);
       map.off('dragend', handleMouseUp);
+      if (hoverRafRef.current != null) {
+        cancelAnimationFrame(hoverRafRef.current);
+        hoverRafRef.current = null;
+      }
+      hoverPointRef.current = null;
       map.remove();
       mapRef.current = null;
       setMapInstance(null);
