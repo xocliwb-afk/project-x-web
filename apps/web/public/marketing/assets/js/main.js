@@ -500,6 +500,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }).format(price);
   };
 
+  const getPhotoUrl = (listing) => {
+    const thumb = (listing?.media?.thumbnailUrl || "").trim();
+    if (thumb) return thumb;
+    const photos = Array.isArray(listing?.media?.photos) ? listing.media.photos : [];
+    const first = photos[0];
+    if (typeof first === "string" && first.trim()) {
+      return first.trim();
+    }
+    if (first && typeof first === "object") {
+      const maybe = [first.href, first.url, first.src].find(
+        (v) => typeof v === "string" && v.trim()
+      );
+      if (maybe) return maybe.trim();
+    }
+    return placeholderImage;
+  };
+
   const buildCardHtml = (listing) => {
     const price = formatPrice(listing);
     const street = escapeHtml(
@@ -514,10 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
       listing?.details?.baths ?? listing?.details?.bathrooms ?? listing?.baths;
     const sqft = listing?.details?.sqft ?? listing?.sqft;
 
-    const photo =
-      listing?.media?.thumbnailUrl ||
-      (Array.isArray(listing?.media?.photos) ? listing.media.photos[0] : null) ||
-      placeholderImage;
+    const photo = getPhotoUrl(listing);
     const safePhoto = escapeHtml(photo);
     const altText = escapeHtml(street || "Featured listing");
 
@@ -530,7 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return `
       <article class="property-card hp-featured-card" role="listitem" data-listing-id="${id}">
         <div class="property-card__media">
-          <img src="${safePhoto}" alt="${altText}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/placeholder-house.jpg';">
+          <img src="${safePhoto}" alt="${altText}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/assets/img/1.webp';">
         </div>
         <div class="property-card__body">
           <div class="property-card__price">${price}</div>
