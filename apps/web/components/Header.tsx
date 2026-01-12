@@ -53,6 +53,9 @@ export default function Header() {
   const navLinkClass = (href: string) =>
     [styles.navLink, isActive(href) ? styles.isActive : ""].join(" ").trim();
 
+  const mainNavItems = navItems.filter((item) => item.label !== "About");
+  const aboutNavItem = navItems.find((item) => item.label === "About");
+
   const pillClasses = (active: boolean) =>
     [
       "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors",
@@ -104,54 +107,48 @@ export default function Header() {
           </Link>
 
           <div className={styles.topNavLinks}>
-            {navItems.map((item) => {
-              if (item.label === "About") {
-                return (
-                  <span key={item.href} className="flex items-center gap-2">
-                    <span className="relative" ref={neighborhoodsMenuRef}>
-                      <button
-                        type="button"
-                        className={navLinkClass("/neighborhoods")}
-                        aria-haspopup="true"
-                        aria-expanded={neighborhoodsOpen}
-                        aria-controls="neighborhoods-menu"
-                        onClick={() => setNeighborhoodsOpen((prev) => !prev)}
-                      >
-                        Neighborhoods
-                      </button>
-                      {neighborhoodsOpen && (
-                        <div
-                          id="neighborhoods-menu"
-                          className="absolute left-1/2 top-10 z-50 w-56 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 text-slate-800 shadow-lg"
+            {mainNavItems.map((item) => (
+              <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
+                {item.label}
+              </Link>
+            ))}
+            <span className="relative" ref={neighborhoodsMenuRef}>
+              <button
+                type="button"
+                className={navLinkClass("/neighborhoods")}
+                aria-haspopup="true"
+                aria-expanded={neighborhoodsOpen}
+                aria-controls="neighborhoods-menu"
+                onClick={() => setNeighborhoodsOpen((prev) => !prev)}
+              >
+                Neighborhoods
+              </button>
+              {neighborhoodsOpen && (
+                <div
+                  id="neighborhoods-menu"
+                  className="absolute left-1/2 top-10 z-50 w-56 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 text-slate-800 shadow-lg"
+                >
+                  <ul className="space-y-1">
+                    {neighborhoods.map((n) => (
+                      <li key={n.href}>
+                        <Link
+                          href={n.href}
+                          className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-slate-100"
+                          onClick={() => setNeighborhoodsOpen(false)}
                         >
-                          <ul className="space-y-1">
-                            {neighborhoods.map((n) => (
-                              <li key={n.href}>
-                                <Link
-                                  href={n.href}
-                                  className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-slate-100"
-                                  onClick={() => setNeighborhoodsOpen(false)}
-                                >
-                                  {n.label}
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </span>
-                    <Link href={item.href} className={navLinkClass(item.href)}>
-                      {item.label}
-                    </Link>
-                  </span>
-                );
-              }
-              return (
-                <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
-                  {item.label}
-                </Link>
-              );
-            })}
+                          {n.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </span>
+            {aboutNavItem && (
+              <Link href={aboutNavItem.href} className={navLinkClass(aboutNavItem.href)}>
+                {aboutNavItem.label}
+              </Link>
+            )}
             <button type="button" onClick={() => openLeadModal()} className={styles.navLink}>
               Contact
             </button>
