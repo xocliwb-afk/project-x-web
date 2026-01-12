@@ -149,7 +149,22 @@
       <a href="buy.html">Buy Smarter</a>
       <a href="sell.html">Sell for More</a>
       <a href="builder.html">Build</a>
-      <a href="neighborhoods.html">Neighborhoods</a>
+      <span data-neighborhoods-root>
+        <a href="neighborhoods.html" data-neighborhoods-trigger aria-expanded="false" aria-controls="neighborhoods-menu">Neighborhoods</a>
+        <div class="top-nav__dropdown" id="neighborhoods-menu" data-neighborhoods-menu hidden>
+          <ul>
+            <li><a href="/grand-rapids" data-neighborhoods-link>Grand Rapids</a></li>
+            <li><a href="/ada" data-neighborhoods-link>Ada</a></li>
+            <li><a href="/byron-center" data-neighborhoods-link>Byron Center</a></li>
+            <li><a href="/caledonia" data-neighborhoods-link>Caledonia</a></li>
+            <li><a href="/east-grand-rapids" data-neighborhoods-link>East Grand Rapids</a></li>
+            <li><a href="/grandville" data-neighborhoods-link>Grandville</a></li>
+            <li><a href="/kentwood" data-neighborhoods-link>Kentwood</a></li>
+            <li><a href="/rockford" data-neighborhoods-link>Rockford</a></li>
+            <li><a href="/wyoming" data-neighborhoods-link>Wyoming</a></li>
+          </ul>
+        </div>
+      </span>
       <a href="about.html">About</a>
       <a href="#!" data-open-modal="contactModal">Contact</a>
     </div>
@@ -163,13 +178,28 @@
 <div class="mobile-nav" id="mobile-nav" aria-hidden="true">
   <div class="mobile-nav__panel" role="dialog" aria-modal="true" aria-label="Mobile navigation">
     <button class="mobile-nav__close" type="button" aria-label="Close menu">&times;</button>
-        <ul>
+    <ul>
       <li><a href="index.html">Home</a></li>
       <li><a href="/search">Search</a></li>
       <li><a href="buy.html">Buy Smarter</a></li>
       <li><a href="sell.html">Sell for More</a></li>
       <li><a href="builder.html">Build</a></li>
-      <li><a href="neighborhoods.html">Neighborhoods</a></li>
+      <li class="mobile-nav__neighborhoods" data-neighborhoods-mobile-root>
+        <button type="button" class="mobile-nav__btn" data-neighborhoods-mobile-trigger aria-expanded="false" aria-controls="mobile-neighborhoods-menu">
+          Neighborhoods
+        </button>
+        <ul id="mobile-neighborhoods-menu" data-neighborhoods-mobile-menu hidden>
+          <li><a href="/grand-rapids" data-neighborhoods-link>Grand Rapids</a></li>
+          <li><a href="/ada" data-neighborhoods-link>Ada</a></li>
+          <li><a href="/byron-center" data-neighborhoods-link>Byron Center</a></li>
+          <li><a href="/caledonia" data-neighborhoods-link>Caledonia</a></li>
+          <li><a href="/east-grand-rapids" data-neighborhoods-link>East Grand Rapids</a></li>
+          <li><a href="/grandville" data-neighborhoods-link>Grandville</a></li>
+          <li><a href="/kentwood" data-neighborhoods-link>Kentwood</a></li>
+          <li><a href="/rockford" data-neighborhoods-link>Rockford</a></li>
+          <li><a href="/wyoming" data-neighborhoods-link>Wyoming</a></li>
+        </ul>
+      </li>
       <li><a href="about.html">About</a></li>
       <li><a href="#!" data-open-modal="contactModal">Contact</a></li>
     </ul>
@@ -456,6 +486,7 @@
   </script>
 </footer>
 
+<script defer src="/marketing/neighborhoods-dropdown.js"></script>
 <script src="assets/js/main.js" defer></script>
 
 
