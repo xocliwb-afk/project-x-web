@@ -483,7 +483,8 @@ document.addEventListener('DOMContentLoaded', () => {
       [agent.firstName, agent.lastName].filter(Boolean).join(" ").trim() ||
       (agent.name || "").trim();
     const officeName = (listing?.office?.name || "").trim();
-    const best = agentName || officeName || "Listing agent on file";
+    const brokerageName = (listing?.office?.brokerageName || listing?.brokerageName || "").trim();
+    const best = officeName || brokerageName || agentName || "Listing agent on file";
     return `Listed by ${best}\nData provided by SimplyRETS`;
   };
 
