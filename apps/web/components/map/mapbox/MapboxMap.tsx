@@ -28,6 +28,9 @@ type MapboxMapProps = {
 
 const defaultCenter: [number, number] = [42.9634, -85.6681];
 const defaultZoom = 12;
+const OVERLAP_HITBOX_PX = 14;
+const OVERLAP_MIN_COUNT = 2;
+const OVERLAP_MAX_LENS = 50;
 
 export default function MapboxMap({
   listings,
@@ -95,6 +98,46 @@ export default function MapboxMap({
   useEffect(() => {
     onSelectListingRef.current = onSelectListing;
   }, [onSelectListing]);
+
+  const getNearbyListingIds = useCallback(
+    (point: { x: number; y: number }) => {
+      const map = mapRef.current;
+      if (!map || !sourceReadyRef.current) return [];
+      const bbox: [[number, number], [number, number]] = [
+        [point.x - OVERLAP_HITBOX_PX, point.y - OVERLAP_HITBOX_PX],
+        [point.x + OVERLAP_HITBOX_PX, point.y + OVERLAP_HITBOX_PX],
+      ];
+      const features = map.queryRenderedFeatures(bbox, {
+        layers: ['unclustered-price', 'unclustered-point'],
+      });
+      const ids = new Set<string>();
+      features.forEach((f) => {
+        const props = (f.properties ?? {}) as Record<string, unknown>;
+        const id = props.id ?? props.mlsId;
+        if (id != null) {
+          ids.add(String(id));
+        }
+      });
+      return Array.from(ids);
+    },
+    [],
+  );
+
+  const mapIdsToListings = useCallback((ids: string[]) => {
+    const byId = new Map<string, NormalizedListing>();
+    listingsRef.current.forEach((l) => {
+      if (l.id != null) byId.set(String(l.id), l);
+      if (l.mlsId != null) byId.set(String(l.mlsId), l);
+    });
+    const results: NormalizedListing[] = [];
+    ids.forEach((id) => {
+      const listing = byId.get(id);
+      if (listing && !results.includes(listing)) {
+        results.push(listing);
+      }
+    });
+    return results.slice(0, OVERLAP_MAX_LENS);
+  }, []);
 
   const setFeatureState = useCallback((id: string, key: 'selected' | 'hovered', value: boolean) => {
     const map = mapRef.current;
@@ -213,9 +256,7 @@ export default function MapboxMap({
           map.addSource(sourceId, {
             type: 'geojson',
             data: listingsToGeoJSON(listingsRef.current),
-            cluster: true,
-            clusterRadius: 50,
-            clusterMaxZoom: 14,
+            cluster: false,
           });
         } catch (err) {
           if (process.env.NODE_ENV === 'development') {
@@ -354,7 +395,9 @@ export default function MapboxMap({
 
       handleMouseEnter = (e: mapboxgl.MapLayerMouseEvent) => {
         if (lensOpen()) return;
-        canvas.style.cursor = 'pointer';
+        const nearbyIds = getNearbyListingIds(e.point);
+        const isCrowded = nearbyIds.length >= OVERLAP_MIN_COUNT;
+        canvas.style.cursor = isCrowded ? 'zoom-in' : 'pointer';
         const id = e.features?.[0]?.properties?.id as string | undefined;
         if (!id) return;
         setFeatureState(id, 'hovered', true);
@@ -453,6 +496,7 @@ export default function MapboxMap({
       map.on('mouseleave', 'unclustered-point', handleMouseLeave);
       map.on('click', 'unclustered-point', handleClick);
       map.on('mouseenter', 'unclustered-price', handleMouseEnter);
+      map.on('mousemove', 'unclustered-price', handleMouseEnter);
       map.on('mouseleave', 'unclustered-price', handleMouseLeave);
       map.on('click', 'unclustered-price', handleClick);
 
@@ -475,71 +519,32 @@ export default function MapboxMap({
         const lensIsOpen = Boolean(activeClusterData);
         if (lensIsOpen && isLocked) return;
 
-        const hits = map.queryRenderedFeatures(e.point, {
-          layers: ['cluster-count', 'clusters', 'unclustered-point', 'unclustered-price'],
-        });
-
-        const clusterFeature = hits.find(
-          (f) => f.layer?.id === 'cluster-count' || f.layer?.id === 'clusters',
-        );
-
-        if (clusterFeature) {
-          const clusterId = clusterFeature.properties?.cluster_id as number | undefined;
-          const pointCount = clusterFeature.properties?.point_count as number | undefined;
-          const coords =
-            clusterFeature?.geometry && 'coordinates' in clusterFeature.geometry
-              ? (clusterFeature.geometry as any).coordinates
-              : null;
-          if (!Array.isArray(coords) || coords.length < 2) return;
-          const [lng, lat] = coords as [number, number];
-          if (clusterId == null || lng == null || lat == null) return;
-
-          if (lensIsOpen && lastOpenClusterIdRef.current === clusterId) {
-            clusterClickReqIdRef.current += 1;
-            lastOpenClusterIdRef.current = null;
-            inFlightClusterIdRef.current = null;
+        const nearbyIds = getNearbyListingIds(e.point);
+        const isCrowded = nearbyIds.length >= OVERLAP_MIN_COUNT;
+        if (isCrowded) {
+          const listingsForLens = mapIdsToListings(nearbyIds);
+          if (listingsForLens.length > 0) {
+            const { lng, lat } = e.lngLat;
+            const overlapKey = `ov:${[...nearbyIds].sort().slice(0, 5).join('|')}:${
+              listingsForLens.length
+            }`;
+            const activeClusterKey = useMapLensStore.getState().activeClusterData?.clusterKey;
+            if (lensIsOpen && activeClusterKey === overlapKey && !isLocked) {
+              dismissLens();
+              return;
+            }
             if (popupRef.current) {
               popupRef.current.remove();
             }
-            dismissLens();
+            setPreviewListing(null);
+            openImmediate(listingsForLens, { lat, lng }, { clusterKey: overlapKey });
             return;
           }
-
-          if (!lensIsOpen && inFlightClusterIdRef.current === clusterId) {
-            return;
-          }
-          if (!lensIsOpen) {
-            inFlightClusterIdRef.current = clusterId;
-          }
-
-          const clusterKey = `mb:${clusterId}`;
-          const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
-          if (!source || typeof source.getClusterLeaves !== 'function') return;
-
-          const reqId = ++clusterClickReqIdRef.current;
-          const limit = Math.min(typeof pointCount === 'number' ? pointCount : 500, 500);
-          source.getClusterLeaves(clusterId, limit, 0, (err, leaves) => {
-            if (inFlightClusterIdRef.current === clusterId) {
-              inFlightClusterIdRef.current = null;
-            }
-            if (reqId !== clusterClickReqIdRef.current) return;
-            if (err || !leaves) {
-              console.warn('[MapboxMap] getClusterLeaves failed', err);
-              return;
-            }
-            const byId = new Map(listingsRef.current.map((l) => [String(l.id), l]));
-            const leafListings = leaves
-              .map((leaf) => {
-                const id = leaf?.properties?.id;
-                return id != null ? byId.get(String(id)) : undefined;
-              })
-              .filter(Boolean) as NormalizedListing[];
-            if (!leafListings.length) return;
-            lastOpenClusterIdRef.current = clusterId;
-            openImmediate(leafListings, { lat, lng }, { clusterKey });
-          });
-          return;
         }
+
+        const hits = map.queryRenderedFeatures(e.point, {
+          layers: ['unclustered-point', 'unclustered-price'],
+        });
 
         if (hits.length === 0) {
           if (popupRef.current) {
@@ -595,6 +600,7 @@ export default function MapboxMap({
       if (handleMouseEnter) {
         map.off('mouseenter', 'unclustered-point', handleMouseEnter);
         map.off('mouseenter', 'unclustered-price', handleMouseEnter);
+        map.off('mousemove', 'unclustered-price', handleMouseEnter);
       }
       if (handleMouseLeave) {
         map.off('mouseleave', 'unclustered-point', handleMouseLeave);
@@ -623,7 +629,18 @@ export default function MapboxMap({
       setMapInstance(null);
       sourceReadyRef.current = false;
     };
-  }, [token, applyFeatureStates, setFeatureState, openImmediate, dismissLens, isMobile, escapeHtml, safeUrl]);
+  }, [
+    token,
+    applyFeatureStates,
+    setFeatureState,
+    openImmediate,
+    dismissLens,
+    isMobile,
+    escapeHtml,
+    safeUrl,
+    getNearbyListingIds,
+    mapIdsToListings,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
