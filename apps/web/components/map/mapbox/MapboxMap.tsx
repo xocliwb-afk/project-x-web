@@ -226,36 +226,72 @@ export default function MapboxMap({
 
       if (!map.getLayer('clusters')) {
         try {
+          const clusterPaint: mapboxgl.CircleLayer['paint'] = {
+            'circle-color': [
+              'step',
+              ['get', 'point_count'],
+              '#93c5fd',
+              10,
+              '#60a5fa',
+              25,
+              '#3b82f6',
+              50,
+              '#1d4ed8',
+            ],
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              14,
+              10,
+              18,
+              25,
+              22,
+              50,
+              28,
+            ],
+          };
+
           map.addLayer({
             id: 'clusters',
             type: 'circle',
             source: sourceId,
             filter: ['has', 'point_count'],
-            paint: {
-              'circle-color': [
-                'step',
-                ['get', 'point_count'],
-                '#93c5fd',
-                10,
-                '#60a5fa',
-                25,
-                '#3b82f6',
-                50,
-                '#1d4ed8',
-              ],
-              'circle-radius': [
-                'step',
-                ['get', 'point_count'],
-                14,
-                10,
-                18,
-                25,
-                22,
-                50,
-                28,
-              ],
-            },
+            paint: clusterPaint,
           });
+
+          if (!map.getLayer('clusters-stack-1')) {
+            map.addLayer(
+              {
+                id: 'clusters-stack-1',
+                type: 'circle',
+                source: sourceId,
+                filter: ['has', 'point_count'],
+                paint: {
+                  ...clusterPaint,
+                  'circle-translate': [3, -3],
+                  'circle-translate-anchor': 'viewport',
+                },
+              },
+              'clusters',
+            );
+          }
+
+          if (!map.getLayer('clusters-stack-2')) {
+            map.addLayer(
+              {
+                id: 'clusters-stack-2',
+                type: 'circle',
+                source: sourceId,
+                filter: ['has', 'point_count'],
+                paint: {
+                  ...clusterPaint,
+                  'circle-translate': [-3, 3],
+                  'circle-translate-anchor': 'viewport',
+                },
+              },
+              'clusters',
+            );
+          }
         } catch (err) {
           if (process.env.NODE_ENV === 'development') {
             console.warn('[MapboxMap] Failed to add clusters layer:', err);
@@ -466,7 +502,11 @@ export default function MapboxMap({
       };
 
       map.on('mouseenter', 'clusters', handleClusterEnter);
+      map.on('mouseenter', 'clusters-stack-1', handleClusterEnter);
+      map.on('mouseenter', 'clusters-stack-2', handleClusterEnter);
       map.on('mouseleave', 'clusters', handleClusterLeave);
+      map.on('mouseleave', 'clusters-stack-1', handleClusterLeave);
+      map.on('mouseleave', 'clusters-stack-2', handleClusterLeave);
       map.on('mouseenter', 'cluster-count', handleClusterEnter);
       map.on('mouseleave', 'cluster-count', handleClusterLeave);
 
@@ -476,11 +516,20 @@ export default function MapboxMap({
         if (lensIsOpen && isLocked) return;
 
         const hits = map.queryRenderedFeatures(e.point, {
-          layers: ['cluster-count', 'clusters', 'unclustered-point', 'unclustered-price'],
+          layers: [
+            'cluster-count',
+            'clusters',
+            'clusters-stack-1',
+            'clusters-stack-2',
+            'unclustered-point',
+            'unclustered-price',
+          ],
         });
 
-        const clusterFeature = hits.find(
-          (f) => f.layer?.id === 'cluster-count' || f.layer?.id === 'clusters',
+        const clusterFeature = hits.find((f) =>
+          ['cluster-count', 'clusters', 'clusters-stack-1', 'clusters-stack-2'].includes(
+            f.layer?.id ?? '',
+          ),
         );
 
         if (clusterFeature) {
@@ -606,10 +655,14 @@ export default function MapboxMap({
       }
       if (handleClusterEnter) {
         map.off('mouseenter', 'clusters', handleClusterEnter);
+        map.off('mouseenter', 'clusters-stack-1', handleClusterEnter);
+        map.off('mouseenter', 'clusters-stack-2', handleClusterEnter);
         map.off('mouseenter', 'cluster-count', handleClusterEnter);
       }
       if (handleClusterLeave) {
         map.off('mouseleave', 'clusters', handleClusterLeave);
+        map.off('mouseleave', 'clusters-stack-1', handleClusterLeave);
+        map.off('mouseleave', 'clusters-stack-2', handleClusterLeave);
         map.off('mouseleave', 'cluster-count', handleClusterLeave);
       }
       if (handleMapClick) {
