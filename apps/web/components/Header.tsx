@@ -4,7 +4,7 @@ import styles from "./Header.module.css";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/context/ThemeContext";
 import SearchFiltersBar, { SortButton } from "@/components/SearchFiltersBar";
 import { useLeadModalStore } from "@/stores/useLeadModalStore";
@@ -15,7 +15,23 @@ export default function Header() {
   const isSearchPage = pathname?.startsWith("/search");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mapMenuOpen, setMapMenuOpen] = useState(false);
+  const [neighborhoodsOpen, setNeighborhoodsOpen] = useState(false);
+  const [neighborhoodsMobileOpen, setNeighborhoodsMobileOpen] = useState(false);
   const openLeadModal = useLeadModalStore((s) => s.open);
+  const neighborhoodsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const neighborhoods = [
+    { label: "Grand Rapids", href: "/grand-rapids" },
+    { label: "Ada", href: "/ada" },
+    { label: "Byron Center", href: "/byron-center" },
+    { label: "Caledonia", href: "/caledonia" },
+    { label: "East Grand Rapids", href: "/east-grand-rapids" },
+    { label: "Grandville", href: "/grandville" },
+    { label: "Kentwood", href: "/kentwood" },
+    { label: "Rockford", href: "/rockford" },
+    { label: "Wyoming", href: "/wyoming" },
+  ];
+  // Keep in sync with apps/web/next.config.js neighborhoodSlugs
 
   const navItems = [
     { label: "Home", href: "/" },
@@ -23,11 +39,16 @@ export default function Header() {
     { label: "Buy Smarter", href: "/buy" },
     { label: "Sell for More", href: "/sell" },
     { label: "Build", href: "/build" },
-    { label: "Neighborhoods", href: "/neighborhoods" },
     { label: "About", href: "/about" },
   ];
 
-  const isActive = (href: string) => pathname === href;
+  const isNeighborhoodPath = (path?: string | null) => {
+    if (!path) return false;
+    if (path === "/neighborhoods") return true;
+    return neighborhoods.some((n) => n.href === path);
+  };
+
+  const isActive = (href: string) => pathname === href || (href === "/neighborhoods" && isNeighborhoodPath(pathname));
 
   const navLinkClass = (href: string) =>
     [styles.navLink, isActive(href) ? styles.isActive : ""].join(" ").trim();
@@ -39,6 +60,32 @@ export default function Header() {
         ? "bg-primary text-white border-primary"
         : "border-white/70 text-slate-800 bg-white/80 hover:bg-white",
     ].join(" ");
+
+  useEffect(() => {
+    if (!neighborhoodsOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!neighborhoodsMenuRef.current) return;
+      if (!neighborhoodsMenuRef.current.contains(e.target as Node)) {
+        setNeighborhoodsOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setNeighborhoodsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [neighborhoodsOpen]);
+
+  useEffect(() => {
+    setNeighborhoodsOpen(false);
+    setNeighborhoodsMobileOpen(false);
+  }, [pathname]);
 
   return (
     <header className="flex shrink-0 flex-col">
@@ -57,11 +104,54 @@ export default function Header() {
           </Link>
 
           <div className={styles.topNavLinks}>
-            {navItems.map((item) => (
-              <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
-                {item.label}
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              if (item.label === "About") {
+                return (
+                  <span key={item.href} className="flex items-center gap-2">
+                    <span className="relative" ref={neighborhoodsMenuRef}>
+                      <button
+                        type="button"
+                        className={navLinkClass("/neighborhoods")}
+                        aria-haspopup="true"
+                        aria-expanded={neighborhoodsOpen}
+                        aria-controls="neighborhoods-menu"
+                        onClick={() => setNeighborhoodsOpen((prev) => !prev)}
+                      >
+                        Neighborhoods
+                      </button>
+                      {neighborhoodsOpen && (
+                        <div
+                          id="neighborhoods-menu"
+                          className="absolute left-1/2 top-10 z-50 w-56 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 text-slate-800 shadow-lg"
+                        >
+                          <ul className="space-y-1">
+                            {neighborhoods.map((n) => (
+                              <li key={n.href}>
+                                <Link
+                                  href={n.href}
+                                  className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-slate-100"
+                                  onClick={() => setNeighborhoodsOpen(false)}
+                                >
+                                  {n.label}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </span>
+                    <Link href={item.href} className={navLinkClass(item.href)}>
+                      {item.label}
+                    </Link>
+                  </span>
+                );
+              }
+              return (
+                <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
+                  {item.label}
+                </Link>
+              );
+            })}
             <button type="button" onClick={() => openLeadModal()} className={styles.navLink}>
               Contact
             </button>
@@ -97,12 +187,45 @@ export default function Header() {
                 <Link
                   href={item.href}
                   className={navLinkClass(item.href)}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={() => {
+                    setMobileOpen(false);
+                    setNeighborhoodsMobileOpen(false);
+                  }}
                 >
                   {item.label}
                 </Link>
               </li>
             ))}
+            <li>
+              <button
+                type="button"
+                className={`${styles.navLink} flex w-full items-center justify-between`}
+                aria-expanded={neighborhoodsMobileOpen}
+                aria-controls="mobile-neighborhoods-list"
+                onClick={() => setNeighborhoodsMobileOpen((prev) => !prev)}
+              >
+                <span>Neighborhoods</span>
+                <span aria-hidden="true">{neighborhoodsMobileOpen ? "−" : "+"}</span>
+              </button>
+              {neighborhoodsMobileOpen && (
+                <ul id="mobile-neighborhoods-list" className="mt-1 space-y-1 pl-4">
+                  {neighborhoods.map((n) => (
+                    <li key={n.href}>
+                      <Link
+                        href={n.href}
+                        className="block rounded-md px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          setNeighborhoodsMobileOpen(false);
+                        }}
+                      >
+                        {n.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
             <li>
               <button
                 type="button"
