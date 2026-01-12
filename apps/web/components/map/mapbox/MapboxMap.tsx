@@ -43,9 +43,6 @@ export default function MapboxMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
-  const clusterClickReqIdRef = useRef(0);
-  const lastOpenClusterIdRef = useRef<number | null>(null);
-  const inFlightClusterIdRef = useRef<number | null>(null);
   const sourceReadyRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const lastHoveredIdRef = useRef<string | null>(null);
@@ -211,8 +208,6 @@ export default function MapboxMap({
     let handleMouseLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleMapClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
-    let handleClusterEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
-    let handleClusterLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
 
     map.on('load', () => {
       const pillId = 'price-pill';
@@ -264,68 +259,6 @@ export default function MapboxMap({
         } catch (err) {
           if (process.env.NODE_ENV === 'development') {
             console.warn('[MapboxMap] Failed to add source:', err);
-          }
-        }
-      }
-
-      if (!map.getLayer('clusters')) {
-        try {
-          map.addLayer({
-            id: 'clusters',
-            type: 'circle',
-            source: sourceId,
-            filter: ['has', 'point_count'],
-            paint: {
-              'circle-color': [
-                'step',
-                ['get', 'point_count'],
-                '#93c5fd',
-                10,
-                '#60a5fa',
-                25,
-                '#3b82f6',
-                50,
-                '#1d4ed8',
-              ],
-              'circle-radius': [
-                'step',
-                ['get', 'point_count'],
-                14,
-                10,
-                18,
-                25,
-                22,
-                50,
-                28,
-              ],
-            },
-          });
-        } catch (err) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[MapboxMap] Failed to add clusters layer:', err);
-          }
-        }
-      }
-
-      if (!map.getLayer('cluster-count')) {
-        try {
-          map.addLayer({
-            id: 'cluster-count',
-            type: 'symbol',
-            source: sourceId,
-            filter: ['has', 'point_count'],
-            layout: {
-              'text-field': ['get', 'point_count_abbreviated'],
-              'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-              'text-size': 12,
-            },
-            paint: {
-              'text-color': '#0f172a',
-            },
-          });
-        } catch (err) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[MapboxMap] Failed to add cluster-count layer:', err);
           }
         }
       }
@@ -529,20 +462,6 @@ export default function MapboxMap({
       map.on('mouseleave', 'unclustered-price', handleMouseLeave);
       map.on('click', 'unclustered-price', handleClick);
 
-      handleClusterEnter = () => {
-        if (lensOpen()) return;
-        canvas.style.cursor = 'zoom-in';
-      };
-
-      handleClusterLeave = () => {
-        canvas.style.cursor = isDraggingRef.current ? 'grabbing' : 'grab';
-      };
-
-      map.on('mouseenter', 'clusters', handleClusterEnter);
-      map.on('mouseleave', 'clusters', handleClusterLeave);
-      map.on('mouseenter', 'cluster-count', handleClusterEnter);
-      map.on('mouseleave', 'cluster-count', handleClusterLeave);
-
       handleMapClick = (e: mapboxgl.MapMouseEvent) => {
         const { activeClusterData, isLocked } = useMapLensStore.getState();
         const lensIsOpen = Boolean(activeClusterData);
@@ -585,8 +504,6 @@ export default function MapboxMap({
         }
 
         if (lensIsOpen && hits.length === 0 && !isLocked) {
-          lastOpenClusterIdRef.current = null;
-          inFlightClusterIdRef.current = null;
           setPreviewListing(null);
           if (popupRef.current) {
             popupRef.current.remove();
@@ -640,14 +557,6 @@ export default function MapboxMap({
       if (handleClick) {
         map.off('click', 'unclustered-point', handleClick);
         map.off('click', 'unclustered-price', handleClick);
-      }
-      if (handleClusterEnter) {
-        map.off('mouseenter', 'clusters', handleClusterEnter);
-        map.off('mouseenter', 'cluster-count', handleClusterEnter);
-      }
-      if (handleClusterLeave) {
-        map.off('mouseleave', 'clusters', handleClusterLeave);
-        map.off('mouseleave', 'cluster-count', handleClusterLeave);
       }
       if (handleMapClick) {
         map.off('click', handleMapClick);
