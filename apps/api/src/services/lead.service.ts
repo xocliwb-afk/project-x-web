@@ -84,10 +84,23 @@ export class LeadService {
       return digits || undefined;
     };
 
+    const normalizeContext = (value?: string) => {
+      const ctx = trimmed(value);
+      if (!ctx) return undefined;
+      if (ctx.length > 8192) return undefined;
+      try {
+        JSON.parse(ctx);
+      } catch {
+        return undefined;
+      }
+      return ctx;
+    };
+
     return {
       listingId: trimmed(payload.listingId),
       listingAddress: trimmed(payload.listingAddress),
       message: trimmed(payload.message),
+      context: normalizeContext(payload.context),
       name: trimmed(payload.name)!,
       email: trimmed(payload.email),
       phone: normalizePhone(payload.phone),
@@ -104,6 +117,7 @@ export class LeadService {
       brokerId: lead.brokerId,
       listingId: lead.listingId,
       source: lead.source,
+      contextLength: lead.context?.length || 0,
       provider,
       success,
     });

@@ -6,6 +6,7 @@ export type LeadSubmitPayload = {
   listingId?: string;
   listingAddress?: string;
   message?: string;
+  context?: string;
   name: string;
   email?: string;
   phone?: string;
