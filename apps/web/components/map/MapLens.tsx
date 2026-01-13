@@ -55,7 +55,10 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const { mapSide } = useTheme();
   const useMapbox = process.env.NEXT_PUBLIC_USE_MAPBOX === "true";
 
-  const allClusterListings = activeClusterData?.listings ?? [];
+  const allClusterListings = useMemo(
+    () => activeClusterData?.listings ?? [],
+    [activeClusterData]
+  );
   const sortedAllListings = useMemo(
     () =>
       [...allClusterListings].sort((a, b) => {
@@ -152,11 +155,11 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     setFocusedListingId(null);
     dismissLens();
     onHoverListing?.(null);
-  }, [dismissLens, onHoverListing]);
+  }, [dismissLens, onHoverListing, setFocusedListingId]);
 
   useEffect(() => {
     setFocusedListingId(null);
-  }, [activeClusterData]);
+  }, [activeClusterData, setFocusedListingId]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
