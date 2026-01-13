@@ -97,7 +97,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const buildLeadContext = ({ pageSlug }) => {
+  const buildLeadContext = ({
+    pageSlug,
+    intent,
+    entry_source,
+    source,
+    listing_id,
+    listing_address,
+  }) => {
     try {
       const pageUrl = sanitizeUrl(window.location.href);
       const referrer = sanitizeUrl(document.referrer || "");
@@ -118,6 +125,11 @@ document.addEventListener('DOMContentLoaded', () => {
         utm_campaign: pickUtm("utm_campaign"),
         utm_term: pickUtm("utm_term"),
         utm_content: pickUtm("utm_content"),
+        intent,
+        entry_source,
+        source,
+        listing_id,
+        listing_address,
         timestamp: new Date().toISOString(),
         viewport_width: window.innerWidth,
         viewport_height: window.innerHeight,
@@ -135,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         "referrer",
         "viewport_width",
         "viewport_height",
+        "listing_address",
       ];
 
       const safeStringify = (obj) => JSON.stringify(obj);
@@ -161,6 +174,46 @@ document.addEventListener('DOMContentLoaded', () => {
       return undefined;
     }
   };
+
+  const storageKeys = {
+    id: "marketing_lead_listing_id",
+    address: "marketing_lead_listing_address",
+  };
+
+  const safeStore = (() => {
+    let memoryStore = {};
+    return {
+      set: (key, value) => {
+        try {
+          sessionStorage.setItem(key, value);
+        } catch {
+          memoryStore[key] = value;
+        }
+      },
+      get: (key) => {
+        try {
+          return sessionStorage.getItem(key) ?? memoryStore[key] ?? null;
+        } catch {
+          return memoryStore[key] ?? null;
+        }
+      },
+      remove: (key) => {
+        try {
+          sessionStorage.removeItem(key);
+        } catch {
+          delete memoryStore[key];
+        }
+      },
+      clearListing: () => {
+        safeStore.remove(storageKeys.id);
+        safeStore.remove(storageKeys.address);
+        window.__marketingActiveListing = undefined;
+      },
+    };
+  })();
+
+  let lastLeadModalTrigger = null;
+  safeStore.clearListing();
 
   // --- Mobile Menu ---
   const navToggle = document.getElementById('navToggle');
@@ -228,6 +281,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeAllOverlays = () => {
     document.querySelectorAll('.ui-modal, .ui-drawer, .ui-backdrop').forEach(el => el.classList.remove('is-visible'));
     document.body.classList.remove('no-scroll');
+    lastLeadModalTrigger = null;
+    safeStore.clearListing();
+  };
+  const hideModal = (id) => {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.classList.remove('is-visible');
   };
   const openModal = (id) => {
     const modal = document.getElementById(id);
@@ -250,13 +310,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const slugify = (str = '') => str.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
   const handleOpenModalTrigger = (trigger) => {
+    lastLeadModalTrigger = trigger;
     const ctxInput = document.getElementById('page_context');
     if (ctxInput) {
       const fallbackHeading = document.querySelector('main h1')?.textContent || '';
       const ctx = trigger.dataset.pageContext || slugify(fallbackHeading);
       ctxInput.value = ctx;
     }
-    openModal(trigger.getAttribute('data-open-modal'));
+
+    const listingId = trigger.getAttribute('data-listing-id') || "";
+    const listingAddress = trigger.getAttribute('data-listing-address') || "";
+    if (listingId) {
+      safeStore.set(storageKeys.id, listingId);
+      if (listingAddress) safeStore.set(storageKeys.address, listingAddress);
+      window.__marketingActiveListing = { id: listingId, address: listingAddress || "" };
+    } else if (window.__marketingActiveListing) {
+      safeStore.set(storageKeys.id, window.__marketingActiveListing.id || "");
+      safeStore.set(storageKeys.address, window.__marketingActiveListing.address || "");
+    } else {
+      safeStore.clearListing();
+    }
+
+    const targetModalId = trigger.getAttribute('data-open-modal');
+    if (targetModalId === 'contactModal') {
+      const listingModalEl = document.getElementById('listingModal');
+      const triggerInsideListing = trigger.closest('#listingModal');
+      const listingVisible = listingModalEl?.classList?.contains('is-visible');
+      if (triggerInsideListing || listingVisible) {
+        hideModal('listingModal');
+      }
+    }
+
+    openModal(targetModalId);
   };
 
   document.addEventListener('click', (e) => {
@@ -357,7 +442,31 @@ document.addEventListener('DOMContentLoaded', () => {
       lines.push(`Page: ${pageContext}`);
       const finalMessage = lines.join('\n');
 
-      const context = buildLeadContext({ pageSlug: pageContext });
+      const listingIdStored = safeStore.get(storageKeys.id) || "";
+      const listingAddressStored = safeStore.get(storageKeys.address) || "";
+      const hasListingContext = Boolean(listingIdStored);
+      const payloadSource = hasListingContext
+        ? `marketing:${pageContext}:listing`
+        : `marketing:${pageContext}`;
+      const intent = hasListingContext ? "get-details" : "talk-to-brandon";
+
+      const deriveEntrySource = () => {
+        let entry = lastLeadModalTrigger?.getAttribute?.('data-entry-source') || '';
+        if (!entry && lastLeadModalTrigger?.closest?.('header')) entry = 'marketing-header-nav';
+        if (!entry && lastLeadModalTrigger?.closest?.('footer')) entry = 'marketing-footer-cta';
+        if (!entry) entry = `marketing-${pageContext}-cta`;
+        return entry;
+      };
+      const entrySource = deriveEntrySource();
+
+      const context = buildLeadContext({
+        pageSlug: pageContext,
+        intent,
+        entry_source: entrySource,
+        source: payloadSource,
+        listing_id: hasListingContext ? listingIdStored : undefined,
+        listing_address: hasListingContext ? listingAddressStored : undefined,
+      });
 
       const payload = {
         name,
@@ -365,9 +474,15 @@ document.addEventListener('DOMContentLoaded', () => {
         phone: phone || undefined,
         message: finalMessage,
         brokerId: 'demo-broker',
-        source: pageContext ? `marketing:${pageContext}` : 'marketing-contact-form',
+        source: payloadSource || 'marketing-contact-form',
         captchaToken,
         context,
+        ...(hasListingContext
+          ? {
+              listingId: listingIdStored,
+              listingAddress: listingAddressStored || undefined,
+            }
+          : {}),
       };
 
       if (modalStatus) modalStatus.textContent = 'Submitting...';
@@ -848,6 +963,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (els.right) {
+      const listingAddressFull = listing?.address?.full || "";
+      window.__marketingActiveListing = {
+        id: listing?.id || "",
+        address: listingAddressFull || "",
+      };
+      if (window.__marketingActiveListing.id) {
+        safeStore.set(storageKeys.id, window.__marketingActiveListing.id);
+        safeStore.set(storageKeys.address, window.__marketingActiveListing.address || "");
+      }
+
       els.right.innerHTML = `
         <div class="listing-modal__section">
           <div class="listing-modal__price">${formatPrice(listing)}</div>
@@ -891,6 +1016,15 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="listing-modal__section">
           <p class="listing-modal__attribution">${attribution}</p>
           <div class="listing-modal__actions">
+            <button
+              type="button"
+              class="btn btn-primary btn-block"
+              data-open-modal="contactModal"
+              data-entry-source="marketing-listing-modal"
+              data-listing-id="${escapeHtml(listing.id)}"
+              ${listingAddressFull ? `data-listing-address="${escapeHtml(listingAddressFull)}"` : ""}
+              data-page-context="listing-modal"
+            >Contact Agent</button>
             <a class="btn btn-primary btn-block" href="/listing/${encodeURIComponent(
               listing.id
             )}">Full Listing Page</a>
