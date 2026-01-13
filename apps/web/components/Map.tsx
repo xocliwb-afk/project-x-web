@@ -353,6 +353,7 @@ export default function Map({
                     <Popup>
                       <div className="w-64 p-2 text-xs font-sans">
                         <div className="mb-2 w-full overflow-hidden rounded">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- Dynamic listing/MLS photo URL; next/image would require remotePatterns and risks behavior drift */}
                           <img
                             src={mainPhoto}
                             alt={l.address.street || fullAddress}

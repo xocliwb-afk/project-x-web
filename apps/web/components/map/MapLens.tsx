@@ -443,6 +443,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
               >
                 <div className="flex flex-col gap-2 w-full">
                   <div className="mb-2 w-full overflow-hidden rounded">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- Dynamic listing thumbnail URL; keep <img> to avoid remotePatterns and behavior drift */}
                     <img
                       src={getThumbnailUrl(focusedListing)}
                       alt={focusedListing.address?.full ?? "Listing photo"}

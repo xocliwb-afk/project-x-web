@@ -46,6 +46,7 @@ export default function Footer() {
                 rel="noreferrer"
                 className="inline-flex"
               >
+                {/* eslint-disable-next-line @next/next/no-img-element -- Static local footer logo; keep <img> to avoid any layout/behavior drift in lint-only cleanup */}
                 <img
                   src="/assets/img/logo (for non-white backgrounds).webp"
                   alt="616 Realty"
@@ -80,6 +81,7 @@ export default function Footer() {
                 Terms of Use
               </Link>
             </div>
+            {/* eslint-disable-next-line @next/next/no-img-element -- Static local footer badge; keep <img> to avoid any layout/behavior drift in lint-only cleanup */}
             <img
               src="/assets/img/realtor.webp"
               alt="Realtor / Equal Housing"
