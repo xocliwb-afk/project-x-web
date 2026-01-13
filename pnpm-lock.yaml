@@ -45,15 +45,9 @@ importers:
       express:
         specifier: ^4.18.2
         version: 4.22.1
-      helmet:
-        specifier: ^7.1.0
-        version: 7.2.0
       node-fetch:
         specifier: '2'
         version: 2.7.0
-      zod:
-        specifier: ^3.22.4
-        version: 3.25.76
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -2619,10 +2613,6 @@ packages:
 
   hdr-histogram-percentiles-obj@3.0.0:
     resolution: {integrity: sha512-7kIufnBqdsBGcSZLPJwqHT3yhk1QTsSlFsVD3kx5ixH/AlgBs9yM1q6DPhXZ8f8gtdqgh7N7/5btRLpQsS2gHw==}
-
-  helmet@7.2.0:
-    resolution: {integrity: sha512-ZRiwvN089JfMXokizgqEPXsl2Guk094yExfoDXR0cBYWxtBbaSww/w+vT4WEJsBW2iTUi1GgZ6swmoug3Oy4Xw==}
-    engines: {node: '>=16.0.0'}
 
   hidden-markov-model-tf@4.0.0:
     resolution: {integrity: sha512-q8VeBNCyQ5CNsUlbt4T5JXc+pUeKqq7LEGjs4HiH+thgZ2fuyJ9pf/V66ZFx9jZobXkwxVuQRWKZa3TwOFW+zw==}
@@ -8287,8 +8277,6 @@ snapshots:
       pako: 1.0.11
 
   hdr-histogram-percentiles-obj@3.0.0: {}
-
-  helmet@7.2.0: {}
 
   hidden-markov-model-tf@4.0.0(@tensorflow/tfjs-core@3.21.0):
     dependencies:
