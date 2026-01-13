@@ -162,6 +162,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  // --- Listing context tracking ---
+  const storageKeys = {
+    id: "marketing_lead_listing_id",
+    address: "marketing_lead_listing_address",
+  };
+
+  const safeStore = (() => {
+    let memoryStore = {};
+    return {
+      set: (key, value) => {
+        try {
+          sessionStorage.setItem(key, value);
+        } catch {
+          memoryStore[key] = value;
+        }
+      },
+      get: (key) => {
+        try {
+          return sessionStorage.getItem(key) ?? memoryStore[key] ?? null;
+        } catch {
+          return memoryStore[key] ?? null;
+        }
+      },
+      remove: (key) => {
+        try {
+          sessionStorage.removeItem(key);
+        } catch {
+          delete memoryStore[key];
+        }
+      },
+      clearListing: () => {
+        safeStore.remove(storageKeys.id);
+        safeStore.remove(storageKeys.address);
+        window.__marketingActiveListing = undefined;
+      },
+    };
+  })();
+
+  safeStore.clearListing();
+
   // --- Mobile Menu ---
   const navToggle = document.getElementById('navToggle');
   const mobileNav = document.getElementById('mobile-nav');
@@ -256,6 +296,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const ctx = trigger.dataset.pageContext || slugify(fallbackHeading);
       ctxInput.value = ctx;
     }
+
+    const listingId = trigger.getAttribute('data-listing-id') || "";
+    const listingAddress = trigger.getAttribute('data-listing-address') || "";
+    if (listingId) {
+      safeStore.set(storageKeys.id, listingId);
+      if (listingAddress) safeStore.set(storageKeys.address, listingAddress);
+      window.__marketingActiveListing = { id: listingId, address: listingAddress || "" };
+    } else if (window.__marketingActiveListing) {
+      safeStore.set(storageKeys.id, window.__marketingActiveListing.id || "");
+      safeStore.set(storageKeys.address, window.__marketingActiveListing.address || "");
+    } else {
+      safeStore.clearListing();
+    }
+
     openModal(trigger.getAttribute('data-open-modal'));
   };
 
@@ -357,7 +411,27 @@ document.addEventListener('DOMContentLoaded', () => {
       lines.push(`Page: ${pageContext}`);
       const finalMessage = lines.join('\n');
 
-      const context = buildLeadContext({ pageSlug: pageContext });
+      const listingIdStored = safeStore.get(storageKeys.id) || "";
+      const listingAddressStored = safeStore.get(storageKeys.address) || "";
+      const hasListingContext = Boolean(listingIdStored);
+      const payloadSource = hasListingContext
+        ? `marketing:${pageContext}:listing`
+        : `marketing:${pageContext}`;
+      const intent = hasListingContext ? "get-details" : "talk-to-brandon";
+
+      let entrySource = modalTrigger?.getAttribute?.('data-entry-source') || '';
+      if (!entrySource && modalTrigger?.closest?.('header')) entrySource = 'marketing-header-nav';
+      if (!entrySource && modalTrigger?.closest?.('footer')) entrySource = 'marketing-footer-cta';
+      if (!entrySource) entrySource = `marketing-${pageContext}-cta`;
+
+      const context = buildLeadContext({
+        pageSlug: pageContext,
+        intent,
+        entry_source: entrySource,
+        source: payloadSource,
+        listing_id: hasListingContext ? listingIdStored : undefined,
+        listing_address: hasListingContext ? listingAddressStored : undefined,
+      });
 
       const payload = {
         name,
@@ -365,9 +439,15 @@ document.addEventListener('DOMContentLoaded', () => {
         phone: phone || undefined,
         message: finalMessage,
         brokerId: 'demo-broker',
-        source: pageContext ? `marketing:${pageContext}` : 'marketing-contact-form',
+        source: payloadSource || 'marketing-contact-form',
         captchaToken,
         context,
+        ...(hasListingContext
+          ? {
+              listingId: listingIdStored,
+              listingAddress: listingAddressStored || undefined,
+            }
+          : {}),
       };
 
       if (modalStatus) modalStatus.textContent = 'Submitting...';
@@ -388,6 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
           closeAllOverlays();
           if (modalStatus) modalStatus.textContent = '';
           modalForm.reset();
+          safeStore.clearListing();
         }, 900);
       } catch (err) {
         console.error('Lead submit failed', err);
