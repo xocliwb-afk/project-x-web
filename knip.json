@@ -1,0 +1,32 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignore": [
+    "**/.next/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/playwright-report/**",
+    "**/test-results/**",
+    "**/.turbo/**",
+    "**/node_modules/**"
+  ],
+  "workspaces": {
+    "apps/web": {
+      "project": ["tsconfig.json"],
+      "entry": [
+        "next.config.*",
+        "middleware.*",
+        "app/**/{page,layout,route,loading,not-found,error,template}.{ts,tsx,js,jsx}",
+        "pages/**/*.{ts,tsx,js,jsx}"
+      ]
+    },
+    "apps/api": {
+      "project": ["tsconfig.json"],
+      "entry": ["src/**/*.{ts,tsx,js,jsx}"]
+    },
+    "packages/shared-types": {
+      "project": ["tsconfig.json"],
+      "entry": ["src/**/*.{ts,tsx,js,jsx}"]
+    }
+  }
+}

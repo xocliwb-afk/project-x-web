@@ -7,10 +7,14 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "pnpm --dir apps/api typecheck && pnpm --dir packages/shared-types typecheck",
+    "knip:report": "knip --config knip.json || true",
+    "madge:circular:report": "madge --circular --extensions ts,tsx --exclude \"(node_modules|\\.next|dist|build|coverage|test-results|playwright-report|\\.turbo)\" --ts-config apps/web/tsconfig.json apps/web || true && madge --circular --extensions ts,tsx --exclude \"(node_modules|\\.next|dist|build|coverage|test-results|playwright-report|\\.turbo)\" --ts-config apps/api/tsconfig.json apps/api || true && madge --circular --extensions ts,tsx --exclude \"(node_modules|\\.next|dist|build|coverage|test-results|playwright-report|\\.turbo)\" --ts-config packages/shared-types/tsconfig.json packages/shared-types || true",
     "e2e:search": "node scripts/run-e2e-search.mjs",
     "e2e:lens": "node scripts/run-e2e-search.mjs apps/web/e2e/search-lens-open.spec.ts"
   },
   "devDependencies": {
+    "knip": "^5.80.2",
+    "madge": "^8.0.0",
     "prettier": "latest",
     "turbo": "latest",
     "typescript": "5.9.3"
