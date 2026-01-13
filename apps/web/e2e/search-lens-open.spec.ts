@@ -21,9 +21,17 @@ test('map lens opens and closes on cluster click', async ({ page }) => {
 
   await page.goto('/search', { waitUntil: 'domcontentloaded' });
 
-  // Wait for map and a marker icon
-  await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 30000 });
-  await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible({ timeout: 30000 });
+  // Wait for Mapbox map and canvas to be ready
+  const mapCanvas = page.locator('.mapboxgl-canvas');
+  await expect(page.locator('.mapboxgl-map')).toBeVisible({ timeout: 30000 });
+  await expect(mapCanvas).toBeVisible({ timeout: 30000 });
+
+  // Zoom out several times to encourage clustering/overlap
+  await mapCanvas.hover();
+  for (let i = 0; i < 10; i++) {
+    await page.mouse.wheel(0, 800);
+    await page.waitForTimeout(150);
+  }
 
   const waitStart = Date.now();
   while (!sawOkBbox && Date.now() - waitStart < 30000) {
@@ -37,69 +45,46 @@ test('map lens opens and closes on cluster click', async ({ page }) => {
     );
   }
 
-  // Zoom out up to 10 times to encourage clustering
-  const zoomOut = page.locator('.leaflet-control-zoom-out').first();
-  if (await zoomOut.isVisible()) {
-    for (let i = 0; i < 10; i++) {
-      await zoomOut.click({ timeout: 5000 });
-      await page.waitForTimeout(250);
-      const hasCluster = await page.locator('div.leaflet-marker-icon', { hasText: /\d+/ }).count();
-      if (hasCluster > 0) break;
-    }
-  }
+  // Attempt clicks on multiple canvas positions until lens opens
+  const lens = page.locator('[data-testid="map-lens"]');
+  const clickPositions: Array<{ x: number; y: number }> = [
+    { x: 0.5, y: 0.5 },
+    { x: 0.3, y: 0.3 },
+    { x: 0.7, y: 0.3 },
+    { x: 0.3, y: 0.7 },
+    { x: 0.7, y: 0.7 },
+  ];
 
-  const clusterLocator = page.locator('div.leaflet-marker-icon', { hasText: /\d+/ });
-  let target = clusterLocator.first();
-  let usingCluster = true;
-  let clusterCount = await clusterLocator.count();
-  if (clusterCount === 0) {
-    const markerLocator = page.locator('div.leaflet-marker-icon');
-    const markerCount = await markerLocator.count();
-    if (markerCount === 0) {
-      throw new Error(
-        `No clusters or markers after zooming out. Requests: ${listingsRequests
-          .slice(-10)
-          .join(' | ') || 'none'}`,
-      );
-    }
-    target = markerLocator.first();
-    usingCluster = false;
-  }
-
-  const clickTargetWithRetry = async () => {
-    for (let i = 0; i < 5; i++) {
-      try {
-        await target.click({ timeout: 5000 });
-        return;
-      } catch {
-        await page.waitForTimeout(300);
-      }
-    }
-    throw new Error(
-      `Failed to click ${usingCluster ? 'cluster' : 'marker'} after retries. Requests: ${listingsRequests
-        .slice(-10)
-        .join(' | ') || 'none'}`,
-    );
+  const clickCanvasAt = async (relX: number, relY: number) => {
+    const box = await mapCanvas.boundingBox();
+    if (!box) throw new Error('Map canvas bounding box unavailable');
+    await mapCanvas.click({
+      position: { x: box.width * relX, y: box.height * relY },
+      timeout: 5000,
+    });
   };
 
-  await clickTargetWithRetry();
+  let opened = false;
+  for (const pos of clickPositions) {
+    await clickCanvasAt(pos.x, pos.y);
+    try {
+      await expect(lens).toBeVisible({ timeout: 5000 });
+      opened = true;
+      break;
+    } catch {
+      // Try another position
+    }
+  }
 
-  const lens = page.locator('[data-testid="map-lens"]');
-  try {
-    await expect(lens).toBeVisible({ timeout: 10000 });
-  } catch {
+  if (!opened) {
     throw new Error(
-      `Lens did not become visible after ${usingCluster ? 'cluster' : 'marker'} click. Requests: ${listingsRequests
+      `Lens did not become visible after canvas clicks. Requests: ${listingsRequests
         .slice(-10)
         .join(' | ') || 'none'}`,
     );
   }
 
-  await clickTargetWithRetry();
-  try {
-    await expect(lens).toBeHidden({ timeout: 1000 });
-  } catch {
-    await page.click('.leaflet-container', { position: { x: 20, y: 20 }, timeout: 5000 });
-    await expect(lens).toBeHidden({ timeout: 5000 });
-  }
+  // Dismiss lens
+  await page.keyboard.press('Escape');
+  await expect(lens).toBeHidden({ timeout: 5000 });
 });
