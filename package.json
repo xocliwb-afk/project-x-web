@@ -16,7 +16,6 @@
     "@lhci/cli": "^0.15.1",
     "knip": "^5.80.2",
     "madge": "^8.0.0",
-    "prettier": "latest",
     "turbo": "latest",
     "typescript": "5.9.3"
   },
