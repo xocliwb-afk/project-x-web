@@ -3,12 +3,12 @@
 import { useCallback } from "react";
 import type { NormalizedListing } from "@project-x/shared-types";
 import { useMapLensStore } from "@/stores/useMapLensStore";
-import type { LatLngBoundsLiteral } from "leaflet";
+import type { LatLngBoundsTuple } from "@/components/map/types";
 
 type MapPosition = { lat: number; lng: number };
 type LatLngLike = MapPosition | [number, number];
 type OpenLensOptions = {
-  bounds?: LatLngBoundsLiteral;
+  bounds?: LatLngBoundsTuple;
   clusterKey?: string;
 };
 
