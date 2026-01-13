@@ -4,7 +4,7 @@ check
 Codebase Investigator Agent...ile paths right.
 Arguments
 objective:
-Identify the map provider (Leaflet vs. Google) and the core implementation files for the MapLens feature. I need to know which mapping library is being used and where the main logic for the MapLens UI and its state management resides. This is for the first part of a larger analysis, so focus on getting the file paths right.
+Identify the map provider (Mapbox) and the core implementation files for the MapLens feature. I need to know which mapping library is being used and where the main logic for the MapLens UI and its state management resides. This is for the first part of a larger analysis, so focus on getting the file paths right.
 Output
 
 Subagent codebase_investigator Finished
@@ -14,22 +14,21 @@ Termination Reason:
 
 Result:
 {
-  "SummaryOfFindings": "The investigation confirms that the application uses **Leaflet** as its map provider. The core implementation of the MapLens feature is distributed across several files. State is managed in a Zustand store located at `apps/web/stores/useMapLensStore.ts`. The primary logic for handling user interactions (hover, click) and triggering the lens is in the `apps/web/hooks/useMapLens.ts` hook. The main map component, `apps/web/components/Map.tsx`, integrates the Leaflet map and the MapLens functionality. The MapLens UI itself is rendered by `apps/web/components/map/MapLens.tsx`, which is injected into a specific Leaflet map pane via `apps/web/components/map/leaflet/MapLensPanePortal.tsx`. An architectural document, `Adendums/Addendum B Map Provider.txt`, corroborates the choice of Leaflet.",
+  "SummaryOfFindings": "The investigation confirms that the application now uses **Mapbox** (mapbox-gl) as its map provider. The core implementation of the MapLens feature is distributed across Mapbox-specific files. State is managed in a Zustand store located at `apps/web/stores/useMapLensStore.ts`. The primary logic for handling user interactions (hover, click) and triggering the lens is in the `apps/web/hooks/useMapLens.ts` hook. The main map component is `apps/web/components/map/mapbox/MapboxMap.tsx`, and the MapLens UI is rendered by `apps/web/components/map/MapLens.tsx` with a Mapbox minimap in `apps/web/components/map/mapbox/LensMiniMapbox.tsx`. Legacy Leaflet components (`Map.tsx`, `MapPanel.tsx`, `map/leaflet/MapLensPanePortal.tsx`, etc.) have been removed.",
   "ExplorationTrace": [
     "Searched for the string \"MapLens\" in the `apps/web` directory to find initial entry points.",
-    "Read the file `apps/web/components/Map.tsx` to identify the mapping library based on its imports and components.",
+    "Read the file `apps/web/components/map/mapbox/MapboxMap.tsx` to identify the mapping library based on its imports and components.",
     "Read the file `apps/web/hooks/useMapLens.ts` to understand the core business logic and user interaction handling for the MapLens feature.",
     "Read the file `apps/web/stores/useMapLensStore.ts` to understand the state management structure, including the shape of the data and the available actions.",
     "Read the documentation file `Adendums/Addendum B Map Provider.txt` to confirm the architectural decisions regarding the map provider."
   ],
   "RelevantLocations": [
     {
-      "FilePath": "apps/web/components/Map.tsx",
-      "Reasoning": "This is the main map component. It confirms the use of the Leaflet mapping library via `react-leaflet` imports and integrates the MapLens feature into the map.",
+      "FilePath": "apps/web/components/map/mapbox/MapboxMap.tsx",
+      "Reasoning": "This is the main Mapbox map component (mapbox-gl) and integrates the MapLens feature into the map.",
       "KeySymbols": [
-        "MapContainer",
-        "useMapLens",
-        "MapLensPanePortal"
+        "MapboxMap",
+        "useMapLens"
       ]
     },
     {
@@ -59,15 +58,8 @@ Result:
       ]
     },
     {
-      "FilePath": "apps/web/components/map/leaflet/MapLensPanePortal.tsx",
-      "Reasoning": "This is a Leaflet-specific component that uses a Leaflet pane to render the MapLens UI over the map, acting as a bridge between the React component and the Leaflet map instance.",
-      "KeySymbols": [
-        "MapLensPanePortal"
-      ]
-    },
-    {
       "FilePath": "Adendums/Addendum B Map Provider.txt",
-      "Reasoning": "This documentation file confirms the architectural decision to use Leaflet as the initial map provider while designing for the flexibility to swap it out for other providers like Google Maps or Mapbox in the future.",
+      "Reasoning": "Historical; the project previously referenced Leaflet, but the current implementation is Mapbox-only.",
       "KeySymbols": []
     }
   ]
@@ -105,9 +97,9 @@ apps/api: An Express-based TypeScript server to handle business logic, specifica
 packages/shared-types: A shared package for TypeScript types used across the web and api apps to ensure data consistency.
 Map Provider:
 
-Provider: The project uses Leaflet via the react-leaflet library, as confirmed in apps/web/components/Map.tsx.
-Entry Component: The main map is rendered by apps/web/components/Map.tsx.
-Architectural Decision: The choice of Leaflet is documented in Adendums/Addendum B Map Provider.txt, which notes it was chosen for its flexibility and the possibility of swapping it out later.
+Provider: The project uses Mapbox via the mapbox-gl renderer.
+Entry Component: The main map is rendered by `apps/web/components/map/mapbox/MapboxMap.tsx`.
+Architectural Decision: The previous Leaflet toggle (`NEXT_PUBLIC_USE_MAPBOX`) has been removed; runtime is Mapbox-only.
 MapLens Implementation:
 
 Core Logic: The main interaction logic resides in the apps/web/hooks/useMapLens.ts hook.
@@ -155,7 +147,7 @@ sitemap.xml`` / ``robots.txt: These files exist at the root level, but will need
 Epic 1: Solidify Map and Search Foundation
 Task 1.1: Finalize MapLens Functionality
 Goal: Ensure MapLens is bug-free and responsive on all devices.
-Files: apps/web/hooks/useMapLens.ts, apps/web/components/map/MapLens.tsx, apps/web/components/Map.tsx.
+Files: apps/web/hooks/useMapLens.ts, apps/web/components/map/MapLens.tsx, apps/web/components/map/mapbox/MapboxMap.tsx.
 Steps:
 Refine the hover/click logic in useMapLens.ts to feel intuitive.
 Ensure the lens UI is fully responsive and doesn't break on mobile viewports.
@@ -255,4 +247,3 @@ submit_lead: Fired when a user successfully submits a lead form.
 Verify in the GA4 "Realtime" report that these events are being received.
 Generated by Gemini gemini-2.5-pro
 1 context item
-
