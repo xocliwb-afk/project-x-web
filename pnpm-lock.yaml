@@ -7,13 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      immer:
-        specifier: ^11.0.1
-        version: 11.0.1
-      zustand:
-        specifier: ^4.5.7
-        version: 4.5.7(@types/react@18.3.27)(immer@11.0.1)(react@18.3.1)
     devDependencies:
       '@lhci/cli':
         specifier: ^0.15.1

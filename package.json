@@ -19,9 +19,5 @@
     "turbo": "latest",
     "typescript": "5.9.3"
   },
-  "packageManager": "pnpm@9.0.0",
-  "dependencies": {
-    "immer": "^11.0.1",
-    "zustand": "^4.5.7"
-  }
+  "packageManager": "pnpm@9.0.0"
 }
