@@ -163,6 +163,8 @@ export function ListingInfo({ listing, variant = 'modal' }: ListingInfoProps) {
           type="button"
           onClick={() =>
             openLeadModal({
+              intent: "schedule-showing",
+              entrySource: "listing-info-modal",
               listingId: listing.id,
               listingAddress: listing.address?.full ?? undefined,
             })

@@ -21,7 +21,14 @@ export default function ContactAgentPanel({
       </p>
       <button
         type="button"
-        onClick={() => open({ listingId, listingAddress })}
+        onClick={() =>
+          open({
+            intent: "schedule-showing",
+            entrySource: "listing-detail-panel",
+            listingId,
+            listingAddress,
+          })
+        }
         className="mt-4 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
       >
         Schedule a tour
