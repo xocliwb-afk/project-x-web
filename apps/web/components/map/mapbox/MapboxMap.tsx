@@ -10,6 +10,7 @@ import { useMapLens } from '@/hooks/useMapLens';
 import ListingPreviewModal from '../ListingPreviewModal';
 import { getThumbnailUrl } from '@/lib/listingFormat';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { trackEvent } from '@/lib/analytics';
 
 type MapboxMapProps = {
   listings: NormalizedListing[];
@@ -384,6 +385,12 @@ export default function MapboxMap({
         if (!id) return;
         const listing = listingsRef.current.find((l) => String(l.id) === id);
         if (!listing) return;
+
+        trackEvent('listing_click', {
+          listing_id: listing.id ?? listing.mlsId ?? id,
+          source: 'pin',
+          page_type: 'search',
+        });
 
         const coords =
           feature?.geometry && 'coordinates' in feature.geometry

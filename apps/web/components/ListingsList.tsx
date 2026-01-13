@@ -2,6 +2,7 @@
 
 import type { Listing } from '@project-x/shared-types';
 import { useEffect, useRef } from 'react';
+import { trackEvent } from '@/lib/analytics';
 import { ListingCard } from './ListingCard';
 import ListingCardSkeleton from './ListingCardSkeleton';
 
@@ -90,9 +91,18 @@ export default function ListingsList({
               priority={idx === 0}
               onMouseEnter={() => onHoverListing?.(listing.id)}
               onMouseLeave={() => onHoverListing?.(null)}
-              onClick={(item) => {
-                onSelectListing(listing.id);
-                onCardClick?.(item);
+              onClick={(clickedListing) => {
+                const stableId = clickedListing.id ?? clickedListing.mlsId;
+                const stableIdValue = stableId != null ? String(stableId) : null;
+                if (stableIdValue) {
+                  trackEvent('listing_click', {
+                    listing_id: stableIdValue,
+                    source: 'card',
+                    page_type: 'search',
+                  });
+                }
+                onSelectListing(stableIdValue);
+                onCardClick?.(clickedListing);
               }}
             />
           </div>

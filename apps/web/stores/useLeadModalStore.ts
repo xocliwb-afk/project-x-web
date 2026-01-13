@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { trackEvent } from "@/lib/analytics";
 
 export type Intent = "schedule-showing" | "get-details" | "talk-to-brandon";
 
@@ -26,14 +27,20 @@ export const useLeadModalStore = create<LeadModalState>((set) => ({
   entrySource: undefined,
   listingId: undefined,
   listingAddress: undefined,
-  open: (payload) =>
+  open: (payload) => {
+    trackEvent("lead_modal_open", {
+      intent: payload?.intent,
+      entry_source: payload?.entrySource,
+      listing_id: payload?.listingId,
+    });
     set({
       isOpen: true,
       intent: payload?.intent,
       entrySource: payload?.entrySource,
       listingId: payload?.listingId,
       listingAddress: payload?.listingAddress,
-    }),
+    });
+  },
   close: () =>
     set({
       isOpen: false,

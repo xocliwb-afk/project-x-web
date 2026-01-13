@@ -9,6 +9,7 @@ import { useMapLensStore } from "@/stores/useMapLensStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { useTheme } from "@/context/ThemeContext";
+import { trackEvent } from "@/lib/analytics";
 import {
   formatAddressFull,
   formatPrice,
@@ -48,6 +49,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const focusedListingId = useMapLensStore((s) => s.focusedListingId);
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const lensRef = useRef<HTMLDivElement | null>(null);
+  const lensOpenRef = useRef(false);
   const router = useRouter();
   const mobileDetected = useIsMobile();
   const { mapSide } = useTheme();
@@ -126,6 +128,16 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
 
   useEffect(() => {
     setVisible(Boolean(activeClusterData));
+  }, [activeClusterData]);
+
+  useEffect(() => {
+    const isOpen = Boolean(activeClusterData);
+    if (isOpen && !lensOpenRef.current) {
+      trackEvent("maplens_open", {
+        cluster_size: activeClusterData?.listings?.length ?? undefined,
+      });
+    }
+    lensOpenRef.current = isOpen;
   }, [activeClusterData]);
 
   useEffect(() => {
