@@ -91,15 +91,18 @@ export default function ListingsList({
               priority={idx === 0}
               onMouseEnter={() => onHoverListing?.(listing.id)}
               onMouseLeave={() => onHoverListing?.(null)}
-              onClick={(item) => {
-                const listingId = listing.id ?? listing.mlsId;
-                trackEvent('listing_click', {
-                  listing_id: listingId,
-                  source: 'card',
-                  page_type: 'search',
-                });
-                onSelectListing(listing.id);
-                onCardClick?.(item);
+              onClick={(clickedListing) => {
+                const stableId = clickedListing.id ?? clickedListing.mlsId;
+                const stableIdValue = stableId != null ? String(stableId) : null;
+                if (stableIdValue) {
+                  trackEvent('listing_click', {
+                    listing_id: stableIdValue,
+                    source: 'card',
+                    page_type: 'search',
+                  });
+                }
+                onSelectListing(stableIdValue);
+                onCardClick?.(clickedListing);
               }}
             />
           </div>
