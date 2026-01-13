@@ -15,14 +15,6 @@ import ListingsList from '@/components/ListingsList';
 import { ListingDetailModal } from '@/components/ListingDetailModal';
 import { useTheme } from '@/context/ThemeContext';
 
-const MapPanel = dynamic(() => import('@/components/Map'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-main/60">
-      Loading map...
-    </div>
-  ),
-});
 const MapboxMap = dynamic(() => import('@/components/map/mapbox/MapboxMap'), {
   ssr: false,
   loading: () => (
@@ -83,7 +75,8 @@ export default function SearchLayoutClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { mapSide, paneDominance } = useTheme();
-  const useMapbox = (process.env.NEXT_PUBLIC_USE_MAPBOX ?? 'true').toLowerCase() !== 'false';
+  // Mapbox-only: Leaflet fallback disabled in this PR to avoid feature-flag drift.
+  const useMapbox = true;
   const [listings, setListings] = useState<Listing[]>(initialListings);
   const [pagination, setPagination] =
     useState<PaginatedListingsResponse['pagination']>(initialPagination);
@@ -148,8 +141,7 @@ export default function SearchLayoutClient({
   const isAutoFillingRef = useRef(isAutoFilling);
   const isLoadingMoreRef = useRef(isLoadingMore);
 
-  // Feature flag: use Mapbox when NEXT_PUBLIC_USE_MAPBOX === 'true', default to Leaflet
-  const MapComponent = useMapbox ? MapboxMap : MapPanel;
+  const MapComponent = MapboxMap;
 
   const pinListings = useMemo(
     () => Array.from(pinListingsById.values()),

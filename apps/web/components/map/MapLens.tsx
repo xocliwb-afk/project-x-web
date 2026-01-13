@@ -20,10 +20,6 @@ import {
 } from "@/lib/listingFormat";
 import { LatLngBoundsTuple } from "./types";
 
-const LeafletLensMiniMap = dynamic(() => import("./LensMiniMap").then((m) => m.LensMiniMap), {
-  ssr: false,
-  loading: () => <div className="h-full w-full rounded-full bg-surface-muted" />,
-});
 const MapboxLensMiniMap = dynamic(
   () => import("./mapbox/LensMiniMapbox").then((m) => m.LensMiniMapbox),
   {
@@ -53,7 +49,6 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const router = useRouter();
   const mobileDetected = useIsMobile();
   const { mapSide } = useTheme();
-  const useMapbox = process.env.NEXT_PUBLIC_USE_MAPBOX === "true";
 
   const allClusterListings = useMemo(
     () => activeClusterData?.listings ?? [],
@@ -127,7 +122,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     const { lat, lng } = activeClusterData.anchorLatLng;
     return `lens-${lat.toFixed(5)}-${lng.toFixed(5)}-${activeClusterData.listings.length}`;
   }, [activeClusterData]);
-  const MiniMapComponent = useMapbox ? MapboxLensMiniMap : LeafletLensMiniMap;
+  const MiniMapComponent = MapboxLensMiniMap;
 
   useEffect(() => {
     setVisible(Boolean(activeClusterData));
