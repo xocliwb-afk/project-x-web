@@ -7,7 +7,9 @@
     "dev": "ts-node-dev --respawn src/server.ts",
     "build": "tsc",
     "lint": "tsc --noEmit",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "profile:doctor": "pnpm build && clinic doctor -- node dist/server.js",
+    "profile:flame": "pnpm build && clinic flame -- node dist/server.js"
   },
   "dependencies": {
     "@project-x/shared-types": "workspace:*",
@@ -23,6 +25,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20.10.0",
     "@types/node-fetch": "2",
+    "clinic": "^13.0.0",
     "ts-node": "^10.9.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
