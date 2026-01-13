@@ -3,17 +3,17 @@ Project X: Phase 2 Comprehensive Launch Plan and Technical Architecture Report
 1.1 Project Definition and Strategic Mandate
 This document serves as the definitive architectural blueprint and execution roadmap for Phase 2 of Project X. Following a rigorous, read-only audit of the existing codebase—specifically focusing on the feat/maplens-overlay-fix branch and the associated documentation—this report synthesizes the strategic requirements into a cohesive technical plan. The overarching mandate for Phase 2 is the transition from a functional prototype to a production-grade "Minimum Viable Product You Actually Use" (MVP-YAU). This distinction is critical; it necessitates a departure from mock data and temporary libraries toward robust, scalable, and user-centric engineering solutions that support real-world real estate transactions.   
 
-The current state of the application, characterized by a Next.js frontend utilizing Leaflet for mapping and mock JSON data for listings, has served its purpose as a proof of concept. However, to meet the business objectives of live lead generation and market validity, a fundamental re-platforming of key subsystems is required. This report outlines the strategy to achieve four primary business outcomes: high-fidelity geospatial interaction via Google Maps, verified data integrity through live IDX integration, automated operational efficiency via Go High Level (GHL) connectivity, and organic market visibility through programmatic SEO.   
+The current state of the application, characterized by a Next.js frontend utilizing Mapbox (mapbox-gl) for mapping and mock JSON data for listings, has served its purpose as a proof of concept. However, to meet the business objectives of live lead generation and market validity, a fundamental re-platforming of key subsystems is required. This report outlines the strategy to achieve four primary business outcomes: high-fidelity geospatial interaction via Mapbox, verified data integrity through live IDX integration, automated operational efficiency via Go High Level (GHL) connectivity, and organic market visibility through programmatic SEO.   
 
 1.2 The "MVP You Actually Use" Philosophy
 The concept of "MVP You Actually Use" drives every technical decision in this plan. Unlike a traditional MVP, which often sacrifices user experience for speed, an MVP-YAU for a consumer-facing real estate platform must deliver a level of polish and utility that rivals established competitors immediately upon launch. Users in this domain have high expectations established by market leaders; therefore, "visual glitches," "scroll issues," or "iframe-based data loading" are not merely bugs—they are existential threats to adoption.   
 
-Consequently, this plan prioritizes "Deep Visual Polish" in specific high-value areas, particularly the "MapLens" feature. While some aesthetic refinements can be deferred, the core interaction loop—hovering over a map cluster, seeing a synchronized preview, and clicking through to a listing—must be frictionless and intuitive across both desktop and mobile devices. This requires a deterministic approach to state management and UI rendering that the current Leaflet implementation struggles to provide consistently across viewports.   
+Consequently, this plan prioritizes "Deep Visual Polish" in specific high-value areas, particularly the "MapLens" feature. While some aesthetic refinements can be deferred, the core interaction loop—hovering over a map cluster, seeing a synchronized preview, and clicking through to a listing—must be frictionless and intuitive across both desktop and mobile devices. This requires a deterministic approach to state management and UI rendering, which is now centered on the Mapbox implementation.   
 
 1.3 Strategic Technical Pillars
 The execution of Phase 2 relies on four foundational technical pillars, each addressing a specific gap identified in the audit:
 
-Geospatial Fidelity (The Google Maps Migration): The audit confirms the current use of Leaflet (react-leaflet). While open-source and flexible, it lacks the native performance, visual familiarity, and robust mobile gesture handling required for the "MapLens v3" specification. The strategic decision to migrate to the Google Maps Platform is non-negotiable to achieve the target user experience.   
+Geospatial Fidelity (Mapbox Renderer): The audit confirms the current use of Mapbox (mapbox-gl). The previous Leaflet implementation has been removed in favor of Mapbox-only rendering, eliminating the `NEXT_PUBLIC_USE_MAPBOX` toggle. Future changes would require a full migration to another provider rather than a flag flip.   
 
 Data Sovereignty (The "No Iframe" Mandate): Relying on iframes for IDX data is a common shortcut that severs the link between content and SEO authority. Phase 2 mandates a server-side integration where listing data is fetched, normalized, and rendered directly into the DOM. This ensures that Project X owns the search traffic and provides a seamless, fast-loading experience.   
 
@@ -27,12 +27,12 @@ The project is correctly structured as a modern monorepo managed by Turborepo, p
 
 Analysis of Build Integrity: The audit of Code assist output.txt and Codex code review.txt reveals a fragility in the current build process. The primary build gate is the successful execution of pnpm build, which triggers next build for the web app and tsc for the API. However, the reliance on a shared types package (packages/shared-types) introduces a risk of "Type Drift." This occurs when the frontend components evolve to require props that are not yet reflected in the shared interfaces, or vice versa. The audit explicitly notes potential discrepancies in tour-related types between the web store and the API payload definitions.   
 
-Furthermore, the current codebase shows evidence of client-side specific code (e.g., window references in Leaflet components) potentially leaking into Server-Side Rendering (SSR) contexts. Next.js attempts to pre-render pages on the server, and if these third-party libraries are not properly guarded with useEffect or dynamic imports, the build will fail. This is a critical blocker that must be resolved before any deployment pipeline can be established.   
+Furthermore, the current codebase previously had client-side specific code paths (e.g., window references in map components) that could leak into Server-Side Rendering (SSR) contexts. With Mapbox-only rendering, any remaining browser-only paths must be guarded with useEffect or dynamic imports to keep builds stable. This is a critical blocker that must be resolved before any deployment pipeline can be established.   
 
 2.2 Frontend Application Analysis (apps/web)
 The frontend is the most complex component of Project X, housing the map logic, search interface, and state management.
 
-The Geospatial Engine (Leaflet): The current implementation relies on react-leaflet and leaflet.markercluster. The core logic resides in apps/web/hooks/useMapLens.ts, which orchestrates the interaction between the map and the lens overlay. The audit identifies that this hook depends heavily on Leaflet-specific global objects ((window as any).L) for bounds calculation and projection. This tight coupling makes the migration to Google Maps a significant refactoring effort rather than a simple drop-in replacement. The MapLens component (apps/web/components/map/MapLens.tsx) is injected into the map via a portal (MapLensPanePortal.tsx), a pattern that is specific to Leaflet's DOM structure and will need to be completely re-imagined for Google Maps.   
+The Geospatial Engine (Mapbox): The current implementation relies on Mapbox (mapbox-gl). The core logic resides in apps/web/hooks/useMapLens.ts, which orchestrates the interaction between the map and the lens overlay. Map rendering and clustering are handled by Mapbox components (`apps/web/components/map/mapbox/MapboxMap.tsx` and `MapboxLensMiniMap.tsx`). Legacy Leaflet portals and components have been removed.   
 
 State Management Dissonance: A critical architectural flaw identified in the audit is the existence of two disparate stores managing "Tour" state.
 
@@ -53,37 +53,27 @@ Missing IDX Proxy: The most glaring gap in the backend is the complete absence o
 The following table synthesizes the findings of the audit into a clear gap analysis, defining the delta between the current codebase and the Phase 2 requirements.
 
 Feature Domain	Current State (Phase 1)	Target State (Phase 2)	Technical Gap & Remediation Strategy
-Map Provider	Leaflet (react-leaflet) using L.latLngBounds and DOM-based portals.	Google Maps (@vis.gl/react-google-maps) utilizing native Google API.	Critical: Complete rewrite of MapClient.tsx. Logic in useMapLens.ts must be refactored to use google.maps.geometry. High risk of regression in overlay positioning.
-MapLens UX	Functional prototype. Poor mobile touch support. Loose state sync.	"MapLens v3" with tight cluster-to-list sync and native mobile gesture handling.	High: Implementation of Google Maps specific cluster renderers. Development of bi-directional state observers for map pins and list cards.
+Map Provider	Mapbox (mapbox-gl) with Mapbox-only runtime.	Stable Mapbox renderer with continued performance tuning.	Medium: Maintain Mapbox components, tighten cluster-to-lens sync, and remove remaining legacy assumptions.
+MapLens UX	Functional prototype. Poor mobile touch support. Loose state sync.	"MapLens v3" with tight cluster-to-list sync and native mobile gesture handling.	High: Implementation of Mapbox-specific cluster renderers and bi-directional state observers for map pins and list cards.
 Search Data	Static Mock JSON (listings.ts).	Live IDX/MLS Feed via API Proxy.	Critical: Construction of ListingService in API. Refactoring frontend api-client to fetch from live endpoints. Implementation of caching.
 CRM Integration	Generic Webhook / Null Provider.	Go High Level (GHL) specific integration with custom field mapping.	Medium: Development of GhlCrmProvider. Implementation of GhlPayload schema. Error handling and retry logic.
 Tour Logic	Two conflicting stores. Divergent payload types.	Single useTourSessionStore. Unified PlanTourRequest type.	Medium: Deprecate legacy store. Refactor TourBuilderClient and map actions to use the unified store.
 SEO	Basic metadata. No dynamic generation.	Dynamic OpenGraph tags. Programmatic Neighborhood pages.	Medium: Implementation of Next.js generateMetadata. Creation of new route handlers for neighborhood slugs.
-3. Epic 1: The Geospatial Migration (Leaflet to Google Maps)
-Objective: The primary objective of this epic is to replace the existing Leaflet-based mapping engine with the Google Maps Platform. This is not merely a library swap; it is a foundational architectural change designed to provide the performance, data density handling, and user familiarity required for a premium real estate experience.
+3. Epic 1: Geospatial Foundation on Mapbox
+Objective: Solidify the Mapbox-based mapping engine. This is not a provider migration but continued hardening of the Mapbox implementation to meet performance, density, and UX goals.
 
 3.1 Architectural Trade-offs and Library Selection
-The decision to move from Leaflet to Google Maps introduces trade-offs. Leaflet is lightweight and free, whereas Google Maps incurs costs and has a heavier initial load. However, for Phase 2, the "MVP You Actually Use" mandate prioritizes user trust and interaction fidelity over raw cost optimization. Users trust Google Maps navigation and interaction patterns implicitly.   
+Mapbox-gl is already integrated and avoids the prior Leaflet/Google split-brain. It provides performant clustering and familiar interaction patterns without additional provider toggles. Continued work should focus on Mapbox-specific optimizations rather than provider swaps.   
 
-To bridge the gap between React's declarative nature and Google Maps' imperative API, we will utilize the @vis.gl/react-google-maps library. Unlike older wrappers, this library is maintained by the visualization experts at Uber and Google, offering better performance and deeper integration with the native Google Maps instance. It allows us to render React components as markers while still giving us access to the underlying google.maps.Map object for complex operations like bounds calculation and camera control.   
-
-3.2 Migration Execution: Dependency and Component Overhaul
-The migration process begins with a "clean slate" approach to dependencies to avoid conflicts between the global L object of Leaflet and the google namespace.
-
-Step 1: Dependency Cleanup We must aggressively remove leaflet, react-leaflet, and leaflet.markercluster from apps/web/package.json. Simultaneously, we will install @vis.gl/react-google-maps and @googlemaps/markerclusterer. The latter is essential for handling the high density of real estate listings, grouping them into clusters that expand upon interaction—a core requirement of the MapLens feature.   
-
-Step 2: Re-implementing MapClient.tsx The MapClient component is the root of the geospatial experience. The new implementation will wrap the application in the <APIProvider> component, which handles the asynchronous loading of the Google Maps JavaScript API.
-
-Security Context: The API Key (NEXT_PUBLIC_GOOGLE_MAPS_KEY) must be configured with strict HTTP referrer restrictions in the Google Cloud Console to *.project-x.com and localhost (for dev) to prevent quota theft.   
-
-Map Instance Access: We will implement a typed useMap hook. This hook is the bridge that allows our business logic (like useMapLens) to "talk" to the map—commanding it to pan, zoom, or return the current viewport boundaries.
+3.2 Execution: Dependency and Component Overhaul
+Leaflet, react-leaflet, and markercluster have been removed. Mapbox components (`apps/web/components/map/mapbox/MapboxMap.tsx` and `MapboxLensMiniMap.tsx`) are the single renderer path. Future work centers on Mapbox cluster rendering, touch handling, and performance tuning.
 
 3.3 Refactoring useMapLens: The Core Interaction Engine
-The useMapLens hook is the "brain" of the map experience. It currently speaks "Leaflet" (e.g., latLng.wrap(), getBounds()). It must be retrained to speak "Google".
+The useMapLens hook is the "brain" of the map experience. It now speaks Mapbox (mapbox-gl) and uses Mapbox bounds/cluster data to drive the lens.
 
-Geometry and Bounds Logic: In Leaflet, obtaining the visible map area is a synchronous call returning a Leaflet-specific bounds object. In the new architecture, we must utilize google.maps.LatLngBounds.
+Geometry and Bounds Logic: Mapbox provides bounds via `map.getBounds()` returning LngLatBounds-like tuples. We serialize to minLat,minLng,maxLat,maxLng for backend requests.
 
-Transformation: The backend API expects a bounding box in the format minLat,minLng,maxLat,maxLng. We will write a utility function googleBoundsToBBox(bounds: google.maps.LatLngBounds) to perform this serialization precisely, ensuring that listings on the edge of the viewport are correctly included or excluded.
+Transformation: The backend API expects a bounding box in the format minLat,minLng,maxLat,maxLng. We will ensure Mapbox bounds are converted precisely so listings on the edge of the viewport are correctly included or excluded.
 
 The Cluster Interaction Loop: The "MapLens" feature relies on the user hovering over a cluster to see a preview.
 
