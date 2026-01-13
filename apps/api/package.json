@@ -6,7 +6,8 @@
     "start": "ts-node src/server.ts",
     "dev": "ts-node-dev --respawn src/server.ts",
     "build": "tsc",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@project-x/shared-types": "workspace:*",
