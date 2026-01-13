@@ -14,10 +14,10 @@ Termination Reason:
 
 Result:
 {
-  "SummaryOfFindings": "The investigation confirms that the application now uses **Mapbox** (mapbox-gl) as its map provider. The core implementation of the MapLens feature is distributed across Mapbox-specific files. State is managed in a Zustand store located at `apps/web/stores/useMapLensStore.ts`. The primary logic for handling user interactions (hover, click) and triggering the lens is in the `apps/web/hooks/useMapLens.ts` hook. The main map component is `apps/web/components/map/mapbox/MapboxMap.tsx`, and the MapLens UI is rendered by `apps/web/components/map/MapLens.tsx` with a Mapbox minimap in `apps/web/components/map/mapbox/MapboxLensMiniMap.tsx`. Legacy Leaflet components (`Map.tsx`, `MapPanel.tsx`, `map/leaflet/MapLensPanePortal.tsx`, etc.) have been removed.",
+  "SummaryOfFindings": "The investigation confirms that the application now uses **Mapbox** (mapbox-gl) as its map provider. The core implementation of the MapLens feature is distributed across Mapbox-specific files. State is managed in a Zustand store located at `apps/web/stores/useMapLensStore.ts`. The primary logic for handling user interactions (hover, click) and triggering the lens is in the `apps/web/hooks/useMapLens.ts` hook. The main map component is `apps/web/components/map/mapbox/MapboxMap.tsx`, and the MapLens UI is rendered by `apps/web/components/map/MapLens.tsx` with a Mapbox minimap in `apps/web/components/map/mapbox/LensMiniMapbox.tsx`. Legacy Leaflet components (`Map.tsx`, `MapPanel.tsx`, `map/leaflet/MapLensPanePortal.tsx`, etc.) have been removed.",
   "ExplorationTrace": [
     "Searched for the string \"MapLens\" in the `apps/web` directory to find initial entry points.",
-    "Read the file `apps/web/components/Map.tsx` to identify the mapping library based on its imports and components.",
+    "Read the file `apps/web/components/map/mapbox/MapboxMap.tsx` to identify the mapping library based on its imports and components.",
     "Read the file `apps/web/hooks/useMapLens.ts` to understand the core business logic and user interaction handling for the MapLens feature.",
     "Read the file `apps/web/stores/useMapLensStore.ts` to understand the state management structure, including the shape of the data and the available actions.",
     "Read the documentation file `Adendums/Addendum B Map Provider.txt` to confirm the architectural decisions regarding the map provider."

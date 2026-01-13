@@ -32,7 +32,7 @@ Furthermore, the current codebase previously had client-side specific code paths
 2.2 Frontend Application Analysis (apps/web)
 The frontend is the most complex component of Project X, housing the map logic, search interface, and state management.
 
-The Geospatial Engine (Mapbox): The current implementation relies on Mapbox (mapbox-gl). The core logic resides in apps/web/hooks/useMapLens.ts, which orchestrates the interaction between the map and the lens overlay. Map rendering and clustering are handled by Mapbox components (`apps/web/components/map/mapbox/MapboxMap.tsx` and `MapboxLensMiniMap.tsx`). Legacy Leaflet portals and components have been removed.   
+The Geospatial Engine (Mapbox): The current implementation relies on Mapbox (mapbox-gl). The core logic resides in apps/web/hooks/useMapLens.ts, which orchestrates the interaction between the map and the lens overlay. Map rendering and clustering are handled by Mapbox components (`apps/web/components/map/mapbox/MapboxMap.tsx` and `apps/web/components/map/mapbox/LensMiniMapbox.tsx`). Legacy Leaflet portals and components have been removed.   
 
 State Management Dissonance: A critical architectural flaw identified in the audit is the existence of two disparate stores managing "Tour" state.
 
@@ -66,14 +66,14 @@ Objective: Solidify the Mapbox-based mapping engine. This is not a provider migr
 Mapbox-gl is already integrated and avoids the prior Leaflet/Google split-brain. It provides performant clustering and familiar interaction patterns without additional provider toggles. Continued work should focus on Mapbox-specific optimizations rather than provider swaps.   
 
 3.2 Execution: Dependency and Component Overhaul
-Leaflet, react-leaflet, and markercluster have been removed. Mapbox components (`apps/web/components/map/mapbox/MapboxMap.tsx` and `MapboxLensMiniMap.tsx`) are the single renderer path. Future work centers on Mapbox cluster rendering, touch handling, and performance tuning.
+Leaflet, react-leaflet, and markercluster have been removed. Mapbox components (`apps/web/components/map/mapbox/MapboxMap.tsx` and `apps/web/components/map/mapbox/LensMiniMapbox.tsx`) are the single renderer path. Future work centers on Mapbox cluster rendering, touch handling, and performance tuning.
 
 3.3 Refactoring useMapLens: The Core Interaction Engine
 The useMapLens hook is the "brain" of the map experience. It now speaks Mapbox (mapbox-gl) and uses Mapbox bounds/cluster data to drive the lens.
 
-Geometry and Bounds Logic: Mapbox provides bounds via `map.getBounds()` returning LngLatBounds-like tuples. We serialize to minLat,minLng,maxLat,maxLng for backend requests.
+Geometry and Bounds Logic: Mapbox provides bounds via `map.getBounds()` returning LngLatBounds-like tuples. We serialize to `swLng,swLat,neLng,neLat` for backend requests.
 
-Transformation: The backend API expects a bounding box in the format minLat,minLng,maxLat,maxLng. We will ensure Mapbox bounds are converted precisely so listings on the edge of the viewport are correctly included or excluded.
+Transformation: The backend API expects a bounding box in the format `swLng,swLat,neLng,neLat`. We will ensure Mapbox bounds are converted precisely so listings on the edge of the viewport are correctly included or excluded.
 
 The Cluster Interaction Loop: The "MapLens" feature relies on the user hovering over a cluster to see a preview.
 
