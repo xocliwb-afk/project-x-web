@@ -3,7 +3,9 @@
     "collect": {
       "numberOfRuns": 3,
       "url": [
-        "http://localhost:3000/marketing/"
+        "http://localhost:3000/",
+        "http://localhost:3000/marketing/",
+        "http://localhost:3000/marketing/about.html"
       ],
       "startServerCommand": "pnpm --dir apps/web build && pnpm --dir apps/web start -- -p 3000",
       "startServerReadyPattern": "started server on",
