@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import { ThemeProvider } from "@/context/ThemeContext";
 import LeadModalContainer from "@/components/LeadModalContainer";
 import Script from "next/script";
+import DevAnalyticsPanel from "@/components/DevAnalyticsPanel";
 
 export const metadata: Metadata = {
   title: "Project X - Real Estate Search",
@@ -33,6 +34,10 @@ export default function RootLayout({
           <Header />
           <LeadModalContainer />
           <main className="relative flex-1 overflow-x-hidden">{children}</main>
+          {process.env.NODE_ENV === "development" ||
+          process.env.NEXT_PUBLIC_ANALYTICS_DEBUG === "1" ? (
+            <DevAnalyticsPanel />
+          ) : null}
         </ThemeProvider>
       </body>
     </html>

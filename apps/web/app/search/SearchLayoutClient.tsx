@@ -9,6 +9,7 @@ import type {
   PaginatedListingsResponse,
 } from '@/lib/api-client';
 import { fetchListings } from '@/lib/api-client';
+import { trackEvent } from '@/lib/analytics';
 import Footer from '@/components/Footer';
 import ListingsList from '@/components/ListingsList';
 import { ListingDetailModal } from '@/components/ListingDetailModal';
@@ -791,6 +792,11 @@ export default function SearchLayoutClient({
           didAutoApplyInitialBoundsRef.current = true;
           setMapBounds(bounds);
           updateUrlWithBounds(bounds.bbox);
+          trackEvent('search_apply', {
+            trigger: 'auto',
+            bbox: bounds.bbox,
+            page_type: 'search',
+          });
           setDraftBounds(null);
         }
         return;
@@ -821,6 +827,11 @@ export default function SearchLayoutClient({
     setMapBounds(draftBounds);
     if (draftBounds.bbox) {
       updateUrlWithBounds(draftBounds.bbox);
+      trackEvent('search_apply', {
+        trigger: 'manual',
+        bbox: draftBounds.bbox,
+        page_type: 'search',
+      });
     }
     setDraftBounds(null);
   }, [useMapbox, draftBounds, updateUrlWithBounds, setMapBounds, setDraftBounds]);

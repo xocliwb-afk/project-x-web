@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ChangeEvent } from "react";
 import { usePathname } from "next/navigation";
 import { submitLead, type LeadSubmitPayload } from "@/lib/lead-api";
+import { trackEvent } from "@/lib/analytics";
 import { buildLeadContext } from "@/lib/leadContext";
 import type { Intent } from "@/stores/useLeadModalStore";
 
@@ -64,6 +65,7 @@ export default function LeadForm({
     "idle"
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const submitStartedAtRef = useRef<number | null>(null);
 
   const handleChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -91,11 +93,18 @@ export default function LeadForm({
     event.preventDefault();
     setStatus("loading");
     setErrorMessage(null);
+    submitStartedAtRef.current = Date.now();
 
     const grecaptcha = typeof window !== "undefined" ? (window as any).grecaptcha : undefined;
     if (!RECAPTCHA_SITE_KEY || !grecaptcha || typeof grecaptcha.execute !== "function") {
       setStatus("error");
       setErrorMessage("Captcha not ready. Please try again.");
+      trackEvent("lead_submit_error", {
+        intent,
+        entry_source: entrySource,
+        listing_id: listingId,
+        error_type: "captcha_unavailable",
+      });
       return;
     }
 
@@ -120,6 +129,12 @@ export default function LeadForm({
     } catch (err) {
       setStatus("error");
       setErrorMessage("Captcha not ready. Please try again.");
+      trackEvent("lead_submit_error", {
+        intent,
+        entry_source: entrySource,
+        listing_id: listingId,
+        error_type: "captcha_execute",
+      });
       return;
     }
 
@@ -160,6 +175,16 @@ export default function LeadForm({
         throw new Error(response.message || "Failed to submit lead");
       }
 
+      const duration = submitStartedAtRef.current
+        ? Date.now() - submitStartedAtRef.current
+        : undefined;
+      trackEvent("lead_submit_success", {
+        intent,
+        entry_source: entrySource,
+        listing_id: listingId,
+        submission_duration_ms: duration,
+      });
+
       setStatus("success");
       setFormState({
         firstName: "",
@@ -172,6 +197,12 @@ export default function LeadForm({
       });
       onSuccess?.();
     } catch (error: any) {
+      trackEvent("lead_submit_error", {
+        intent,
+        entry_source: entrySource,
+        listing_id: listingId,
+        error_type: "submit_failed",
+      });
       setStatus("error");
       setErrorMessage(error?.message ?? "Something went wrong");
     }
