@@ -97,7 +97,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const buildLeadContext = ({ pageSlug }) => {
+  const buildLeadContext = ({
+    pageSlug,
+    intent,
+    entry_source,
+    source,
+    listing_id,
+    listing_address,
+  }) => {
     try {
       const pageUrl = sanitizeUrl(window.location.href);
       const referrer = sanitizeUrl(document.referrer || "");
@@ -118,6 +125,11 @@ document.addEventListener('DOMContentLoaded', () => {
         utm_campaign: pickUtm("utm_campaign"),
         utm_term: pickUtm("utm_term"),
         utm_content: pickUtm("utm_content"),
+        intent,
+        entry_source,
+        source,
+        listing_id,
+        listing_address,
         timestamp: new Date().toISOString(),
         viewport_width: window.innerWidth,
         viewport_height: window.innerHeight,
@@ -135,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         "referrer",
         "viewport_width",
         "viewport_height",
+        "listing_address",
       ];
 
       const safeStringify = (obj) => JSON.stringify(obj);
@@ -201,6 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   safeStore.clearListing();
+  let lastLeadModalTrigger = null;
 
   // --- Mobile Menu ---
   const navToggle = document.getElementById('navToggle');
@@ -268,6 +282,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeAllOverlays = () => {
     document.querySelectorAll('.ui-modal, .ui-drawer, .ui-backdrop').forEach(el => el.classList.remove('is-visible'));
     document.body.classList.remove('no-scroll');
+    lastLeadModalTrigger = null;
+    safeStore.clearListing();
   };
   const openModal = (id) => {
     const modal = document.getElementById(id);
@@ -290,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const slugify = (str = '') => str.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
   const handleOpenModalTrigger = (trigger) => {
+    lastLeadModalTrigger = trigger;
     const ctxInput = document.getElementById('page_context');
     if (ctxInput) {
       const fallbackHeading = document.querySelector('main h1')?.textContent || '';
@@ -321,11 +338,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const listingId =
         listingTrigger.getAttribute('data-listing-id') ||
         listingTrigger.getAttribute('data-view-listing');
-      if (listingId) {
-        e.preventDefault();
-        openListingModal(listingId);
-        return;
-      }
+        if (listingId) {
+          e.preventDefault();
+          openListingModal(listingId);
+          return;
+        }
     }
     const modalTrigger = target.closest('[data-open-modal]');
     if (modalTrigger) {
@@ -419,10 +436,14 @@ document.addEventListener('DOMContentLoaded', () => {
         : `marketing:${pageContext}`;
       const intent = hasListingContext ? "get-details" : "talk-to-brandon";
 
-      let entrySource = modalTrigger?.getAttribute?.('data-entry-source') || '';
-      if (!entrySource && modalTrigger?.closest?.('header')) entrySource = 'marketing-header-nav';
-      if (!entrySource && modalTrigger?.closest?.('footer')) entrySource = 'marketing-footer-cta';
-      if (!entrySource) entrySource = `marketing-${pageContext}-cta`;
+      const deriveEntrySource = () => {
+        let entry = lastLeadModalTrigger?.getAttribute?.('data-entry-source') || '';
+        if (!entry && lastLeadModalTrigger?.closest?.('header')) entry = 'marketing-header-nav';
+        if (!entry && lastLeadModalTrigger?.closest?.('footer')) entry = 'marketing-footer-cta';
+        if (!entry) entry = `marketing-${pageContext}-cta`;
+        return entry;
+      };
+      const entrySource = deriveEntrySource();
 
       const context = buildLeadContext({
         pageSlug: pageContext,
@@ -469,6 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (modalStatus) modalStatus.textContent = '';
           modalForm.reset();
           safeStore.clearListing();
+          lastLeadModalTrigger = null;
         }, 900);
       } catch (err) {
         console.error('Lead submit failed', err);
@@ -929,6 +951,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (els.right) {
+      const listingAddressFull = listing?.address?.full || "";
+      window.__marketingActiveListing = {
+        id: listing?.id || "",
+        address: listingAddressFull || "",
+      };
+      if (window.__marketingActiveListing.id) {
+        safeStore.set(storageKeys.id, window.__marketingActiveListing.id);
+        safeStore.set(storageKeys.address, window.__marketingActiveListing.address || "");
+      }
+
       els.right.innerHTML = `
         <div class="listing-modal__section">
           <div class="listing-modal__price">${formatPrice(listing)}</div>
@@ -972,6 +1004,15 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="listing-modal__section">
           <p class="listing-modal__attribution">${attribution}</p>
           <div class="listing-modal__actions">
+            <button
+              type="button"
+              class="btn btn-primary btn-block"
+              data-open-modal="contactModal"
+              data-entry-source="marketing-listing-modal"
+              data-listing-id="${escapeHtml(listing.id)}"
+              ${listingAddressFull ? `data-listing-address="${escapeHtml(listingAddressFull)}"` : ""}
+              data-page-context="listing-modal"
+            >Contact Agent</button>
             <a class="btn btn-primary btn-block" href="/listing/${encodeURIComponent(
               listing.id
             )}">Full Listing Page</a>
