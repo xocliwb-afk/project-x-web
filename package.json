@@ -13,6 +13,7 @@
     "e2e:lens": "node scripts/run-e2e-search.mjs apps/web/e2e/search-lens-open.spec.ts"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
     "knip": "^5.80.2",
     "madge": "^8.0.0",
     "prettier": "latest",
