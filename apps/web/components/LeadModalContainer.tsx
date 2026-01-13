@@ -8,7 +8,8 @@ import { useLeadModalStore } from "@/stores/useLeadModalStore";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 
 export default function LeadModalContainer() {
-  const { isOpen, listingId, listingAddress, close } = useLeadModalStore();
+  const { isOpen, intent, entrySource, listingId, listingAddress, close, setIntent } =
+    useLeadModalStore();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -27,6 +28,13 @@ export default function LeadModalContainer() {
 
   if (!isOpen) return null;
 
+  const handleSelectIntent = (selected: "schedule-showing" | "get-details" | "talk-to-brandon") => {
+    setIntent(selected);
+  };
+
+  const showIntentSelector = !intent;
+  const canSchedule = Boolean(listingId);
+
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4"
@@ -35,20 +43,57 @@ export default function LeadModalContainer() {
       <div
         className="relative w-full max-w-lg rounded-2xl border border-border bg-surface p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         <button
           type="button"
           onClick={close}
           className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white hover:bg-black/80"
+          aria-label="Close lead form"
         >
           ✕
         </button>
-        <LeadForm
-          listingId={listingId}
-          listingAddress={listingAddress}
-          onSuccess={close}
-          onCancel={close}
-        />
+
+        {showIntentSelector ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-text-main">How can we help?</h2>
+            <div className="grid gap-3">
+              {canSchedule && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectIntent("schedule-showing")}
+                  className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-left font-semibold hover:bg-slate-50"
+                >
+                  Schedule a Showing
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleSelectIntent("get-details")}
+                className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-left font-semibold hover:bg-slate-50"
+              >
+                Get Details
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectIntent("talk-to-brandon")}
+                className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-left font-semibold hover:bg-slate-50"
+              >
+                Talk to Brandon
+              </button>
+            </div>
+          </div>
+        ) : (
+          <LeadForm
+            intent={intent}
+            entrySource={entrySource}
+            listingId={listingId}
+            listingAddress={listingAddress}
+            onSuccess={close}
+            onCancel={close}
+          />
+        )}
       </div>
     </div>,
     document.body,

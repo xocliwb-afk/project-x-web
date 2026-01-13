@@ -149,7 +149,13 @@ export default function Header() {
                 {aboutNavItem.label}
               </Link>
             )}
-            <button type="button" onClick={() => openLeadModal()} className={styles.navLink}>
+            <button
+              type="button"
+              onClick={() =>
+                openLeadModal({ intent: "talk-to-brandon", entrySource: "header-nav-desktop" })
+              }
+              className={styles.navLink}
+            >
               Contact
             </button>
           </div>
@@ -228,7 +234,7 @@ export default function Header() {
                 type="button"
                 className={styles.navLink}
                 onClick={() => {
-                  openLeadModal();
+                  openLeadModal({ intent: "talk-to-brandon", entrySource: "header-nav-mobile" });
                   setMobileOpen(false);
                 }}
               >
@@ -249,7 +255,9 @@ export default function Header() {
               <SortButton />
               <button
                 type="button"
-                onClick={() => openLeadModal()}
+                onClick={() =>
+                  openLeadModal({ intent: "get-details", entrySource: "header-search-cta" })
+                }
                 className="h-10 rounded-full bg-white px-4 text-sm font-semibold text-primary shadow-sm transition hover:brightness-95"
               >
                 Plan a tour

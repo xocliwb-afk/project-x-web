@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type FormEvent, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ChangeEvent } from "react";
 import { usePathname } from "next/navigation";
 import { submitLead, type LeadSubmitPayload } from "@/lib/lead-api";
 import { buildLeadContext } from "@/lib/leadContext";
+import type { Intent } from "@/stores/useLeadModalStore";
 
 const DEFAULT_BROKER_ID =
   process.env.NEXT_PUBLIC_BROKER_ID || "demo-broker";
@@ -11,6 +12,8 @@ const DEFAULT_AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || undefined;
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 interface LeadFormProps {
+  intent: Intent;
+  entrySource?: string;
   listingId?: string;
   listingAddress?: string;
   onSuccess?: () => void;
@@ -18,15 +21,35 @@ interface LeadFormProps {
 }
 
 export default function LeadForm({
+  intent,
+  entrySource,
   listingId,
   listingAddress,
   onSuccess,
   onCancel,
 }: LeadFormProps) {
   const pathname = usePathname() || "/";
-  const initialMessage = listingAddress
-    ? `I'm interested in ${listingAddress}`
-    : "I'm interested in this property.";
+
+  const getInitialMessage = (
+    currentIntent: Intent,
+    address?: string,
+    interest?: string
+  ): string => {
+    if (currentIntent === "schedule-showing") {
+      return address
+        ? `I'd like to schedule a showing for ${address}`
+        : "I'd like to schedule a showing.";
+    }
+    if (currentIntent === "get-details") {
+      return address
+        ? `I have questions about ${address}`
+        : "I'm interested in learning more about available properties.";
+    }
+    // talk-to-brandon
+    return interest ? `I'd like to discuss ${interest}` : "I'd like to discuss my real estate needs.";
+  };
+
+  const [messageAuto, setMessageAuto] = useState(true);
 
   const [formState, setFormState] = useState({
     firstName: "",
@@ -35,7 +58,7 @@ export default function LeadForm({
     phone: "",
     interest: "",
     preferredArea: "",
-    message: initialMessage,
+    message: getInitialMessage(intent, listingAddress, undefined),
   });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
@@ -47,7 +70,22 @@ export default function LeadForm({
   ) => {
     const { name, value } = event.target;
     setFormState((prev) => ({ ...prev, [name]: value }));
+    if (name === "message") setMessageAuto(false);
+    if (name === "interest" && intent === "talk-to-brandon" && messageAuto) {
+      setFormState((prev) => ({
+        ...prev,
+        message: getInitialMessage(intent, listingAddress, value),
+      }));
+    }
   };
+
+  useEffect(() => {
+    if (!messageAuto) return;
+    setFormState((prev) => ({
+      ...prev,
+      message: getInitialMessage(intent, listingAddress, prev.interest),
+    }));
+  }, [intent, listingAddress, messageAuto]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -97,6 +135,8 @@ export default function LeadForm({
       listingId,
       listingAddress,
       source: hasListing ? "listing-pdp" : "global-cta",
+      intent,
+      entry_source: entrySource,
     });
 
     const payload: LeadSubmitPayload = {
@@ -128,7 +168,7 @@ export default function LeadForm({
         phone: "",
         interest: "",
         preferredArea: "",
-        message: initialMessage,
+        message: getInitialMessage(intent, listingAddress, undefined),
       });
       onSuccess?.();
     } catch (error: any) {
@@ -138,6 +178,8 @@ export default function LeadForm({
   };
 
   const isSubmitting = status === "loading";
+
+  const showInterestFields = intent === "talk-to-brandon";
 
   return (
     <div className="rounded-card bg-surface p-5 shadow-sm ring-1 ring-border">
@@ -189,37 +231,41 @@ export default function LeadForm({
           className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
           placeholder="Email"
         />
-        <input
-          type="tel"
-          name="phone"
-          value={formState.phone}
-          onChange={handleChange}
-          className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
-          placeholder="Phone"
-        />
-        <select
-          name="interest"
-          required
-          value={formState.interest}
-          onChange={handleChange}
-          className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
-        >
-          <option value="" disabled>
-            Select interest
-          </option>
-          <option value="Buying">Buying</option>
-          <option value="Selling">Selling</option>
-          <option value="Building / Renovation">Building / Renovation</option>
-          <option value="Other">Other</option>
-        </select>
-        <input
-          type="text"
-          name="preferredArea"
-          value={formState.preferredArea}
-          onChange={handleChange}
-          className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
-          placeholder="Preferred Area (optional)"
-        />
+          <input
+            type="tel"
+            name="phone"
+            value={formState.phone}
+            onChange={handleChange}
+            className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Phone"
+          />
+        {showInterestFields && (
+          <>
+            <select
+              name="interest"
+              required
+              value={formState.interest}
+              onChange={handleChange}
+              className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="" disabled>
+                Select interest
+              </option>
+              <option value="Buying">Buying</option>
+              <option value="Selling">Selling</option>
+              <option value="Building / Renovation">Building / Renovation</option>
+              <option value="Other">Other</option>
+            </select>
+            <input
+              type="text"
+              name="preferredArea"
+              value={formState.preferredArea}
+              onChange={handleChange}
+              className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm"
+              placeholder="Preferred Area (optional)"
+            />
+          </>
+        )}
         <textarea
           name="message"
           value={formState.message}

@@ -23,6 +23,8 @@ type BuildLeadContextOptions = {
   listingId?: string;
   listingAddress?: string;
   source?: string;
+  intent?: string;
+  entry_source?: string;
 };
 
 const sanitizeUrl = (raw?: string): string | undefined => {
@@ -92,6 +94,8 @@ export const buildLeadContext = (options: BuildLeadContextOptions): string | und
       listing_id: options.listingId,
       listing_address: options.listingAddress,
       source: options.source,
+      intent: options.intent,
+      entry_source: options.entry_source,
       timestamp: now,
       viewport_width: typeof window !== "undefined" ? window.innerWidth : undefined,
       viewport_height: typeof window !== "undefined" ? window.innerHeight : undefined,
