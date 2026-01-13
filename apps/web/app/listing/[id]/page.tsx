@@ -1,6 +1,6 @@
 import dynamic from 'next/dynamic';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { fetchListing } from '@/lib/api-client';
 import BackButton from '@/components/BackButton';
 import ListingImageGallery from '@/components/ListingImageGallery';
 import ContactAgentPanel from '@/components/listing-detail/ContactAgentPanel';
@@ -27,6 +27,23 @@ type ListingDetailPageProps = {
     id: string;
   };
 };
+
+function getRequestOrigin() {
+  const h = headers();
+  const host = h.get('x-forwarded-host') ?? h.get('host');
+  const proto = h.get('x-forwarded-proto') ?? 'http';
+  return host ? `${proto}://${host}` : 'http://localhost:3000';
+}
+
+async function fetchListingForPage(id: string) {
+  const origin = getRequestOrigin();
+  const url = `${origin}/api/listings/${encodeURIComponent(id)}`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch listing ${id}: ${res.status} ${res.statusText}`);
+  }
+  return (await res.json()) as { listing: any };
+}
 
 const formatLabel = (key: string) =>
   key
@@ -85,7 +102,7 @@ const InlineMap = dynamic(() => import('@/components/map/mapbox/MapboxMap'), {
 export default async function ListingDetailPage({ params }: ListingDetailPageProps) {
   let listingResponse;
   try {
-    listingResponse = await fetchListing(params.id);
+    listingResponse = await fetchListingForPage(params.id);
   } catch (error: any) {
     if (typeof error?.message === 'string' && error.message.includes('404')) {
       notFound();
