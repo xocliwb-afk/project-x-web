@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('map lens opens and closes on cluster click', async ({ page }) => {
   const listingsRequests: string[] = [];
