@@ -2,13 +2,13 @@
 
 import { create } from "zustand";
 import type { NormalizedListing } from "@project-x/shared-types";
-import type { LatLngBoundsLiteral } from "leaflet";
+import type { LatLngBoundsTuple } from "@/components/map/types";
 
 type MapLensState = {
   activeClusterData: null | {
     listings: NormalizedListing[];
     anchorLatLng: { lat: number; lng: number };
-    bounds?: LatLngBoundsLiteral;
+    bounds?: LatLngBoundsTuple;
     clusterKey?: string;
   };
   activateLens: (data: NonNullable<MapLensState["activeClusterData"]>) => void;

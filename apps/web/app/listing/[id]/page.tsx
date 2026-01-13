@@ -78,7 +78,9 @@ function renderKeyValueSection(
   );
 }
 
-const InlineMap = dynamic(() => import('@/components/Map'), { ssr: false });
+const InlineMap = dynamic(() => import('@/components/map/mapbox/MapboxMap'), {
+  ssr: false,
+});
 
 export default async function ListingDetailPage({ params }: ListingDetailPageProps) {
   let listingResponse;

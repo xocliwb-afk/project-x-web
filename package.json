@@ -22,7 +22,6 @@
   "packageManager": "pnpm@9.0.0",
   "dependencies": {
     "immer": "^11.0.1",
-    "leaflet.markercluster": "^1.5.3",
     "zustand": "^4.5.7"
   }
 }
