@@ -389,9 +389,7 @@ export default function SearchLayoutClient({
     const fetchRequestId = ++fetchRequestIdRef.current;
 
     fetchTimeoutRef.current = setTimeout(async () => {
-      if (hasCompletedInitialFetch.current) {
-        setIsLoading(true);
-      }
+      setIsLoading(true);
       setError(null);
       try {
         const { results, pagination: newPagination } = await fetchListings(
@@ -409,7 +407,7 @@ export default function SearchLayoutClient({
         console.error('[SearchLayoutClient] failed to fetch listings', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch listings');
       } finally {
-        if (!controller.signal.aborted && fetchRequestId === fetchRequestIdRef.current) {
+        if (fetchRequestId === fetchRequestIdRef.current) {
           setIsLoading(false);
           hasCompletedInitialFetch.current = true;
         }
