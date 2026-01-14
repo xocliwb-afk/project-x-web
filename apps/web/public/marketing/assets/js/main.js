@@ -647,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const image = escapeHtml(n.image);
         return `
           <a class="area-card" href="${slug}.html">
-            <div class="area-card__image" style="background-image:url('./assets/img/${image}');"></div>
+            <div class="area-card__image" style="background-image: image-set(url('./assets/img/${image.replace(/\\.webp$/, '_400.webp')}') 1x, url('./assets/img/${image}') 2x);"></div>
             <div class="area-card__body">
               <h3>${name}</h3>
               <p>${desc}</p>
