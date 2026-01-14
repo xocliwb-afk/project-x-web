@@ -42,3 +42,23 @@ Use the helper script in this repo:
 ./scripts/lhci_fetch_and_summarize.sh <RUN_ID> [/tmp/output-dir]
 ```
 The script downloads the artifact and prints avg/min/max for Performance / Accessibility / Best Practices / SEO per URL.
+
+## Manual /search LHCI run (search-specific config)
+- Workflow: **lighthouse-search (manual)**
+- Config: `lighthouserc.search.json`
+- Artifacts: `lhci-reports` (path inside artifact: `artifacts/lhci-search`)
+
+### Trigger via CLI
+```bash
+gh workflow run lhci-search-manual.yml --ref main
+gh run list --workflow=lhci-search-manual.yml --limit 5
+RUN_ID=<id from list>
+gh run watch "$RUN_ID" --exit-status
+```
+
+### Download and summarize
+```bash
+RUN_ID=<id>
+gh run download "$RUN_ID" -n lhci-reports -D /tmp/lhci-search-latest
+./scripts/lhci_fetch_and_summarize.sh "$RUN_ID" /tmp/lhci-search-latest | head
+```
