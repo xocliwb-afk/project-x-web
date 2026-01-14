@@ -9,7 +9,7 @@
         "http://localhost:3000/marketing/buy.html",
         "http://localhost:3000/marketing/sell.html"
       ],
-      "startServerCommand": "bash -lc 'set -euo pipefail; pnpm --dir apps/api build; pnpm --dir apps/web build; pnpm --dir apps/api start -- -p 3002 & API_PID=$!; trap \"kill $API_PID 2>/dev/null || true\" INT TERM EXIT; if command -v curl >/dev/null 2>&1; then for i in $(seq 1 60); do curl -fsS http://127.0.0.1:3002/health >/dev/null 2>&1 && break; sleep 0.2; done; fi; API_PROXY_TARGET=http://127.0.0.1:3002 pnpm --dir apps/web start -- -p 3000'",
+      "startServerCommand": "bash -lc 'set -euo pipefail; pnpm --dir packages/shared-types build; pnpm --dir apps/api build; pnpm --dir apps/web build; pnpm --dir apps/api start -- -p 3002 & API_PID=$!; trap \"kill $API_PID 2>/dev/null || true\" INT TERM EXIT; if command -v curl >/dev/null 2>&1; then for i in $(seq 1 60); do curl -fsS http://127.0.0.1:3002/health >/dev/null 2>&1 && break; sleep 0.2; done; fi; API_PROXY_TARGET=http://127.0.0.1:3002 pnpm --dir apps/web start -- -p 3000'",
       "startServerReadyPattern": "started server on",
       "startServerReadyTimeout": 120000,
       "settings": {
