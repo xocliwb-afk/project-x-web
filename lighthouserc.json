@@ -4,7 +4,7 @@
       "numberOfRuns": 3,
       "url": [
         "http://localhost:3000/",
-        "http://localhost:3000/marketing/",
+        "http://localhost:3000/marketing/index.html",
         "http://localhost:3000/marketing/about.html",
         "http://localhost:3000/marketing/buy.html",
         "http://localhost:3000/marketing/sell.html"
