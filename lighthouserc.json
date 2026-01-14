@@ -5,7 +5,9 @@
       "url": [
         "http://localhost:3000/",
         "http://localhost:3000/marketing/",
-        "http://localhost:3000/marketing/about.html"
+        "http://localhost:3000/marketing/about.html",
+        "http://localhost:3000/marketing/buy.html",
+        "http://localhost:3000/marketing/sell.html"
       ],
       "startServerCommand": "pnpm --dir apps/web build && pnpm --dir apps/web start -- -p 3000",
       "startServerReadyPattern": "started server on",
