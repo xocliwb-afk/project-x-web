@@ -33,12 +33,12 @@ After the run finishes:
 ```bash
 RUN_ID=<id from above>
 gh run download "$RUN_ID" -n lhci-reports -D /tmp/lhci-latest
-ls /tmp/lhci-latest/artifacts/lhci   # contains lhci.log, *.report.json, *.report.html
+ls /tmp/lhci-latest/artifacts/lhci   # lhci.log, *.report.json, *.report.html
 ```
 
 ## Summarize scores quickly
-Use the helper script added in this repo:
+Use the helper script in this repo:
 ```bash
 ./scripts/lhci_fetch_and_summarize.sh <RUN_ID> [/tmp/output-dir]
 ```
-This will download the artifact and print avg/min/max for Performance/A11y/Best-Practices/SEO per URL.
+The script downloads the artifact and prints avg/min/max for Performance / Accessibility / Best Practices / SEO per URL.
