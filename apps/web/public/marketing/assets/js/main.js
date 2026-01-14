@@ -646,7 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const desc = escapeHtml(n.description);
         const image = escapeHtml(n.image);
         return `
-          <a class="area-card" href="${slug}.html" role="listitem">
+          <a class="area-card" href="${slug}.html">
             <div class="area-card__image" style="background-image:url('./assets/img/${image}');"></div>
             <div class="area-card__body">
               <h3>${name}</h3>
