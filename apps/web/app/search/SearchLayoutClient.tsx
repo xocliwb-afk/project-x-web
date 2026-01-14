@@ -105,6 +105,7 @@ export default function SearchLayoutClient({
   const fetchRequestIdRef = useRef(0);
   const autofillRequestIdRef = useRef(0);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const [refetchNonce, setRefetchNonce] = useState(0);
   const CARDS_PER_PAGE = 25;
   const [listPage, setListPage] = useState(1);
 
@@ -360,7 +361,8 @@ export default function SearchLayoutClient({
     autofillKeyRef.current = null;
     autofillRunningRef.current = false;
     if (!paramsKey) return;
-    if (paramsKey === lastFetchedParamsKeyRef.current) return;
+    const requestKey = `${paramsKey}|refetch=${refetchNonce}`;
+    if (requestKey === lastFetchedParamsKeyRef.current) return;
     // reset load-more state when base params change
     if (loadMoreControllerRef.current) {
       loadMoreControllerRef.current.abort();
@@ -401,7 +403,7 @@ export default function SearchLayoutClient({
         setListings(results);
         setPagination(newPagination);
         setError(null);
-        lastFetchedParamsKeyRef.current = paramsKey;
+        lastFetchedParamsKeyRef.current = requestKey;
       } catch (err) {
         if (controller.signal.aborted || fetchRequestId !== fetchRequestIdRef.current) return;
         console.error('[SearchLayoutClient] failed to fetch listings', err);
@@ -421,7 +423,7 @@ export default function SearchLayoutClient({
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [paramsKey, baseQueryKey, queryKey]);
+  }, [paramsKey, baseQueryKey, queryKey, refetchNonce]);
 
   // Auto-fill up to TARGET_RESULTS when bbox is active
   useEffect(() => {
@@ -971,6 +973,11 @@ export default function SearchLayoutClient({
     </button>
   );
 
+  const handleRetryRefresh = useCallback(() => {
+    setError(null);
+    setRefetchNonce((n) => n + 1);
+  }, []);
+
   return (
     <>
       <main className="w-full overflow-x-hidden">
@@ -1021,6 +1028,19 @@ export default function SearchLayoutClient({
                   <div className="mb-3 text-xs text-text-main/60">
                     Showing up to {pinHydrationMeta.cap.toLocaleString()} pins for this area. Zoom
                     in or refine filters to see more.
+                  </div>
+                )}
+                {error && (
+                  <div className="mb-3 flex items-center gap-2 text-xs text-red-500">
+                    <span>Unable to refresh listings. Please try again.</span>
+                    <button
+                      type="button"
+                      onClick={handleRetryRefresh}
+                      disabled={isLoading || isLoadingMore || isAutoFilling}
+                      className="rounded border border-red-500 px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      Retry
+                    </button>
                   </div>
                 )}
                 <ListingsList
@@ -1112,9 +1132,17 @@ export default function SearchLayoutClient({
                       </p>
                     )}
                     {error && (
-                      <p className="text-xs text-red-500">
-                        Unable to refresh listings. Please try again.
-                      </p>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-red-500">
+                        <span>Unable to refresh listings. Please try again.</span>
+                        <button
+                          type="button"
+                          onClick={handleRetryRefresh}
+                          disabled={isLoading || isLoadingMore || isAutoFilling}
+                          className="rounded border border-red-500 px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                        >
+                          Retry
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
