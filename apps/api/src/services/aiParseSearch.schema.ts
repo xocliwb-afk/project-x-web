@@ -42,7 +42,7 @@ export const aiRequestSchema = (maxPromptChars: number) =>
       prompt: z.string().trim().min(1).max(maxPromptChars),
       context: z
         .object({
-          currentFilters: z.record(z.string(), z.any()).optional(),
+          currentFilters: z.record(z.string(), z.unknown()).optional(),
           searchText: z.string().nullable().optional(),
         })
         .strict()

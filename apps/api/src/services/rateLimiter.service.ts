@@ -25,8 +25,8 @@ export const rateLimit = (key: string, capacity: number): { allowed: true } | { 
     return { allowed: true };
   }
 
-  const missing = 1 - bucket.tokens;
-  const retryAfter = Math.ceil(missing / refillPerSec);
+  const missing = Math.max(0, 1 - bucket.tokens);
+  const retryAfter = Math.min(300, Math.max(1, Math.ceil(missing / refillPerSec || 60)));
   buckets.set(key, bucket);
   const error: ApiError = {
     error: true,
