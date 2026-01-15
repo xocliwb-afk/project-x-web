@@ -11,6 +11,7 @@ import ListingPreviewModal from '../ListingPreviewModal';
 import { getThumbnailUrl } from '@/lib/listingFormat';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { trackEvent } from '@/lib/analytics';
+import type { LatLngBoundsTuple } from '@/components/map/types';
 
 type MapboxMapProps = {
   listings: NormalizedListing[];
@@ -477,24 +478,72 @@ export default function MapboxMap({
         const nearbyIds = getNearbyListingIds(e.point);
         const isCrowded = nearbyIds.length >= OVERLAP_MIN_COUNT;
         if (isCrowded) {
-          const listingsForLens = mapIdsToListings(nearbyIds);
-          if (listingsForLens.length > 0) {
-            const { lng, lat } = e.lngLat;
-            const overlapKey = `ov:${[...nearbyIds].sort().slice(0, 5).join('|')}:${
-              listingsForLens.length
-            }`;
-            const activeClusterKey = useMapLensStore.getState().activeClusterData?.clusterKey;
-            if (lensIsOpen && activeClusterKey === overlapKey && !isLocked) {
-              dismissLens();
-              return;
-            }
-            if (popupRef.current) {
-              popupRef.current.remove();
-            }
-            setPreviewListing(null);
-            openImmediate(listingsForLens, { lat, lng }, { clusterKey: overlapKey });
+          const baseListings = mapIdsToListings(nearbyIds);
+          if (baseListings.length === 0) {
+            dismissLens();
             return;
           }
+
+          const { lng, lat } = e.lngLat;
+          const overlapKey = `ov:${[...nearbyIds].sort().slice(0, 5).join('|')}:${baseListings.length}`;
+          const activeClusterKey = useMapLensStore.getState().activeClusterData?.clusterKey;
+          if (lensIsOpen && activeClusterKey === overlapKey && !isLocked) {
+            dismissLens();
+            return;
+          }
+          if (popupRef.current) {
+            popupRef.current.remove();
+          }
+          setPreviewListing(null);
+
+          const coords = baseListings
+            .map((l) => ({
+              lat: Number(l.address?.lat),
+              lng: Number(l.address?.lng),
+              listing: l,
+            }))
+            .filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+
+          if (coords.length === 0) {
+            openImmediate(baseListings, { lat, lng }, { clusterKey: overlapKey });
+            return;
+          }
+
+          const south = Math.min(...coords.map((c) => c.lat));
+          const north = Math.max(...coords.map((c) => c.lat));
+          const west = Math.min(...coords.map((c) => c.lng));
+          const east = Math.max(...coords.map((c) => c.lng));
+          const latSpan = north - south;
+          const lngSpan = east - west;
+          const latPad = Math.max(latSpan * 0.12, 0.0005);
+          const lngPad = Math.max(lngSpan * 0.12, 0.0005);
+          const expanded: LatLngBoundsTuple = [
+            [Math.max(-85, south - latPad), Math.max(-180, west - lngPad)],
+            [Math.min(85, north + latPad), Math.min(180, east + lngPad)],
+          ];
+
+          const allListings = listingsRef.current;
+          const dedupe = new Set<string>();
+          const expandedListings: NormalizedListing[] = [];
+          allListings.forEach((listing) => {
+            const id = String(listing.id ?? listing.mlsId ?? '');
+            if (!id || dedupe.has(id)) return;
+            const latVal = Number(listing.address?.lat);
+            const lngVal = Number(listing.address?.lng);
+            if (!Number.isFinite(latVal) || !Number.isFinite(lngVal)) return;
+            const inLat = latVal >= expanded[0][0] && latVal <= expanded[1][0];
+            const inLng = lngVal >= expanded[0][1] && lngVal <= expanded[1][1];
+            if (inLat && inLng) {
+              dedupe.add(id);
+              expandedListings.push(listing);
+            }
+          });
+
+          const finalListings =
+            expandedListings.length >= baseListings.length ? expandedListings : baseListings;
+
+          openImmediate(finalListings, { lat, lng }, { clusterKey: overlapKey });
+          return;
         }
 
         const hits = map.queryRenderedFeatures(e.point, {
