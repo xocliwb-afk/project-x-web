@@ -8,6 +8,7 @@
     "build": "tsc",
     "lint": "tsc --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "profile:doctor": "pnpm build && clinic doctor -- node dist/server.js",
     "profile:flame": "pnpm build && clinic flame -- node dist/server.js"
   },
@@ -27,6 +28,7 @@
     "clinic": "^13.0.0",
     "ts-node": "^10.9.1",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.0"
   }
 }

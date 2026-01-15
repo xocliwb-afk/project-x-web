@@ -5,12 +5,15 @@ import {
   aiResponseBodySchema,
   aiResponseJsonSchema,
   parseSearchRequestSchema,
+  enforceAllowedOutput,
   sanitizeModelOutput,
 } from "../services/aiParseSearch.schema";
 import { callGemini } from "../services/gemini.service";
 import { checkDailyLimit, cleanupDaily, takeToken } from "../services/rateLimiter.service";
 
 const router = Router();
+const SYSTEM_PROMPT =
+  "Return ONLY valid JSON matching the provided schema. Do not include markdown or any instructions or actions. Do not add keys not in the schema. Do not suggest actions such as running searches or calling URLs.";
 
 const getConfig = () => {
   return {
@@ -135,7 +138,7 @@ router.post("/parse-search", async (req, res) => {
     }
 
     inFlight += 1;
-    let incremented = true;
+    incremented = true;
 
     const parsedReq = parseSearchRequestSchema.safeParse(req.body);
     if (!parsedReq.success) {
@@ -174,8 +177,8 @@ router.post("/parse-search", async (req, res) => {
     }
 
     const modelPrompt = contextString
-      ? `${trimmedPrompt}\n\nContext:\n${contextString}`
-      : trimmedPrompt;
+      ? `${SYSTEM_PROMPT}\n\nUser prompt:\n${trimmedPrompt}\n\nContext:\n${contextString}`
+      : `${SYSTEM_PROMPT}\n\nUser prompt:\n${trimmedPrompt}`;
 
     const gemini = await callGemini({
       prompt: modelPrompt,
@@ -251,9 +254,23 @@ router.post("/parse-search", async (req, res) => {
       return res.status(502).json(error);
     }
 
+    let guarded;
+    try {
+      guarded = enforceAllowedOutput(validated.data);
+    } catch (err) {
+      const error: ApiError = {
+        error: true,
+        message: "AI response rejected by safety guard",
+        code: "AI_BAD_MODEL_OUTPUT",
+        status: 502,
+      };
+      logOutcome("bad_model_output", { reason: "guard_reject" });
+      return res.status(502).json(error);
+    }
+
     const responseBody = {
       requestId,
-      ...validated.data,
+      ...guarded,
     };
 
     logOutcome("ok", { attempts: gemini.attempts, geminiStatus: gemini.status });

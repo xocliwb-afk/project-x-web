@@ -161,3 +161,98 @@ export const sanitizeModelOutput = (
     ignoredInputReasons: [...ignoredModel, ...ignoredInputReasons],
   };
 };
+
+const priceInRange = (n: number | null) =>
+  n === null || (Number.isFinite(n) && n >= 0 && n <= 50_000_000) ? n : null;
+const bedsBathsInRange = (n: number | null) => (n === null || (Number.isFinite(n) && n >= 0 && n <= 20) ? n : null);
+const actionTokens = [
+  /auto-apply/i,
+  /run search/i,
+  /fetch/i,
+  /open url/i,
+  /execute/i,
+  /javascript/i,
+  /curl/i,
+  /call /i,
+];
+
+export const enforceAllowedOutput = (
+  output: z.infer<typeof aiResponseBodySchema>
+): z.infer<typeof aiResponseBodySchema> => {
+  const allowedFilterKeys = new Set([
+    "status",
+    "propertyType",
+    "minPrice",
+    "maxPrice",
+    "bedsMin",
+    "bathsMin",
+    "city",
+    "zip",
+    "keywords",
+  ]);
+  for (const key of Object.keys(output.proposedFilters)) {
+    if (!allowedFilterKeys.has(key)) {
+      throw new Error("unknown_filter_key");
+    }
+  }
+
+  const ignored: string[] = [...output.ignoredInputReasons];
+  const warnings: string[] = [...output.warnings];
+
+  const normalizeNum = (n: number | null, key: string) => {
+    const safe = key === "minPrice" || key === "maxPrice" ? priceInRange(n) : bedsBathsInRange(n);
+    if (safe === null && n !== null) {
+      ignored.push(`${key}_out_of_range`);
+    }
+    return safe;
+  };
+
+  let keywords = output.proposedFilters.keywords;
+  if (Array.isArray(keywords)) {
+    const filtered = keywords.filter((k) => !/https?:\/\//i.test(k) && !/^www\./i.test(k));
+    if (filtered.length !== keywords.length) {
+      ignored.push("keyword_url_removed");
+    }
+    keywords = filtered.length > 0 ? filtered : null;
+  }
+
+  const containsActionText = [...warnings, ...output.explanations.map((e) => e.reason), ...ignored].some((msg) =>
+    actionTokens.some((re) => re.test(msg))
+  );
+  if (containsActionText && !warnings.includes("action_instructions_ignored")) {
+    warnings.push("action_instructions_ignored");
+  }
+
+  const status =
+    typeof output.proposedFilters.status === "string" && statusAllowlist.has(output.proposedFilters.status)
+      ? output.proposedFilters.status
+      : null;
+  if (output.proposedFilters.status && !status) {
+    ignored.push("status_invalid");
+  }
+  const propertyType =
+    typeof output.proposedFilters.propertyType === "string" && propertyAllowlist.has(output.proposedFilters.propertyType)
+      ? output.proposedFilters.propertyType
+      : null;
+  if (output.proposedFilters.propertyType && !propertyType) {
+    ignored.push("propertyType_invalid");
+  }
+
+  return {
+    proposedFilters: {
+      status,
+      propertyType,
+      minPrice: normalizeNum(output.proposedFilters.minPrice, "minPrice"),
+      maxPrice: normalizeNum(output.proposedFilters.maxPrice, "maxPrice"),
+      bedsMin: normalizeNum(output.proposedFilters.bedsMin, "bedsMin"),
+      bathsMin: normalizeNum(output.proposedFilters.bathsMin, "bathsMin"),
+      city: output.proposedFilters.city,
+      zip: output.proposedFilters.zip,
+      keywords,
+    },
+    explanations: output.explanations,
+    confidence: output.confidence,
+    warnings,
+    ignoredInputReasons: ignored,
+  };
+};
