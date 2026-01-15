@@ -199,7 +199,7 @@ export default function SearchLayoutClient({
     );
   }, []);
 
-  const parsedParams = useMemo<FetchListingsParams>(() => {
+  const parsedParams = useMemo<FetchListingsParams & { searchToken?: string }>(() => {
     const getNumber = (key: string) => {
       const value = searchParams.get(key);
       return value != null && value !== '' ? Number(value) : undefined;
@@ -217,6 +217,7 @@ export default function SearchLayoutClient({
     return {
       q: searchParams.get('q') || undefined,
       bbox: searchParams.get('bbox') || undefined,
+      searchToken: searchParams.get('searchToken') || undefined,
       page: getNumber('page'),
       limit: getNumber('limit'),
       minPrice: getNumber('minPrice'),
@@ -241,14 +242,16 @@ export default function SearchLayoutClient({
   ]);
 
   const effectiveParams = useMemo(() => {
+    const { searchToken: _searchToken, ...parsedWithoutToken } = parsedParams;
+
     if (mapBounds) {
       const bbox = mapBounds.bbox;
       const shouldResetPage =
-        (!!parsedParams.page && parsedParams.page > 1 && !parsedParams.bbox) ||
-        (!!parsedParams.bbox && parsedParams.bbox !== bbox);
+        (!!parsedWithoutToken.page && parsedWithoutToken.page > 1 && !parsedWithoutToken.bbox) ||
+        (!!parsedWithoutToken.bbox && parsedWithoutToken.bbox !== bbox);
       return {
-        ...parsedParams,
-        limit: parsedParams.limit ?? PAGE_SIZE,
+        ...parsedWithoutToken,
+        limit: parsedWithoutToken.limit ?? PAGE_SIZE,
         bbox,
         swLat: mapBounds.swLat,
         swLng: mapBounds.swLng,
@@ -258,12 +261,13 @@ export default function SearchLayoutClient({
       };
     }
 
-    if (parsedParams.bbox) return { ...parsedParams, limit: parsedParams.limit ?? PAGE_SIZE };
-    if (hasFilters) return parsedParams;
+    if (parsedWithoutToken.bbox)
+      return { ...parsedWithoutToken, limit: parsedWithoutToken.limit ?? PAGE_SIZE };
+    if (hasFilters) return parsedWithoutToken;
 
     // Fallback: if bounds wait timed out, allow bbox-less fetch once
     if (boundsWaitTimedOut) {
-      return { ...parsedParams, page: 1 };
+      return { ...parsedWithoutToken, page: 1 };
     }
 
     return null;
@@ -272,6 +276,7 @@ export default function SearchLayoutClient({
   const paramsKey = useMemo(() => (effectiveParams ? JSON.stringify(effectiveParams) : null), [
     effectiveParams,
   ]);
+  const fetchGateKey = useMemo(() => parsedParams.searchToken ?? null, [parsedParams.searchToken]);
   const isWaitingForBounds =
     !useMapbox && effectiveParams === null && !boundsWaitTimedOut;
   const baseQueryKey = useMemo(() => {
@@ -361,8 +366,8 @@ export default function SearchLayoutClient({
     loadedPagesRef.current.clear();
     autofillKeyRef.current = null;
     autofillRunningRef.current = false;
-    if (!paramsKey) return;
-    const requestKey = `${paramsKey}|refetch=${refetchNonce}`;
+    if (!paramsKey || !fetchGateKey) return;
+    const requestKey = `${fetchGateKey}|refetch=${refetchNonce}`;
     if (requestKey === lastFetchedParamsKeyRef.current) return;
     // reset load-more state when base params change
     if (loadMoreControllerRef.current) {
@@ -424,7 +429,7 @@ export default function SearchLayoutClient({
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [paramsKey, baseQueryKey, queryKey, refetchNonce]);
+  }, [paramsKey, baseQueryKey, queryKey, refetchNonce, fetchGateKey]);
 
   // Auto-fill up to TARGET_RESULTS when bbox is active
   useEffect(() => {
@@ -735,11 +740,15 @@ export default function SearchLayoutClient({
   }, [mapBounds, parsedParams.bbox, hasFilters, boundsWaitTimedOut, useMapbox]);
 
   const updateUrlWithBounds = useCallback(
-    (bbox: string) => {
+    (bbox: string, withSearchToken?: boolean) => {
       const currentBbox = searchParams.get('bbox');
-      if (currentBbox === bbox) return;
       const params = new URLSearchParams(searchParams.toString());
-      params.set('bbox', bbox);
+      if (currentBbox !== bbox) {
+        params.set('bbox', bbox);
+      }
+      if (withSearchToken) {
+        params.set('searchToken', Date.now().toString());
+      }
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
@@ -784,7 +793,7 @@ export default function SearchLayoutClient({
         ) {
           didAutoApplyInitialBoundsRef.current = true;
           setMapBounds(bounds);
-          updateUrlWithBounds(bounds.bbox);
+          updateUrlWithBounds(bounds.bbox, true);
           trackEvent('search_apply', {
             trigger: 'auto',
             bbox: bounds.bbox,
@@ -819,7 +828,7 @@ export default function SearchLayoutClient({
     if (!draftBounds) return;
     setMapBounds(draftBounds);
     if (draftBounds.bbox) {
-      updateUrlWithBounds(draftBounds.bbox);
+      updateUrlWithBounds(draftBounds.bbox, true);
       trackEvent('search_apply', {
         trigger: 'manual',
         bbox: draftBounds.bbox,
