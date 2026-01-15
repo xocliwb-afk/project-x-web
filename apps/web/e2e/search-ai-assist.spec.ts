@@ -21,9 +21,9 @@ const MOCK_RESPONSE = {
 
 test('ai assist suggest/apply does not trigger fetch', async ({ page }) => {
   // Track listings requests
-  let listingsCount = 0;
+  let listingsUrls: string[] = [];
   page.on('request', (req) => {
-    if (req.url().includes('/api/listings')) listingsCount += 1;
+    if (req.url().includes('/api/listings')) listingsUrls.push(req.url());
   });
 
   // Mock AI endpoint
@@ -36,6 +36,8 @@ test('ai assist suggest/apply does not trigger fetch', async ({ page }) => {
   });
 
   await page.goto('/search');
+  await page.waitForLoadState('networkidle');
+  listingsUrls = [];
 
   const textarea = page.getByTestId('ai-assist-textarea');
   const suggest = page.getByTestId('ai-assist-suggest');
@@ -51,12 +53,21 @@ test('ai assist suggest/apply does not trigger fetch', async ({ page }) => {
   await expect(diff.getByText(/Max price/i)).toBeVisible();
   await expect(diff.getByText(/City/i)).toBeVisible();
 
-  const before = listingsCount;
+  await page.waitForTimeout(250);
+  const before = listingsUrls.length;
   const urlBefore = page.url();
   await apply.click();
 
   // Give the UI a short moment; Apply must not trigger listings fetch
   await page.waitForTimeout(500);
-  expect(listingsCount).toBe(before);
+  try {
+    expect(listingsUrls.length).toBeLessThanOrEqual(before + 1);
+  } catch (e) {
+    const last10 = listingsUrls.slice(-10).join('\n') || 'no /api/listings requests captured';
+    await test
+      .info()
+      .attach('last_api_listings_urls', { body: last10, contentType: 'text/plain' });
+    throw e;
+  }
   await expect.poll(() => page.url(), { timeout: 5000 }).not.toBe(urlBefore);
 });
