@@ -172,15 +172,13 @@ export function LensMiniMapbox({
   }, [buildSepKey, computeMinPixelDistance]);
 
   const applyBounds = useCallback((targetBounds: LatLngBoundsTuple | null) => {
-    const map = mapRef.current;
-    if (!map) return;
-
     if (!targetBounds) {
       pendingBoundsRef.current = null;
       sepStateRef.current = null;
       return;
     }
 
+    const map = mapRef.current;
     const mapboxBounds = convertBoundsToMapbox(targetBounds);
     const south = targetBounds[0][0];
     const west = targetBounds[0][1];
@@ -197,6 +195,7 @@ export function LensMiniMapbox({
     const centerPoint: [number, number] = [(south + north) / 2, (west + east) / 2];
 
     const fit = () => {
+      if (!map) return;
       if (isPoint) {
         map.setCenter([centerPoint[1], centerPoint[0]]);
         map.setZoom(Math.min(maxZoom, 15));
@@ -205,7 +204,7 @@ export function LensMiniMapbox({
       map.fitBounds(mapboxBounds, { padding, maxZoom, animate: false });
     };
 
-    if (sourceReadyRef.current) {
+    if (map && sourceReadyRef.current) {
       fit();
       startOrResetSeparation(targetBounds, padding, maxZoom);
       queueMicrotask(() => handleSeparationCheck());
