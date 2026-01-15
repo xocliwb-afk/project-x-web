@@ -1019,7 +1019,6 @@ export default function SearchLayoutClient({
             )}
             {viewMode === 'list' && (
               <div className="h-full overflow-y-auto px-4 pt-4 pb-6">
-                <AiAssistPanel />
                 <div className="mb-3 text-sm text-text-main/70">
                   {isLoading || isWaitingForBounds
                     ? 'Loading...'
