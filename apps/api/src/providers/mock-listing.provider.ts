@@ -30,6 +30,26 @@ export class MockListingProvider implements ListingProvider {
       });
     }
 
+    if (params.cities && params.cities.length > 0) {
+      const citySet = new Set(params.cities.map((c) => c.toLowerCase()));
+      mapped = mapped.filter((l) => citySet.has((l.address.city ?? '').toLowerCase()));
+    }
+
+    if (params.postalCodes && params.postalCodes.length > 0) {
+      const zipSet = new Set(params.postalCodes.map((z) => z.trim()));
+      mapped = mapped.filter((l) => zipSet.has(l.address.zip ?? ''));
+    }
+
+    if (params.status && params.status.length > 0) {
+      const statusSet = new Set(params.status.map((s) => s.toLowerCase()));
+      mapped = mapped.filter((l) => statusSet.has((l.details.status ?? '').toLowerCase()));
+    }
+
+    if (params.propertyType) {
+      const typeLower = params.propertyType.toLowerCase();
+      mapped = mapped.filter((l) => (l.details.propertyType ?? '').toLowerCase() === typeLower);
+    }
+
     const sorted = stableSortListings(mapped, params.sort);
     const offset = (page - 1) * pageSize;
     const paged = sorted.slice(offset, offset + limit);

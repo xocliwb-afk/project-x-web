@@ -36,7 +36,17 @@ export const hasAnyNonPagingFilter = (params: ListingSearchParams): boolean =>
       params.minYearBuilt != null ||
       params.maxYearBuilt != null ||
       params.maxDaysOnMarket != null ||
-      params.keywords,
+      params.keywords ||
+      (params.cities && params.cities.length > 0) ||
+      (params.postalCodes && params.postalCodes.length > 0) ||
+      (params.counties && params.counties.length > 0) ||
+      (params.neighborhoods && params.neighborhoods.length > 0) ||
+      (params.features && params.features.length > 0) ||
+      (params.subtype && params.subtype.length > 0) ||
+      params.maxBeds != null ||
+      params.maxBaths != null ||
+      (params.agent && params.agent.length > 0) ||
+      (params.brokers && params.brokers.length > 0),
   );
 
 type SortKey = ListingSearchParams['sort'];

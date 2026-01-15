@@ -30,9 +30,35 @@ export class SimplyRetsListingProvider implements ListingProvider {
     if (params.maxPrice) url.searchParams.set('maxprice', String(params.maxPrice));
     if (params.beds) url.searchParams.set('minbeds', String(params.beds));
     if (params.baths) url.searchParams.set('minbaths', String(params.baths));
+    if (params.maxBeds != null) url.searchParams.set('maxbeds', String(params.maxBeds));
+    if (params.maxBaths != null) url.searchParams.set('maxbaths', String(params.maxBaths));
     if (params.propertyType) url.searchParams.set('type', params.propertyType);
+    if (params.subtype && params.subtype.length > 0) {
+      url.searchParams.set('subtype', params.subtype.join(';'));
+    }
     if (params.status && params.status.length > 0) {
       url.searchParams.set('status', params.status.join(','));
+    }
+    if (params.cities && params.cities.length > 0) {
+      url.searchParams.set('cities', params.cities.join(';'));
+    }
+    if (params.postalCodes && params.postalCodes.length > 0) {
+      url.searchParams.set('postalCodes', params.postalCodes.join(';'));
+    }
+    if (params.counties && params.counties.length > 0) {
+      url.searchParams.set('counties', params.counties.join(';'));
+    }
+    if (params.neighborhoods && params.neighborhoods.length > 0) {
+      url.searchParams.set('neighborhoods', params.neighborhoods.join(';'));
+    }
+    if (params.features && params.features.length > 0) {
+      url.searchParams.set('features', params.features.join(';'));
+    }
+    if (params.agent && params.agent.length > 0) {
+      url.searchParams.set('agent', params.agent.join(';'));
+    }
+    if (params.brokers && params.brokers.length > 0) {
+      url.searchParams.set('brokers', params.brokers.join(';'));
     }
     if (params.minSqft) url.searchParams.set('minarea', String(params.minSqft));
     if (params.maxSqft) url.searchParams.set('maxarea', String(params.maxSqft));
