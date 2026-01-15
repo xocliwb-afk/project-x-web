@@ -69,6 +69,7 @@ test('map lens opens and closes on cluster click', async ({ page }) => {
     await clickCanvasAt(pos.x, pos.y);
     try {
       await expect(lens).toBeVisible({ timeout: 5000 });
+      await expect(lens.locator("canvas.mapboxgl-canvas")).toBeVisible({ timeout: 10000 });
       opened = true;
       break;
     } catch {
