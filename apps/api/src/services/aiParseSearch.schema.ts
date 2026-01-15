@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const statusEnum = z.enum(["for_sale", "pending", "sold"]);
 const propertyTypeEnum = z.enum(["house", "condo", "townhome", "land", "multi_family"]);
+const statusAllowlist = new Set(statusEnum.options);
+const propertyAllowlist = new Set(propertyTypeEnum.options);
 
 export const proposedFiltersSchema = z
   .object({
@@ -13,7 +15,7 @@ export const proposedFiltersSchema = z
     bathsMin: z.number().nullable(),
     city: z.string().trim().nullable(),
     zip: z.string().trim().regex(/^\d{5}$/).nullable(),
-    keywords: z.array(z.string().trim()).nullable(),
+    keywords: z.array(z.string().trim()).min(1).nullable(),
   })
   .strict();
 
@@ -71,7 +73,7 @@ export const aiResponseJsonSchema = {
         keywords: {
           type: ["array", "null"],
           items: { type: "string" },
-          minItems: 0,
+          minItems: 1,
         },
       },
       required: [
@@ -112,8 +114,10 @@ export const sanitizeModelOutput = (
   ignoredInputReasons: string[] = []
 ): z.infer<typeof aiResponseBodySchema> => {
   const pf = raw?.proposedFilters ?? {};
-  const minPrice = typeof pf?.minPrice === "number" ? pf.minPrice : null;
-  const maxPrice = typeof pf?.maxPrice === "number" ? pf.maxPrice : null;
+  const numOrNull = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const strOrNull = (v: unknown) => (typeof v === "string" ? v.trim() : null);
+  const minPrice = numOrNull(pf?.minPrice);
+  const maxPrice = numOrNull(pf?.maxPrice);
   let normalizedMinPrice = minPrice;
   let normalizedMaxPrice = maxPrice;
   if (normalizedMinPrice !== null && normalizedMaxPrice !== null && normalizedMinPrice > normalizedMaxPrice) {
@@ -134,13 +138,14 @@ export const sanitizeModelOutput = (
 
   return {
     proposedFilters: {
-      status: typeof pf?.status === "string" ? pf.status : null,
-      propertyType: typeof pf?.propertyType === "string" ? pf.propertyType : null,
+      status: typeof pf?.status === "string" && statusAllowlist.has(pf.status) ? pf.status : null,
+      propertyType:
+        typeof pf?.propertyType === "string" && propertyAllowlist.has(pf.propertyType) ? pf.propertyType : null,
       minPrice: normalizedMinPrice,
       maxPrice: normalizedMaxPrice,
-      bedsMin: typeof pf?.bedsMin === "number" ? pf.bedsMin : null,
-      bathsMin: typeof pf?.bathsMin === "number" ? pf.bathsMin : null,
-      city: typeof pf?.city === "string" ? pf.city.trim() : null,
+      bedsMin: numOrNull(pf?.bedsMin),
+      bathsMin: numOrNull(pf?.bathsMin),
+      city: strOrNull(pf?.city),
       zip,
       keywords: Array.isArray(pf?.keywords)
         ? pf.keywords.filter((k: any) => typeof k === "string" && k.trim().length > 0).map((k: string) => k.trim())

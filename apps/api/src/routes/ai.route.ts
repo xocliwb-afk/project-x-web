@@ -8,27 +8,30 @@ import {
   sanitizeModelOutput,
 } from "../services/aiParseSearch.schema";
 import { callGemini } from "../services/gemini.service";
-import { checkDailyLimit, takeToken } from "../services/rateLimiter.service";
+import { checkDailyLimit, cleanupDaily, takeToken } from "../services/rateLimiter.service";
 
 const router = Router();
 
-const AI_ENABLED = process.env.AI_ENABLED === "true";
-const AI_MAX_PROMPT_CHARS = Number(process.env.AI_MAX_PROMPT_CHARS) || 2000;
-const AI_RATE_LIMIT_RPM = Number(process.env.AI_RATE_LIMIT_RPM) || 30;
-const AI_MAX_REQ_PER_IP_PER_DAY = Number(process.env.AI_MAX_REQ_PER_IP_PER_DAY) || 50;
-const AI_MAX_CONCURRENCY = Number(process.env.AI_MAX_CONCURRENCY) || 2;
-const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 10000;
-const AI_RETRY_MAX_ATTEMPTS = Number(process.env.AI_RETRY_MAX_ATTEMPTS) || 2;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-pro";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const AI_LOG_IP_HASH_SALT = process.env.AI_LOG_IP_HASH_SALT || "ai-ip-salt";
-const AI_LOG_LEVEL = process.env.AI_LOG_LEVEL || "info";
+const getConfig = () => {
+  return {
+    enabled: process.env.AI_ENABLED === "true",
+    maxPromptChars: Number(process.env.AI_MAX_PROMPT_CHARS) || 2000,
+    rateLimitRpm: Number(process.env.AI_RATE_LIMIT_RPM) || 30,
+    maxReqPerIpPerDay: Number(process.env.AI_MAX_REQ_PER_IP_PER_DAY) || 50,
+    maxConcurrency: Number(process.env.AI_MAX_CONCURRENCY) || 2,
+    timeoutMs: Number(process.env.AI_TIMEOUT_MS) || 10000,
+    retryMaxAttempts: Number(process.env.AI_RETRY_MAX_ATTEMPTS) || 2,
+    model: process.env.GEMINI_MODEL || "gemini-1.5-pro",
+    apiKey: process.env.GEMINI_API_KEY || "",
+    ipHashSalt: process.env.AI_LOG_IP_HASH_SALT || "ai-ip-salt",
+    logLevel: process.env.AI_LOG_LEVEL || "info",
+  };
+};
 
-const shouldLog = AI_LOG_LEVEL !== "silent";
 let inFlight = 0;
 
-const hashIp = (ip: string) =>
-  crypto.createHash("sha256").update(`${AI_LOG_IP_HASH_SALT}${ip}`).digest("hex").slice(0, 12);
+const hashIp = (ip: string, salt: string) =>
+  crypto.createHash("sha256").update(`${salt}${ip}`).digest("hex").slice(0, 12);
 
 const getIp = (req: any) => {
   const xf = req.headers["x-forwarded-for"];
@@ -42,20 +45,21 @@ const getIp = (req: any) => {
 };
 
 router.post("/parse-search", async (req, res) => {
+  const cfg = getConfig();
   const requestId = crypto.randomUUID();
   res.setHeader("x-request-id", requestId);
   const started = Date.now();
   const ip = getIp(req);
-  const ipHash = hashIp(ip);
+  const ipHash = hashIp(ip, cfg.ipHashSalt);
   let incremented = false;
   const logOutcome = (outcome: string, meta: Record<string, unknown> = {}) => {
-    if (!shouldLog) return;
+    if (cfg.logLevel === "silent") return;
     console.log(
       JSON.stringify({
         event: "ai.parse_search",
         requestId,
         ipHash,
-        model: GEMINI_MODEL,
+        model: cfg.model,
         promptChars: typeof req.body?.prompt === "string" ? req.body.prompt.length : 0,
         latencyMs: Date.now() - started,
         outcome,
@@ -66,7 +70,12 @@ router.post("/parse-search", async (req, res) => {
   };
 
   try {
-    if (!AI_ENABLED) {
+    // periodic cleanup (1% of requests)
+    if (Math.random() < 0.01) {
+      cleanupDaily();
+    }
+
+    if (!cfg.enabled) {
       const error: ApiError = {
         error: true,
         message: "AI assistant is disabled",
@@ -77,7 +86,7 @@ router.post("/parse-search", async (req, res) => {
       return res.status(503).json(error);
     }
 
-    if (!GEMINI_API_KEY) {
+    if (!cfg.apiKey) {
       const error: ApiError = {
         error: true,
         message: "AI assistant is not configured",
@@ -88,7 +97,7 @@ router.post("/parse-search", async (req, res) => {
       return res.status(503).json(error);
     }
 
-    const daily = checkDailyLimit(ipHash, AI_MAX_REQ_PER_IP_PER_DAY);
+    const daily = checkDailyLimit(ipHash, cfg.maxReqPerIpPerDay);
     if (!daily.allowed) {
       const error: ApiError = {
         error: true,
@@ -101,7 +110,7 @@ router.post("/parse-search", async (req, res) => {
       return res.status(429).json(error);
     }
 
-    const rpm = takeToken(`ai:parse-search:${ipHash}`, AI_RATE_LIMIT_RPM);
+    const rpm = takeToken(`ai:parse-search:${ipHash}`, cfg.rateLimitRpm);
     if (!rpm.allowed) {
       const error: ApiError = {
         error: true,
@@ -114,7 +123,7 @@ router.post("/parse-search", async (req, res) => {
       return res.status(429).json(error);
     }
 
-    if (inFlight >= AI_MAX_CONCURRENCY) {
+    if (inFlight >= cfg.maxConcurrency) {
       const error: ApiError = {
         error: true,
         message: "AI is busy, please retry shortly",
@@ -142,7 +151,7 @@ router.post("/parse-search", async (req, res) => {
 
     const { prompt, context } = parsedReq.data;
     const trimmedPrompt = prompt.trim();
-    if (!trimmedPrompt || trimmedPrompt.length > AI_MAX_PROMPT_CHARS) {
+    if (!trimmedPrompt || trimmedPrompt.length > cfg.maxPromptChars) {
       const error: ApiError = {
         error: true,
         message: "Prompt too long",
@@ -170,11 +179,11 @@ router.post("/parse-search", async (req, res) => {
 
     const gemini = await callGemini({
       prompt: modelPrompt,
-      apiKey: GEMINI_API_KEY,
-      model: GEMINI_MODEL,
+      apiKey: cfg.apiKey,
+      model: cfg.model,
       schema: aiResponseJsonSchema,
-      timeoutMs: AI_TIMEOUT_MS,
-      retryMaxAttempts: AI_RETRY_MAX_ATTEMPTS,
+      timeoutMs: cfg.timeoutMs,
+      retryMaxAttempts: cfg.retryMaxAttempts,
     });
 
     if (gemini.status === 429) {

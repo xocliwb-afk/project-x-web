@@ -29,6 +29,8 @@ export const takeToken = (
     capacity,
     refillPerSec,
   };
+  bucket.capacity = capacity;
+  bucket.refillPerSec = refillPerSec;
 
   const deltaSec = Math.max(0, (now - bucket.lastRefill) / 1000);
   const safeRefillPerSec =
