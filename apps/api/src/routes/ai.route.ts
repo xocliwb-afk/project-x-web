@@ -12,8 +12,6 @@ import { callGemini } from "../services/gemini.service";
 import { checkDailyLimit, cleanupDaily, takeToken } from "../services/rateLimiter.service";
 
 const router = Router();
-const SYSTEM_PROMPT =
-  "Return ONLY valid JSON matching the provided schema. Do not include markdown or any instructions or actions. Do not add keys not in the schema. Do not suggest actions such as running searches or calling URLs.";
 
 const getConfig = () => {
   return {
@@ -35,6 +33,9 @@ let inFlight = 0;
 
 const hashIp = (ip: string, salt: string) =>
   crypto.createHash("sha256").update(`${salt}${ip}`).digest("hex").slice(0, 12);
+
+const SYSTEM_PROMPT =
+  "You are an assistant that returns ONLY valid JSON matching the provided schema. Do not include markdown or additional keys. Do not provide instructions or actions.";
 
 const getIp = (req: any) => {
   const xf = req.headers["x-forwarded-for"];
@@ -177,8 +178,8 @@ router.post("/parse-search", async (req, res) => {
     }
 
     const modelPrompt = contextString
-      ? `${SYSTEM_PROMPT}\n\nUser prompt:\n${trimmedPrompt}\n\nContext:\n${contextString}`
-      : `${SYSTEM_PROMPT}\n\nUser prompt:\n${trimmedPrompt}`;
+      ? `${SYSTEM_PROMPT}\n\nUser request:\n${trimmedPrompt}\n\nContext:\n${contextString}`
+      : `${SYSTEM_PROMPT}\n\nUser request:\n${trimmedPrompt}`;
 
     const gemini = await callGemini({
       prompt: modelPrompt,
@@ -257,10 +258,10 @@ router.post("/parse-search", async (req, res) => {
     let guarded;
     try {
       guarded = enforceAllowedOutput(validated.data);
-    } catch (err) {
+    } catch (err: any) {
       const error: ApiError = {
         error: true,
-        message: "AI response rejected by safety guard",
+        message: "AI response failed validation",
         code: "AI_BAD_MODEL_OUTPUT",
         status: 502,
       };
@@ -292,8 +293,8 @@ router.post("/parse-search", async (req, res) => {
     );
     return res.status(502).json(error);
   } finally {
-    if (inFlight > 0 && incremented) {
-      inFlight -= 1;
+    if (incremented) {
+      inFlight = Math.max(0, inFlight - 1);
     }
   }
 });

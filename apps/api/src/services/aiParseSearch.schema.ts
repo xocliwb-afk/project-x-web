@@ -4,6 +4,17 @@ const statusEnum = z.enum(["for_sale", "pending", "sold"]);
 const propertyTypeEnum = z.enum(["house", "condo", "townhome", "land", "multi_family"]);
 const statusAllowlist = new Set(statusEnum.options);
 const propertyAllowlist = new Set(propertyTypeEnum.options);
+const allowedFilterKeys = new Set([
+  "status",
+  "propertyType",
+  "minPrice",
+  "maxPrice",
+  "bedsMin",
+  "bathsMin",
+  "city",
+  "zip",
+  "keywords",
+]);
 
 export const proposedFiltersSchema = z
   .object({
@@ -24,7 +35,7 @@ export const parseSearchRequestSchema = z
     prompt: z.string().min(1),
     context: z
       .object({
-        currentFilters: z.record(z.string(), z.unknown()).optional(),
+        currentFilters: z.record(z.unknown()).optional(),
         searchText: z.string().nullable().optional(),
       })
       .strict()
@@ -108,6 +119,7 @@ export const aiResponseJsonSchema = {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const dedupe = (arr: string[]) => Array.from(new Set(arr.filter((v) => typeof v === "string" && v.trim())));
 
 export const sanitizeModelOutput = (
   raw: any,
@@ -158,101 +170,110 @@ export const sanitizeModelOutput = (
     warnings: Array.isArray(raw?.warnings)
       ? raw.warnings.filter((w: any) => typeof w === "string")
       : [],
-    ignoredInputReasons: [...ignoredModel, ...ignoredInputReasons],
+    ignoredInputReasons: [...ignoredModel, ...ignoredInputReasons].filter((w) => typeof w === "string"),
   };
 };
 
-const priceInRange = (n: number | null) =>
-  n === null || (Number.isFinite(n) && n >= 0 && n <= 50_000_000) ? n : null;
-const bedsBathsInRange = (n: number | null) => (n === null || (Number.isFinite(n) && n >= 0 && n <= 20) ? n : null);
-const actionTokens = [
-  /auto-apply/i,
-  /run search/i,
-  /fetch/i,
-  /open url/i,
-  /execute/i,
-  /javascript/i,
-  /curl/i,
-  /call /i,
-];
+const clampRange = (
+  value: number | null,
+  min: number,
+  max: number,
+  field: string,
+  reasons: string[]
+) => {
+  if (value === null) return null;
+  if (!Number.isFinite(value) || value < min || value > max) {
+    reasons.push(`${field}_out_of_range`);
+    return null;
+  }
+  return value;
+};
 
 export const enforceAllowedOutput = (
-  output: z.infer<typeof aiResponseBodySchema>
+  validated: z.infer<typeof aiResponseBodySchema>
 ): z.infer<typeof aiResponseBodySchema> => {
-  const allowedFilterKeys = new Set([
-    "status",
-    "propertyType",
-    "minPrice",
-    "maxPrice",
-    "bedsMin",
-    "bathsMin",
-    "city",
-    "zip",
-    "keywords",
-  ]);
-  for (const key of Object.keys(output.proposedFilters)) {
+  for (const key of Object.keys(validated.proposedFilters)) {
     if (!allowedFilterKeys.has(key)) {
-      throw new Error("unknown_filter_key");
+      throw new Error(`Unexpected filter key: ${key}`);
     }
   }
 
-  const ignored: string[] = [...output.ignoredInputReasons];
-  const warnings: string[] = [...output.warnings];
+  const reasons: string[] = [];
+  const warnings: string[] = Array.isArray(validated.warnings) ? [...validated.warnings] : [];
 
-  const normalizeNum = (n: number | null, key: string) => {
-    const safe = key === "minPrice" || key === "maxPrice" ? priceInRange(n) : bedsBathsInRange(n);
-    if (safe === null && n !== null) {
-      ignored.push(`${key}_out_of_range`);
-    }
-    return safe;
-  };
+  const pf = validated.proposedFilters;
 
-  let keywords = output.proposedFilters.keywords;
-  if (Array.isArray(keywords)) {
-    const filtered = keywords.filter((k) => !/https?:\/\//i.test(k) && !/^www\./i.test(k));
-    if (filtered.length !== keywords.length) {
-      ignored.push("keyword_url_removed");
-    }
-    keywords = filtered.length > 0 ? filtered : null;
+  const status =
+    typeof pf.status === "string" && statusAllowlist.has(pf.status) ? pf.status : null;
+  const propertyType =
+    typeof pf.propertyType === "string" && propertyAllowlist.has(pf.propertyType) ? pf.propertyType : null;
+
+  const minPrice = clampRange(pf.minPrice, 0, 50_000_000, "minPrice", reasons);
+  const maxPrice = clampRange(pf.maxPrice, 0, 50_000_000, "maxPrice", reasons);
+  let normalizedMinPrice = minPrice;
+  let normalizedMaxPrice = maxPrice;
+  if (
+    normalizedMinPrice !== null &&
+    normalizedMaxPrice !== null &&
+    normalizedMinPrice > normalizedMaxPrice
+  ) {
+    normalizedMinPrice = maxPrice;
+    normalizedMaxPrice = minPrice;
   }
 
-  const containsActionText = [...warnings, ...output.explanations.map((e) => e.reason), ...ignored].some((msg) =>
-    actionTokens.some((re) => re.test(msg))
-  );
-  if (containsActionText && !warnings.includes("action_instructions_ignored")) {
+  const bedsMin = clampRange(pf.bedsMin, 0, 20, "bedsMin", reasons);
+  const bathsMin = clampRange(pf.bathsMin, 0, 20, "bathsMin", reasons);
+  const zip = typeof pf.zip === "string" && /^\d{5}$/.test(pf.zip.trim()) ? pf.zip.trim() : null;
+
+  let keywords: string[] | null = null;
+  if (Array.isArray(pf.keywords)) {
+    keywords = [];
+    for (const k of pf.keywords) {
+      if (typeof k !== "string") continue;
+      const trimmed = k.trim();
+      if (!trimmed) continue;
+      const lower = trimmed.toLowerCase();
+      if (lower.includes("http://") || lower.includes("https://") || lower.includes("www.") || lower.includes("://")) {
+        reasons.push("keyword_url_removed");
+        continue;
+      }
+      keywords.push(trimmed);
+    }
+    if (keywords.length === 0) keywords = null;
+  }
+
+  const actionStrings = [
+    ...(validated.warnings || []),
+    ...(validated.explanations || []).map((e) => e.reason),
+    ...(validated.ignoredInputReasons || []),
+  ]
+    .filter((v) => typeof v === "string")
+    .map((v) => v.toLowerCase());
+  const actionPatterns = ["auto-apply", "run search", "fetch", "call", "open url", "execute", "javascript", "curl"];
+  const hasActionInstruction = actionStrings.some((str) => actionPatterns.some((p) => str.includes(p)));
+  if (hasActionInstruction && !warnings.includes("action_instructions_ignored")) {
     warnings.push("action_instructions_ignored");
   }
 
-  const status =
-    typeof output.proposedFilters.status === "string" && statusAllowlist.has(output.proposedFilters.status)
-      ? output.proposedFilters.status
-      : null;
-  if (output.proposedFilters.status && !status) {
-    ignored.push("status_invalid");
-  }
-  const propertyType =
-    typeof output.proposedFilters.propertyType === "string" && propertyAllowlist.has(output.proposedFilters.propertyType)
-      ? output.proposedFilters.propertyType
-      : null;
-  if (output.proposedFilters.propertyType && !propertyType) {
-    ignored.push("propertyType_invalid");
-  }
+  const modelIgnored = Array.isArray(validated.ignoredInputReasons)
+    ? validated.ignoredInputReasons.filter((w) => typeof w === "string")
+    : [];
 
   return {
+    ...validated,
     proposedFilters: {
       status,
       propertyType,
-      minPrice: normalizeNum(output.proposedFilters.minPrice, "minPrice"),
-      maxPrice: normalizeNum(output.proposedFilters.maxPrice, "maxPrice"),
-      bedsMin: normalizeNum(output.proposedFilters.bedsMin, "bedsMin"),
-      bathsMin: normalizeNum(output.proposedFilters.bathsMin, "bathsMin"),
-      city: output.proposedFilters.city,
-      zip: output.proposedFilters.zip,
+      minPrice: normalizedMinPrice,
+      maxPrice: normalizedMaxPrice,
+      bedsMin,
+      bathsMin,
+      city: typeof pf.city === "string" ? pf.city : null,
+      zip,
       keywords,
     },
-    explanations: output.explanations,
-    confidence: output.confidence,
-    warnings,
-    ignoredInputReasons: ignored,
+    confidence: clamp(validated.confidence ?? 0, 0, 1),
+    warnings: dedupe(warnings),
+    ignoredInputReasons: dedupe([...modelIgnored, ...reasons]),
   };
 };
