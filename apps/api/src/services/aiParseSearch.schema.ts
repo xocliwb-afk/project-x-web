@@ -12,7 +12,11 @@ export const proposedFiltersSchema = z
     bedsMin: z.number().int().nonnegative().nullable(),
     bathsMin: z.number().int().nonnegative().nullable(),
     city: z.string().trim().min(1).nullable(),
-    zip: z.string().trim().min(5).max(5).nullable(),
+    zip: z
+      .string()
+      .trim()
+      .regex(/^\d{5}$/)
+      .nullable(),
     keywords: z.array(z.string().trim().min(1)).min(1).nullable(),
   })
   .strict();
