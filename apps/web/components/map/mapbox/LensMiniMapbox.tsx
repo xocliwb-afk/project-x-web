@@ -17,6 +17,10 @@ type LensMiniMapboxProps = {
 
 const SOURCE_ID = "lens-mini-listings";
 const LAYER_ID = "lens-mini-points";
+const SEPARATION_THRESH_PX = 28;
+const MAX_REFIT_ATTEMPTS = 3;
+const MIN_PADDING_PX = 10;
+const MAX_MINIMAP_ZOOM = 17;
 
 const convertBoundsToMapbox = (bounds: LatLngBoundsTuple) =>
   [
@@ -37,11 +41,20 @@ export function LensMiniMapbox({
   const sourceReadyRef = useRef(false);
   const pendingBoundsRef = useRef<{
     bounds: ReturnType<typeof convertBoundsToMapbox>;
+    targetBounds: LatLngBoundsTuple;
     padding: number;
     maxZoom: number;
     isPoint: boolean;
     center: [number, number];
   } | null>(null);
+  type SepState = {
+    key: string;
+    bounds: LatLngBoundsTuple;
+    padding: number;
+    maxZoom: number;
+    attempt: number;
+  };
+  const sepStateRef = useRef<SepState | null>(null);
   const lastFocusedIdRef = useRef<string | null>(null);
   const initialCenterRef = useRef<[number, number]>(center);
   const listingsRef = useRef(listings);
@@ -80,12 +93,91 @@ export function LensMiniMapbox({
     lastFocusedIdRef.current = targetId;
   }, []);
 
+  const buildSepKey = useCallback(
+    (b: LatLngBoundsTuple) => {
+      const ids = listingsRef.current.slice(0, 5).map((l) => String(l.id ?? l.mlsId ?? ""));
+      return `${b[0][0]}|${b[0][1]}|${b[1][0]}|${b[1][1]}|len=${listingsRef.current.length}|ids=${ids.join(
+        ","
+      )}`;
+    },
+    []
+  );
+
+  const computeMinPixelDistance = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return Infinity;
+    const coords = listingsRef.current
+      .slice(0, 200)
+      .map((l) => ({
+        lat: Number(l.address?.lat),
+        lng: Number(l.address?.lng),
+      }))
+      .filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+    if (coords.length < 2) return Infinity;
+    const projected = coords.map((c) => map.project([c.lng, c.lat]));
+    let minDist = Infinity;
+    for (let i = 0; i < projected.length; i++) {
+      for (let j = i + 1; j < projected.length; j++) {
+        const dx = projected[i].x - projected[j].x;
+        const dy = projected[i].y - projected[j].y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < minDist) minDist = dist;
+      }
+    }
+    return minDist;
+  }, []);
+
+  const startOrResetSeparation = useCallback(
+    (b: LatLngBoundsTuple, padding: number, maxZoom: number) => {
+      sepStateRef.current = {
+        key: buildSepKey(b),
+        bounds: b,
+        padding,
+        maxZoom,
+        attempt: 0,
+      };
+    },
+    [buildSepKey]
+  );
+
+  const handleSeparationCheck = useCallback(() => {
+    const map = mapRef.current;
+    const state = sepStateRef.current;
+    if (!map || !state) return;
+    const currentKey = buildSepKey(state.bounds);
+    if (currentKey !== state.key) {
+      sepStateRef.current = null;
+      return;
+    }
+
+    const minDist = computeMinPixelDistance();
+    if (!Number.isFinite(minDist) || minDist >= SEPARATION_THRESH_PX) {
+      sepStateRef.current = null;
+      return;
+    }
+
+    if (state.attempt >= MAX_REFIT_ATTEMPTS) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[LensMiniMap] separation attempts exhausted");
+      }
+      sepStateRef.current = null;
+      return;
+    }
+
+    state.attempt += 1;
+    state.padding = Math.max(MIN_PADDING_PX, Math.round(state.padding * 0.7));
+    state.maxZoom = Math.min(MAX_MINIMAP_ZOOM, Math.max(state.maxZoom, MAX_MINIMAP_ZOOM - 2));
+    const mapboxBounds = convertBoundsToMapbox(state.bounds);
+    map.fitBounds(mapboxBounds, { padding: state.padding, maxZoom: state.maxZoom, animate: false });
+  }, [buildSepKey, computeMinPixelDistance]);
+
   const applyBounds = useCallback((targetBounds: LatLngBoundsTuple | null) => {
     const map = mapRef.current;
     if (!map) return;
 
     if (!targetBounds) {
       pendingBoundsRef.current = null;
+      sepStateRef.current = null;
       return;
     }
 
@@ -115,22 +207,26 @@ export function LensMiniMapbox({
 
     if (sourceReadyRef.current) {
       fit();
+      startOrResetSeparation(targetBounds, padding, maxZoom);
+      queueMicrotask(() => handleSeparationCheck());
     } else {
       pendingBoundsRef.current = {
         bounds: mapboxBounds,
+        targetBounds,
         padding,
         maxZoom,
         isPoint,
         center: centerPoint,
       };
     }
-  }, [lensSizePx]);
+  }, [handleSeparationCheck, lensSizePx, startOrResetSeparation]);
 
   useEffect(() => {
     applyFocusedState(focusedListingId ?? null);
   }, [applyFocusedState, focusedListingId]);
 
   useEffect(() => {
+    sepStateRef.current = null;
     const map = mapRef.current;
     const source = map?.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
     if (source) {
@@ -276,10 +372,11 @@ export function LensMiniMapbox({
       map.on("mouseenter", "lens-mini-price", handlePointEnter);
       map.on("mouseleave", "lens-mini-price", handlePointLeave);
       map.on("click", "lens-mini-price", handlePointClick);
+      map.on("moveend", handleSeparationCheck);
       sourceReadyRef.current = true;
 
       if (pendingBoundsRef.current) {
-        const { bounds: pendingBounds, padding, maxZoom, isPoint, center } =
+        const { bounds: pendingBounds, targetBounds, padding, maxZoom, isPoint, center } =
           pendingBoundsRef.current;
         if (isPoint) {
           map.setCenter([center[1], center[0]]);
@@ -288,6 +385,10 @@ export function LensMiniMapbox({
           map.fitBounds(pendingBounds, { padding, maxZoom, animate: false });
         }
         pendingBoundsRef.current = null;
+        if (targetBounds) {
+          startOrResetSeparation(targetBounds, padding, maxZoom);
+          queueMicrotask(() => handleSeparationCheck());
+        }
       }
 
       applyFocusedState(lastFocusedIdRef.current);
@@ -299,22 +400,24 @@ export function LensMiniMapbox({
     map.on("load", handleLoad);
     mapRef.current = map;
 
-    return () => {
-      map.off("load", handleLoad);
-      map.off("mouseenter", LAYER_ID, handlePointEnter);
-      map.off("mouseleave", LAYER_ID, handlePointLeave);
-      map.off("click", LAYER_ID, handlePointClick);
-      map.off("mouseenter", "lens-mini-price", handlePointEnter);
-      map.off("mouseleave", "lens-mini-price", handlePointLeave);
-      map.off("click", "lens-mini-price", handlePointClick);
-      resizeObserver.disconnect();
-      sourceReadyRef.current = false;
-      lastFocusedIdRef.current = null;
-      pendingBoundsRef.current = null;
-      map.remove();
-      mapRef.current = null;
-    };
-  }, [applyFocusedState]);
+      return () => {
+        map.off("load", handleLoad);
+        map.off("mouseenter", LAYER_ID, handlePointEnter);
+        map.off("mouseleave", LAYER_ID, handlePointLeave);
+        map.off("click", LAYER_ID, handlePointClick);
+        map.off("mouseenter", "lens-mini-price", handlePointEnter);
+        map.off("mouseleave", "lens-mini-price", handlePointLeave);
+        map.off("click", "lens-mini-price", handlePointClick);
+        map.off("moveend", handleSeparationCheck);
+        resizeObserver.disconnect();
+        sourceReadyRef.current = false;
+        lastFocusedIdRef.current = null;
+        pendingBoundsRef.current = null;
+        sepStateRef.current = null;
+        map.remove();
+        mapRef.current = null;
+      };
+  }, [applyFocusedState, handleSeparationCheck, startOrResetSeparation]);
 
   if (!tokenRef.current) {
     return (
