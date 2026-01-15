@@ -195,14 +195,32 @@ export default function SearchLayoutClient({
         p.minYearBuilt != null ||
         p.maxYearBuilt != null ||
         p.maxDaysOnMarket != null ||
-        p.keywords,
+        p.keywords ||
+        (p.cities && p.cities.length > 0) ||
+        (p.postalCodes && p.postalCodes.length > 0) ||
+        (p.counties && p.counties.length > 0) ||
+        (p.neighborhoods && p.neighborhoods.length > 0) ||
+        (p.features && p.features.length > 0) ||
+        (p.subtype && p.subtype.length > 0) ||
+        (p.agent && p.agent.length > 0) ||
+        (p.brokers && p.brokers.length > 0) ||
+        p.maxBeds != null ||
+        p.maxBaths != null,
     );
   }, []);
 
   const parsedParams = useMemo<FetchListingsParams & { searchToken?: string }>(() => {
     const getNumber = (key: string) => {
       const value = searchParams.get(key);
-      return value != null && value !== '' ? Number(value) : undefined;
+      const num = value != null && value !== '' ? Number(value) : undefined;
+      return Number.isFinite(num) ? num : undefined;
+    };
+    const getAll = (key: string): string[] | undefined => {
+      const values = searchParams
+        .getAll(key)
+        .map((v) => v.trim())
+        .filter(Boolean);
+      return values.length > 0 ? values : undefined;
     };
 
     const statusParam = searchParams.getAll('status');
@@ -233,6 +251,16 @@ export default function SearchLayoutClient({
       maxYearBuilt: getNumber('maxYearBuilt'),
       maxDaysOnMarket: getNumber('maxDaysOnMarket'),
       keywords: searchParams.get('keywords') || undefined,
+      cities: getAll('cities'),
+      postalCodes: getAll('postalCodes'),
+      counties: getAll('counties'),
+      neighborhoods: getAll('neighborhoods'),
+      features: getAll('features'),
+      subtype: getAll('subtype'),
+      agent: getAll('agent'),
+      brokers: getAll('brokers'),
+      maxBeds: getNumber('maxBeds'),
+      maxBaths: getNumber('maxBaths'),
     };
   }, [searchParams]);
 
@@ -381,8 +409,6 @@ export default function SearchLayoutClient({
     setIsLoadingMore(false);
     setIsAutoFilling(false);
     setLoadMoreError(null);
-    baseQueryKeyRef.current = baseQueryKey;
-
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
     }
@@ -397,6 +423,7 @@ export default function SearchLayoutClient({
     const fetchRequestId = ++fetchRequestIdRef.current;
 
     fetchTimeoutRef.current = setTimeout(async () => {
+      baseQueryKeyRef.current = baseQueryKey;
       setIsLoading(true);
       setError(null);
       try {
@@ -433,7 +460,10 @@ export default function SearchLayoutClient({
 
   // Auto-fill up to TARGET_RESULTS when bbox is active
   useEffect(() => {
+    const currentRequestKey = fetchGateKey ? `${fetchGateKey}|refetch=${refetchNonce}` : null;
     const shouldAutoFill =
+      currentRequestKey &&
+      lastFetchedParamsKeyRef.current === currentRequestKey &&
       effectiveParams?.bbox &&
       pagination &&
       listings.length < TARGET_RESULTS &&
@@ -551,20 +581,26 @@ export default function SearchLayoutClient({
     isLoadingMore,
     isAutoFilling,
     queryKey,
+    fetchGateKey,
+    refetchNonce,
   ]);
 
   useEffect(() => {
     if (!ENABLE_PIN_HYDRATION) return;
-    if (!baseQueryKey || !effectiveParams) return;
+    if (!baseQueryKey || !effectiveParams || !fetchGateKey) return;
+    if (baseQueryKeyRef.current !== baseQueryKey) return;
+    const currentRequestKey = `${fetchGateKey}|refetch=${refetchNonce}`;
+    if (lastFetchedParamsKeyRef.current !== currentRequestKey) return;
     const hasAppliedBounds =
       (typeof effectiveParams.bbox === 'string' && effectiveParams.bbox.trim().length > 0) ||
       ([effectiveParams.swLat, effectiveParams.swLng, effectiveParams.neLat, effectiveParams.neLng] as Array<
         number | string | undefined
       >).every((v) => Number.isFinite(typeof v === 'string' ? Number(v) : v));
     if (!hasAppliedBounds) return;
-    if (lastPinHydrationBaseKeyRef.current === baseQueryKey) return;
+    const hydrationKey = `${currentRequestKey}|${baseQueryKey}`;
+    if (lastPinHydrationBaseKeyRef.current === hydrationKey) return;
 
-    lastPinHydrationBaseKeyRef.current = baseQueryKey;
+    lastPinHydrationBaseKeyRef.current = hydrationKey;
 
     const runId = ++pinHydrationRunIdRef.current;
     if (pinHydrationControllerRef.current) {
@@ -718,7 +754,7 @@ export default function SearchLayoutClient({
           : prev,
       );
     };
-  }, [baseQueryKey, effectiveParams]);
+  }, [baseQueryKey, effectiveParams, fetchGateKey, refetchNonce]);
 
   // Bounds wait timeout: trigger fallback fetch if map bounds never arrive
   useEffect(() => {
@@ -741,8 +777,11 @@ export default function SearchLayoutClient({
 
   const updateUrlWithBounds = useCallback(
     (bbox: string, withSearchToken?: boolean) => {
-      const currentBbox = searchParams.get('bbox');
-      const params = new URLSearchParams(searchParams.toString());
+      const params =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams(searchParams.toString());
+      const currentBbox = params.get('bbox');
       if (currentBbox !== bbox) {
         params.set('bbox', bbox);
       }
