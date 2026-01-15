@@ -281,20 +281,21 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
             onClick={(e) => e.stopPropagation()}
           >
             <div className="h-64 border-b border-border">
-              <MiniMapComponent
-                key={lensKey}
-                center={[
-                  activeClusterData.anchorLatLng?.lat,
-                  activeClusterData.anchorLatLng?.lng,
-                ]}
-                listings={sortedAllListings}
-                bounds={clusterBounds}
-                focusedListingId={focusedListingId}
-                onMarkerClick={(listing) => {
-                  setFocusedListingId(listing.id);
-                  onHoverListing?.(listing.id);
-                }}
-              />
+            <MiniMapComponent
+              key={lensKey}
+              center={[
+                activeClusterData.anchorLatLng?.lat,
+                activeClusterData.anchorLatLng?.lng,
+              ]}
+              listings={sortedAllListings}
+              bounds={clusterBounds}
+              focusedListingId={focusedListingId}
+              onMarkerClick={(listing) => {
+                setFocusedListingId(listing.id);
+                onHoverListing?.(listing.id);
+              }}
+              lensSizePx={lensSizePx}
+            />
             </div>
             <div className="flex h-[calc(100%-16rem)] flex-col p-4 overflow-hidden">
               {focusedListing ? (
@@ -393,6 +394,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
               setFocusedListingId(listing.id);
               onHoverListing?.(listing.id);
             }}
+            lensSizePx={lensSizePx}
           />
         </div>
 

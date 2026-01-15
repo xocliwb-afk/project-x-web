@@ -12,6 +12,7 @@ type LensMiniMapboxProps = {
   bounds?: LatLngBoundsTuple | null;
   focusedListingId?: string | null;
   onMarkerClick: (listing: NormalizedListing) => void;
+  lensSizePx?: number;
 };
 
 const SOURCE_ID = "lens-mini-listings";
@@ -29,11 +30,18 @@ export function LensMiniMapbox({
   bounds,
   focusedListingId,
   onMarkerClick,
+  lensSizePx,
 }: LensMiniMapboxProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const sourceReadyRef = useRef(false);
-  const pendingBoundsRef = useRef<ReturnType<typeof convertBoundsToMapbox> | null>(null);
+  const pendingBoundsRef = useRef<{
+    bounds: ReturnType<typeof convertBoundsToMapbox>;
+    padding: number;
+    maxZoom: number;
+    isPoint: boolean;
+    center: [number, number];
+  } | null>(null);
   const lastFocusedIdRef = useRef<string | null>(null);
   const initialCenterRef = useRef<[number, number]>(center);
   const listingsRef = useRef(listings);
@@ -82,12 +90,41 @@ export function LensMiniMapbox({
     }
 
     const mapboxBounds = convertBoundsToMapbox(targetBounds);
+    const south = targetBounds[0][0];
+    const west = targetBounds[0][1];
+    const north = targetBounds[1][0];
+    const east = targetBounds[1][1];
+    const isPoint = south === north && west === east;
+
+    const padding = Math.min(64, Math.max(22, Math.round((lensSizePx ?? 400) * 0.08)));
+    const diagLat = Math.abs(north - south);
+    const diagLng = Math.abs(east - west);
+    const diagDegrees = Math.hypot(diagLat, diagLng);
+    const maxZoom =
+      diagDegrees < 0.01 ? 15 : diagDegrees < 0.1 ? 14 : 12;
+    const centerPoint: [number, number] = [(south + north) / 2, (west + east) / 2];
+
+    const fit = () => {
+      if (isPoint) {
+        map.setCenter([centerPoint[1], centerPoint[0]]);
+        map.setZoom(Math.min(maxZoom, 15));
+        return;
+      }
+      map.fitBounds(mapboxBounds, { padding, maxZoom, animate: false });
+    };
+
     if (sourceReadyRef.current) {
-      map.fitBounds(mapboxBounds, { padding: 20, animate: false });
+      fit();
     } else {
-      pendingBoundsRef.current = mapboxBounds;
+      pendingBoundsRef.current = {
+        bounds: mapboxBounds,
+        padding,
+        maxZoom,
+        isPoint,
+        center: centerPoint,
+      };
     }
-  }, []);
+  }, [lensSizePx]);
 
   useEffect(() => {
     applyFocusedState(focusedListingId ?? null);
@@ -242,7 +279,14 @@ export function LensMiniMapbox({
       sourceReadyRef.current = true;
 
       if (pendingBoundsRef.current) {
-        map.fitBounds(pendingBoundsRef.current, { padding: 20, animate: false });
+        const { bounds: pendingBounds, padding, maxZoom, isPoint, center } =
+          pendingBoundsRef.current;
+        if (isPoint) {
+          map.setCenter([center[1], center[0]]);
+          map.setZoom(Math.min(maxZoom, 15));
+        } else {
+          map.fitBounds(pendingBounds, { padding, maxZoom, animate: false });
+        }
         pendingBoundsRef.current = null;
       }
 
