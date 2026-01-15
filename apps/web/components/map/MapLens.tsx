@@ -297,6 +297,11 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
               lensSizePx={lensSizePx}
             />
             </div>
+            {sortedAllListings.length > visibleListings.length && (
+              <div className="px-4 pb-2 text-[11px] text-text-secondary">
+                Showing 50 of {sortedAllListings.length}. Zoom in to reduce overlap.
+              </div>
+            )}
             <div className="flex h-[calc(100%-16rem)] flex-col p-4 overflow-hidden">
               {focusedListing ? (
                 <button
@@ -397,6 +402,11 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
             lensSizePx={lensSizePx}
           />
         </div>
+        {sortedAllListings.length > visibleListings.length && (
+          <div className="mt-1 text-[11px] text-text-secondary">
+            Showing 50 of {sortedAllListings.length}. Zoom in to reduce overlap.
+          </div>
+        )}
 
         {focusedListing && typeof document !== "undefined" && (() => {
           const lensRect = lensRef.current?.getBoundingClientRect();
