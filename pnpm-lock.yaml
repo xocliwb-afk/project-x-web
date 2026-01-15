@@ -41,6 +41,9 @@ importers:
       node-fetch:
         specifier: '2'
         version: 2.7.0
+      zod:
+        specifier: ^4.3.5
+        version: 4.3.5
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
