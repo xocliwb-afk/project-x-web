@@ -14,6 +14,7 @@ import Footer from '@/components/Footer';
 import ListingsList from '@/components/ListingsList';
 import { ListingDetailModal } from '@/components/ListingDetailModal';
 import { useTheme } from '@/context/ThemeContext';
+import AiAssistPanel from '@/components/search/AiAssistPanel';
 
 const MapboxMap = dynamic(() => import('@/components/map/mapbox/MapboxMap'), {
   ssr: false,
@@ -1018,6 +1019,7 @@ export default function SearchLayoutClient({
             )}
             {viewMode === 'list' && (
               <div className="h-full overflow-y-auto px-4 pt-4 pb-6">
+                <AiAssistPanel />
                 <div className="mb-3 text-sm text-text-main/70">
                   {isLoading || isWaitingForBounds
                     ? 'Loading...'
@@ -1148,6 +1150,7 @@ export default function SearchLayoutClient({
                 </div>
 
                 <div className="flex-1 p-4">
+                  <AiAssistPanel />
                   <ListingsList
                     listings={visibleListings}
                     isLoading={isLoading}
