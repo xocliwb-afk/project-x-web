@@ -35,7 +35,7 @@ export const parseSearchRequestSchema = z
     prompt: z.string().min(1),
     context: z
       .object({
-        currentFilters: z.record(z.unknown()).optional(),
+        currentFilters: z.record(z.string(), z.unknown()).optional(),
         searchText: z.string().nullable().optional(),
       })
       .strict()
