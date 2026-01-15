@@ -21,8 +21,14 @@ const run = (cmd, args) =>
   });
 
 const main = async () => {
-  const specPath = process.argv[2] ?? 'apps/web/e2e/search-bbox-coupling.spec.ts';
-  const servers = spawn('node', ['scripts/e2e-servers.mjs'], { stdio: 'inherit' });
+  const specPath = process.argv[2] ?? 'apps/web/e2e/search';
+  const servers = spawn('node', ['scripts/e2e-servers.mjs'], {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_AI_ASSIST_ENABLED: 'true',
+    },
+  });
   let serversClosed = false;
   const cleanup = () => {
     if (!serversClosed && !servers.killed) {

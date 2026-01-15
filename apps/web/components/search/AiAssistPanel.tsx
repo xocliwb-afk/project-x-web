@@ -141,6 +141,7 @@ export default function AiAssistPanel() {
       </div>
 
       <textarea
+        data-testid="ai-assist-textarea"
         className="mb-2 w-full rounded-md border border-border bg-white p-2 text-sm text-text-main focus:border-primary focus:outline-none"
         rows={3}
         placeholder="e.g., 3 bed homes under 400k in Grand Rapids"
@@ -151,6 +152,7 @@ export default function AiAssistPanel() {
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
         <button
           type="button"
+          data-testid="ai-assist-suggest"
           onClick={handleSuggest}
           disabled={state === 'loading' || !prompt.trim()}
           className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
@@ -187,7 +189,7 @@ export default function AiAssistPanel() {
           {diff.length === 0 ? (
             <p className="text-xs text-text-main/70">No changes suggested versus current filters.</p>
           ) : (
-            <ul className="space-y-1 text-xs">
+            <ul className="space-y-1 text-xs" data-testid="ai-assist-diff">
               {diff.map((d) => (
                 <li key={d.key} className="rounded border border-border px-2 py-1">
                   <div className="font-semibold">{d.label}</div>
@@ -207,6 +209,7 @@ export default function AiAssistPanel() {
           <div className="flex flex-wrap gap-2 pt-2">
             <button
               type="button"
+              data-testid="ai-assist-apply"
               onClick={handleApply}
               disabled={!hasChanges}
               className="rounded-md bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground transition hover:bg-secondary/90 disabled:opacity-60"
