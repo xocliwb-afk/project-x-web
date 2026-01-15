@@ -12,6 +12,7 @@ const nowSeconds = () => Date.now() / 1000;
 export const rateLimit = (key: string, capacity: number): { allowed: true } | { allowed: false; retryAfterSeconds: number; error: ApiError } => {
   const cap = Math.max(1, capacity || 1);
   const refillPerSec = cap / 60;
+  const safeRefillPerSec = Number.isFinite(refillPerSec) && refillPerSec > 0 ? refillPerSec : 1 / 60;
   const bucket = buckets.get(key) ?? { tokens: cap, lastRefill: nowSeconds() };
 
   const current = nowSeconds();
@@ -26,7 +27,7 @@ export const rateLimit = (key: string, capacity: number): { allowed: true } | { 
   }
 
   const missing = Math.max(0, 1 - bucket.tokens);
-  const retryAfter = Math.min(300, Math.max(1, Math.ceil(missing / refillPerSec || 60)));
+  const retryAfter = Math.min(300, Math.max(1, Math.ceil(missing / safeRefillPerSec)));
   buckets.set(key, bucket);
   const error: ApiError = {
     error: true,
