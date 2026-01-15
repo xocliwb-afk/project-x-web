@@ -5,6 +5,7 @@ import {
   aiResponseBodySchema,
   aiResponseJsonSchema,
   parseSearchRequestSchema,
+  enforceAllowedOutput,
   sanitizeModelOutput,
 } from "../services/aiParseSearch.schema";
 import { callGemini } from "../services/gemini.service";
@@ -32,6 +33,9 @@ let inFlight = 0;
 
 const hashIp = (ip: string, salt: string) =>
   crypto.createHash("sha256").update(`${salt}${ip}`).digest("hex").slice(0, 12);
+
+const SYSTEM_PROMPT =
+  "You are an assistant that returns ONLY valid JSON matching the provided schema. Do not include markdown or additional keys. Do not provide instructions or actions.";
 
 const getIp = (req: any) => {
   const xf = req.headers["x-forwarded-for"];
@@ -135,7 +139,7 @@ router.post("/parse-search", async (req, res) => {
     }
 
     inFlight += 1;
-    let incremented = true;
+    incremented = true;
 
     const parsedReq = parseSearchRequestSchema.safeParse(req.body);
     if (!parsedReq.success) {
@@ -174,8 +178,8 @@ router.post("/parse-search", async (req, res) => {
     }
 
     const modelPrompt = contextString
-      ? `${trimmedPrompt}\n\nContext:\n${contextString}`
-      : trimmedPrompt;
+      ? `${SYSTEM_PROMPT}\n\nUser request:\n${trimmedPrompt}\n\nContext:\n${contextString}`
+      : `${SYSTEM_PROMPT}\n\nUser request:\n${trimmedPrompt}`;
 
     const gemini = await callGemini({
       prompt: modelPrompt,
@@ -251,9 +255,23 @@ router.post("/parse-search", async (req, res) => {
       return res.status(502).json(error);
     }
 
+    let guarded;
+    try {
+      guarded = enforceAllowedOutput(validated.data);
+    } catch (err: any) {
+      const error: ApiError = {
+        error: true,
+        message: "AI response failed validation",
+        code: "AI_BAD_MODEL_OUTPUT",
+        status: 502,
+      };
+      logOutcome("bad_model_output", { reason: "guard_reject" });
+      return res.status(502).json(error);
+    }
+
     const responseBody = {
       requestId,
-      ...validated.data,
+      ...guarded,
     };
 
     logOutcome("ok", { attempts: gemini.attempts, geminiStatus: gemini.status });
@@ -275,8 +293,8 @@ router.post("/parse-search", async (req, res) => {
     );
     return res.status(502).json(error);
   } finally {
-    if (inFlight > 0 && incremented) {
-      inFlight -= 1;
+    if (incremented) {
+      inFlight = Math.max(0, inFlight - 1);
     }
   }
 });
