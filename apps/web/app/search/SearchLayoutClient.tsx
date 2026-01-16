@@ -57,6 +57,21 @@ const PIN_HYDRATION_PAGE_LIMIT = 500;
 const FIRST_PIN_REQUEST_DELAY = 750;
 const MIN_DELAY_BETWEEN_PIN_REQUESTS = 500;
 
+type MoreFilters = {
+  cities?: string[];
+  postalCodes?: string[];
+  counties?: string[];
+  neighborhoods?: string[];
+  features?: string[];
+  subtype?: string[];
+  agent?: string[];
+  brokers?: string[];
+  maxBeds?: number;
+  maxBaths?: number;
+};
+
+type ExtendedFetchListingsParams = FetchListingsParams & MoreFilters;
+
 const buildPinListingsMap = (source: Listing[]) => {
   const map = new Map<string, Listing>();
   for (const listing of source) {
@@ -181,7 +196,7 @@ export default function SearchLayoutClient({
     return '';
   }, [pinHydrationStatus, pinHydrationMeta.cap]);
 
-  const hasAnyNonPagingFilterFrontend = useCallback((p: FetchListingsParams) => {
+  const hasAnyNonPagingFilterFrontend = useCallback((p: ExtendedFetchListingsParams) => {
     return Boolean(
       p.q ||
         p.minPrice != null ||
@@ -195,14 +210,28 @@ export default function SearchLayoutClient({
         p.minYearBuilt != null ||
         p.maxYearBuilt != null ||
         p.maxDaysOnMarket != null ||
-        p.keywords,
+        p.keywords ||
+        (p.cities && p.cities.length > 0) ||
+        (p.postalCodes && p.postalCodes.length > 0) ||
+        (p.counties && p.counties.length > 0) ||
+        (p.neighborhoods && p.neighborhoods.length > 0) ||
+        (p.features && p.features.length > 0) ||
+        (p.subtype && p.subtype.length > 0) ||
+        (p.agent && p.agent.length > 0) ||
+        (p.brokers && p.brokers.length > 0) ||
+        p.maxBeds != null ||
+        p.maxBaths != null,
     );
   }, []);
 
-  const parsedParams = useMemo<FetchListingsParams & { searchToken?: string }>(() => {
+  const parsedParams = useMemo<ExtendedFetchListingsParams & { searchToken?: string }>(() => {
     const getNumber = (key: string) => {
       const value = searchParams.get(key);
       return value != null && value !== '' ? Number(value) : undefined;
+    };
+    const getAll = (key: string) => {
+      const values = searchParams.getAll(key).map((v) => v.trim()).filter(Boolean);
+      return values.length ? values : undefined;
     };
 
     const statusParam = searchParams.getAll('status');
@@ -233,6 +262,16 @@ export default function SearchLayoutClient({
       maxYearBuilt: getNumber('maxYearBuilt'),
       maxDaysOnMarket: getNumber('maxDaysOnMarket'),
       keywords: searchParams.get('keywords') || undefined,
+      cities: getAll('cities'),
+      postalCodes: getAll('postalCodes'),
+      counties: getAll('counties'),
+      neighborhoods: getAll('neighborhoods'),
+      features: getAll('features'),
+      subtype: getAll('subtype'),
+      agent: getAll('agent'),
+      brokers: getAll('brokers'),
+      maxBeds: getNumber('maxBeds'),
+      maxBaths: getNumber('maxBaths'),
     };
   }, [searchParams]);
 
@@ -299,8 +338,8 @@ export default function SearchLayoutClient({
       !baseQueryInvariantWarnedRef.current
     ) {
       try {
-        const prevParams: FetchListingsParams = JSON.parse(prevParamsKey);
-        const currentParams: FetchListingsParams = JSON.parse(paramsKey);
+        const prevParams: ExtendedFetchListingsParams = JSON.parse(prevParamsKey);
+        const currentParams: ExtendedFetchListingsParams = JSON.parse(paramsKey);
         const { page: prevPage, ...prevRest } = prevParams;
         const { page: currentPage, ...currentRest } = currentParams;
         const restChanged = JSON.stringify(prevRest) !== JSON.stringify(currentRest);
@@ -387,7 +426,7 @@ export default function SearchLayoutClient({
       clearTimeout(fetchTimeoutRef.current);
     }
 
-    const parsed: FetchListingsParams = JSON.parse(paramsKey);
+    const parsed: ExtendedFetchListingsParams = JSON.parse(paramsKey);
     const pageKey = `${queryKey}|page=${parsed.page ?? 1}`;
     if (inFlightPagesRef.current.has(pageKey) || loadedPagesRef.current.has(pageKey)) {
       return;

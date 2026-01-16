@@ -3,6 +3,7 @@
 import type { Listing } from '@project-x/shared-types';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import {
   formatAddressFull,
@@ -33,6 +34,10 @@ export function ListingCard({
   onClick,
   priority = false,
 }: ListingCardProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const photos = listing.media?.photos ?? [];
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -49,10 +54,35 @@ export function ListingCard({
   const currentImageUrl = photos[currentIndex] ?? thumbnail;
   const statusClass = getStatusBadgeClasses(status);
   const detailRows = getListingDetailsRows(listing);
+  const county = (listing as any)?.address?.county as string | undefined;
+  const neighborhood = (listing as any)?.address?.neighborhood as string | undefined;
 
   // --- Event Handlers ---
   const handleClick = () => {
     onClick?.(listing);
+  };
+
+  const applyLocationFilter = (
+    type: 'city' | 'zip' | 'county' | 'neighborhood',
+    value?: string | null,
+  ) => {
+    if (!value) return;
+    const params = new URLSearchParams(searchParams.toString());
+    const key =
+      type === 'city'
+        ? 'cities'
+        : type === 'zip'
+        ? 'postalCodes'
+        : type === 'county'
+        ? 'counties'
+        : 'neighborhoods';
+
+    params.delete(key);
+    params.append(key, value);
+    params.set('searchToken', Date.now().toString());
+
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -138,17 +168,76 @@ export function ListingCard({
               <Link
                 href={`/listing/${listing.id}`}
                 onClick={(e) => e.stopPropagation()} // Prevent card click from firing
-                className="whitespace-nowrap text-xs text-blue-500 hover:underline"
-                aria-label={`View full page for ${fullAddress}`}
+              className="whitespace-nowrap text-xs text-blue-500 hover:underline"
+              aria-label={`View full page for ${fullAddress}`}
+            >
+              Full Page
+            </Link>
+          </div>
+        </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+            {listing.address?.city && (
+              <button
+                type="button"
+                data-testid="chip-city"
+                className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  applyLocationFilter('city', listing.address?.city);
+                }}
               >
-                Full Page
-              </Link>
-            </div>
+                {listing.address.city}
+              </button>
+            )}
+            {listing.address?.zip && (
+              <button
+                type="button"
+                data-testid="chip-zip"
+                className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  applyLocationFilter('zip', listing.address?.zip);
+                }}
+              >
+                {listing.address.zip}
+              </button>
+            )}
+            {county && (
+              <button
+                type="button"
+                data-testid="chip-county"
+                className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  applyLocationFilter('county', county);
+                }}
+              >
+                {county}
+              </button>
+            )}
+            {neighborhood && (
+              <button
+                type="button"
+                data-testid="chip-neighborhood"
+                className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  applyLocationFilter('neighborhood', neighborhood);
+                }}
+              >
+                {neighborhood}
+              </button>
+            )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-            <span>{beds} bd</span>
-            <span>•</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+          <span>{beds} bd</span>
+          <span>•</span>
             <span>{baths} ba</span>
             {sqft && (
               <>
