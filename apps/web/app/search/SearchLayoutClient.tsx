@@ -125,6 +125,7 @@ export default function SearchLayoutClient({
     aborted: 0,
     errors: 0,
   });
+  const [lastFetchedRequestKey, setLastFetchedRequestKey] = useState<string | null>(null);
   const [pinListingsById, setPinListingsById] = useState<Map<string, Listing>>(
     () => initialPinListingsMap,
   );
@@ -313,6 +314,10 @@ export default function SearchLayoutClient({
     return JSON.stringify({ ...rest, page: 1 });
   }, [effectiveParams]);
   const queryKey = baseQueryKey ?? paramsKey ?? 'none';
+  const currentRequestKey = useMemo(
+    () => (fetchGateKey ? `${fetchGateKey}|refetch=${refetchNonce}` : null),
+    [fetchGateKey, refetchNonce],
+  );
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
@@ -349,6 +354,7 @@ export default function SearchLayoutClient({
   }, [paramsKey, baseQueryKey]);
 
   useEffect(() => {
+    if (!currentRequestKey) return;
     pinHydrationRunIdRef.current += 1;
     if (pinHydrationControllerRef.current) {
       pinHydrationControllerRef.current.abort();
@@ -357,18 +363,18 @@ export default function SearchLayoutClient({
     clampWarnedBaseKeyRef.current = null;
     lastPinHydrationBaseKeyRef.current = null;
     pinHydrationCapRef.current = PIN_HYDRATION_HARD_CAP;
-    const seededMap = buildPinListingsMap(listingsRef.current);
-    pinListingsByIdRef.current = seededMap;
-    setPinListingsById(seededMap);
+    setLastFetchedRequestKey(null);
+    pinListingsByIdRef.current = new Map();
+    setPinListingsById(pinListingsByIdRef.current);
     setPinHydrationMeta({
       cap: PIN_HYDRATION_HARD_CAP,
-      seeded: seededMap.size,
+      seeded: 0,
       hydrated: 0,
       aborted: 0,
       errors: 0,
     });
     setPinHydrationStatus('idle');
-  }, [baseQueryKey]);
+  }, [currentRequestKey]);
 
   useEffect(() => {
     if (!baseQueryKey) return;
@@ -394,9 +400,8 @@ export default function SearchLayoutClient({
     loadedPagesRef.current.clear();
     autofillKeyRef.current = null;
     autofillRunningRef.current = false;
-    if (!paramsKey || !fetchGateKey) return;
-    const requestKey = `${fetchGateKey}|refetch=${refetchNonce}`;
-    if (requestKey === lastFetchedParamsKeyRef.current) return;
+    if (!paramsKey || !currentRequestKey) return;
+    if (currentRequestKey === lastFetchedParamsKeyRef.current) return;
     // reset load-more state when base params change
     if (loadMoreControllerRef.current) {
       loadMoreControllerRef.current.abort();
@@ -436,7 +441,8 @@ export default function SearchLayoutClient({
         setListings(results);
         setPagination(newPagination);
         setError(null);
-        lastFetchedParamsKeyRef.current = requestKey;
+        lastFetchedParamsKeyRef.current = currentRequestKey;
+        setLastFetchedRequestKey(currentRequestKey);
       } catch (err) {
         if (controller.signal.aborted || fetchRequestId !== fetchRequestIdRef.current) return;
         console.error('[SearchLayoutClient] failed to fetch listings', err);
@@ -456,11 +462,10 @@ export default function SearchLayoutClient({
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [paramsKey, baseQueryKey, queryKey, refetchNonce, fetchGateKey]);
+  }, [paramsKey, baseQueryKey, queryKey, currentRequestKey]);
 
   // Auto-fill up to TARGET_RESULTS when bbox is active
   useEffect(() => {
-    const currentRequestKey = fetchGateKey ? `${fetchGateKey}|refetch=${refetchNonce}` : null;
     const shouldAutoFill =
       currentRequestKey &&
       lastFetchedParamsKeyRef.current === currentRequestKey &&
@@ -581,16 +586,15 @@ export default function SearchLayoutClient({
     isLoadingMore,
     isAutoFilling,
     queryKey,
-    fetchGateKey,
-    refetchNonce,
+    currentRequestKey,
   ]);
 
   useEffect(() => {
     if (!ENABLE_PIN_HYDRATION) return;
     if (!baseQueryKey || !effectiveParams || !fetchGateKey) return;
     if (baseQueryKeyRef.current !== baseQueryKey) return;
-    const currentRequestKey = `${fetchGateKey}|refetch=${refetchNonce}`;
-    if (lastFetchedParamsKeyRef.current !== currentRequestKey) return;
+    if (!currentRequestKey) return;
+    if (lastFetchedRequestKey !== currentRequestKey) return;
     const hasAppliedBounds =
       (typeof effectiveParams.bbox === 'string' && effectiveParams.bbox.trim().length > 0) ||
       ([effectiveParams.swLat, effectiveParams.swLng, effectiveParams.neLat, effectiveParams.neLng] as Array<
@@ -754,7 +758,7 @@ export default function SearchLayoutClient({
           : prev,
       );
     };
-  }, [baseQueryKey, effectiveParams, fetchGateKey, refetchNonce]);
+  }, [baseQueryKey, effectiveParams, currentRequestKey, fetchGateKey, lastFetchedRequestKey]);
 
   // Bounds wait timeout: trigger fallback fetch if map bounds never arrive
   useEffect(() => {

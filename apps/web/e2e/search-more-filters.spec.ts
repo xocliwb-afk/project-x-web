@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 const SMALL_BBOX = '-85.7,42.9,-85.6,43.0';
 
 test.describe('More Filters panel', () => {
-  test('Apply does not fetch; Search this area fetches with new params', async ({ page }) => {
+  test('Apply triggers filtered fetch for list and pins', async ({ page }) => {
     // Track /api/listings URLs
     let listingsUrls: string[] = [];
     page.on('request', (req) => {
@@ -37,49 +37,28 @@ test.describe('More Filters panel', () => {
     const applyButton = page.getByTestId('more-filters-apply');
     await applyButton.click();
 
-    // Allow URL update to settle
-    await page.waitForTimeout(600);
-
-    // Apply should NOT trigger a fetch
-    const urlsAfterApply = [...listingsUrls];
-    try {
-      expect(urlsAfterApply.length).toBe(0);
-    } catch (err) {
-      const last10 = urlsAfterApply.slice(-10).join('\n') || 'no /api/listings requests captured';
-      await test.info().attach('last_api_listings_urls', {
-        body: last10,
-        contentType: 'text/plain',
-      });
-      throw err;
-    }
-
-    // Pan the map slightly to reveal the Search this area button
-    const canvas = page.locator('.mapboxgl-canvas').first();
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error('Map canvas not found');
-    const centerX = box.x + box.width / 2;
-    const centerY = box.y + box.height / 2;
-    await page.mouse.move(centerX, centerY);
-    await page.mouse.down();
-    await page.mouse.move(centerX + 80, centerY);
-    await page.mouse.up();
-
-    // Search this area should fetch with the new cities param
-    const searchThisArea = page.getByRole('button', { name: /search this area/i });
-    await expect(searchThisArea).toBeVisible({ timeout: 10000 });
-    const urlBefore = page.url();
-    listingsUrls = [];
-    await searchThisArea.click();
-
+    // Ensure new searchToken applied, then capture only post-apply requests
     await expect
-      .poll(
-        () => listingsUrls.length,
-        { timeout: 10000 },
-      )
-      .toBeGreaterThan(0);
+      .poll(() => page.url(), { timeout: 5000 })
+      .not.toContain('searchToken=seed');
+    listingsUrls = [];
 
+    // Wait for filtered requests to fire (both list and pin hydration)
     try {
-      expect(listingsUrls.some((url) => url.includes('cities=Testville'))).toBe(true);
+      await expect.poll(
+        () =>
+          listingsUrls.some(
+            (url) => url.includes('cities=Testville') && url.includes('limit=50'),
+          ),
+        { timeout: 10000 },
+      ).toBeTruthy();
+      await expect.poll(
+        () =>
+          listingsUrls.some(
+            (url) => url.includes('cities=Testville') && url.includes('limit=500'),
+          ),
+        { timeout: 12000 },
+      ).toBeTruthy();
     } catch (err) {
       const last10 = listingsUrls.slice(-10).join('\n') || 'no /api/listings requests captured';
       await test.info().attach('last_api_listings_urls', {
@@ -89,7 +68,9 @@ test.describe('More Filters panel', () => {
       throw err;
     }
 
-    await expect.poll(() => page.url(), { timeout: 5000 }).not.toBe(urlBefore);
+    // URL should reflect the applied city and a new searchToken
+    await expect.poll(() => page.url(), { timeout: 5000 }).toContain('cities=Testville');
+    await expect.poll(() => page.url(), { timeout: 5000 }).not.toContain('searchToken=seed');
 
     const last10 = listingsUrls.slice(-10).join('\n') || 'no /api/listings requests captured';
     await test.info().attach('last_api_listings_urls', {

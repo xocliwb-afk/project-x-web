@@ -166,6 +166,7 @@ export default function SearchFiltersBar() {
           params.delete(key);
         }
       });
+      params.set("searchToken", Date.now().toString());
 
       startTransition(() => {
         const qs = params.toString();
@@ -199,6 +200,7 @@ export default function SearchFiltersBar() {
           if (v) params.append(key, v);
         });
       });
+      params.set("searchToken", Date.now().toString());
 
       startTransition(() => {
         const qs = params.toString();
