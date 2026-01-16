@@ -124,6 +124,18 @@ export default function SearchFiltersBar() {
   );
   const [keywords, setKeywords] = useState(searchParams.get("keywords") || "");
 
+  // New filter states for More panel
+  const [cities, setCities] = useState(searchParams.getAll("cities").join(", ") || "");
+  const [postalCodes, setPostalCodes] = useState(searchParams.getAll("postalCodes").join(", ") || "");
+  const [counties, setCounties] = useState(searchParams.getAll("counties").join(", ") || "");
+  const [neighborhoods, setNeighborhoods] = useState(searchParams.getAll("neighborhoods").join(", ") || "");
+  const [features, setFeatures] = useState(searchParams.getAll("features").join(", ") || "");
+  const [subtype, setSubtype] = useState(searchParams.getAll("subtype").join(", ") || "");
+  const [agent, setAgent] = useState(searchParams.getAll("agent").join(", ") || "");
+  const [brokers, setBrokers] = useState(searchParams.getAll("brokers").join(", ") || "");
+  const [maxBeds, setMaxBeds] = useState(searchParams.get("maxBeds") || "");
+  const [maxBaths, setMaxBaths] = useState(searchParams.get("maxBaths") || "");
+
   const debouncedText = useDebounce(text, 500);
 
   useEffect(() => {
@@ -136,6 +148,14 @@ export default function SearchFiltersBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Parse comma/semicolon-separated string into trimmed array, dropping empties
+  const parseMulti = (value: string): string[] => {
+    return value
+      .split(/[,;]+/)
+      .map((v) => v.trim())
+      .filter(Boolean);
+  };
+
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -146,6 +166,41 @@ export default function SearchFiltersBar() {
           params.delete(key);
         }
       });
+      params.set("searchToken", Date.now().toString());
+
+      startTransition(() => {
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+      });
+    },
+    [pathname, router, searchParams, startTransition],
+  );
+
+  // Update params with array support (for repeated query params)
+  const updateParamsWithArrays = useCallback(
+    (
+      scalarUpdates: Record<string, string | null>,
+      arrayUpdates: Record<string, string[]>,
+    ) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      // Handle scalar updates
+      Object.entries(scalarUpdates).forEach(([key, value]) => {
+        if (value && value !== "") {
+          params.set(key, value);
+        } else {
+          params.delete(key);
+        }
+      });
+
+      // Handle array updates (delete then append)
+      Object.entries(arrayUpdates).forEach(([key, values]) => {
+        params.delete(key);
+        values.forEach((v) => {
+          if (v) params.append(key, v);
+        });
+      });
+      params.set("searchToken", Date.now().toString());
 
       startTransition(() => {
         const qs = params.toString();
@@ -180,6 +235,26 @@ export default function SearchFiltersBar() {
     if (nextMaxDom !== maxDaysOnMarket) setMaxDaysOnMarket(nextMaxDom);
     const nextKeywords = searchParams.get("keywords") || "";
     if (nextKeywords !== keywords) setKeywords(nextKeywords);
+    const nextCities = searchParams.getAll("cities").join(", ");
+    if (nextCities !== cities) setCities(nextCities);
+    const nextPostalCodes = searchParams.getAll("postalCodes").join(", ");
+    if (nextPostalCodes !== postalCodes) setPostalCodes(nextPostalCodes);
+    const nextCounties = searchParams.getAll("counties").join(", ");
+    if (nextCounties !== counties) setCounties(nextCounties);
+    const nextNeighborhoods = searchParams.getAll("neighborhoods").join(", ");
+    if (nextNeighborhoods !== neighborhoods) setNeighborhoods(nextNeighborhoods);
+    const nextFeatures = searchParams.getAll("features").join(", ");
+    if (nextFeatures !== features) setFeatures(nextFeatures);
+    const nextSubtype = searchParams.getAll("subtype").join(", ");
+    if (nextSubtype !== subtype) setSubtype(nextSubtype);
+    const nextAgent = searchParams.getAll("agent").join(", ");
+    if (nextAgent !== agent) setAgent(nextAgent);
+    const nextBrokers = searchParams.getAll("brokers").join(", ");
+    if (nextBrokers !== brokers) setBrokers(nextBrokers);
+    const nextMaxBeds = searchParams.get("maxBeds") || "";
+    if (nextMaxBeds !== maxBeds) setMaxBeds(nextMaxBeds);
+    const nextMaxBaths = searchParams.get("maxBaths") || "";
+    if (nextMaxBaths !== maxBaths) setMaxBaths(nextMaxBaths);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -232,14 +307,38 @@ export default function SearchFiltersBar() {
     setMaxYearBuilt("");
     setMaxDaysOnMarket("");
     setKeywords("");
-    updateParams({
-      minSqft: null,
-      maxSqft: null,
-      minYearBuilt: null,
-      maxYearBuilt: null,
-      maxDaysOnMarket: null,
-      keywords: null,
-    });
+    setCities("");
+    setPostalCodes("");
+    setCounties("");
+    setNeighborhoods("");
+    setFeatures("");
+    setSubtype("");
+    setAgent("");
+    setBrokers("");
+    setMaxBeds("");
+    setMaxBaths("");
+    updateParamsWithArrays(
+      {
+        minSqft: null,
+        maxSqft: null,
+        minYearBuilt: null,
+        maxYearBuilt: null,
+        maxDaysOnMarket: null,
+        keywords: null,
+        maxBeds: null,
+        maxBaths: null,
+      },
+      {
+        cities: [],
+        postalCodes: [],
+        counties: [],
+        neighborhoods: [],
+        features: [],
+        subtype: [],
+        agent: [],
+        brokers: [],
+      },
+    );
   };
 
   const currentStatus = searchParams.get("status");
@@ -255,13 +354,24 @@ export default function SearchFiltersBar() {
   const bathsLabel = minBaths ? `${minBaths}+ Baths` : "Baths";
   const typeLabel = propertyType || "Home Type";
 
-  const moreActive =
+  const moreActive = Boolean(
     minSqft ||
-    maxSqft ||
-    minYearBuilt ||
-    maxYearBuilt ||
-    maxDaysOnMarket ||
-    keywords;
+      maxSqft ||
+      minYearBuilt ||
+      maxYearBuilt ||
+      maxDaysOnMarket ||
+      keywords ||
+      cities ||
+      postalCodes ||
+      counties ||
+      neighborhoods ||
+      features ||
+      subtype ||
+      agent ||
+      brokers ||
+      maxBeds ||
+      maxBaths,
+  );
 
   const dropdownStyle: CSSProperties = dropdownLeft === null
     ? { left: "50%", transform: "translateX(-50%)" }
@@ -433,14 +543,69 @@ export default function SearchFiltersBar() {
   );
 
   const renderMoreDropdown = () => (
-    <div className="w-[90vw] max-w-2xl rounded-2xl border border-border bg-white p-6 text-sm shadow-2xl dark:bg-slate-900">
+    <div
+      data-testid="more-filters-panel"
+      className="w-[90vw] max-w-3xl rounded-2xl border border-border bg-white p-6 text-sm shadow-2xl dark:bg-slate-900"
+    >
       <div className="mb-4 flex items-center justify-between text-xs text-text-main/70">
         <span className="font-semibold uppercase tracking-wider">Advanced Filters</span>
         <button onClick={clearMore} className="text-orange-500">
           Clear
         </button>
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Column 1: Location */}
+        <div className="flex flex-col gap-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/60">
+            Location
+          </h4>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Cities
+            <input
+              type="text"
+              data-testid="more-filter-cities"
+              placeholder="Grand Rapids, Detroit..."
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+              value={cities}
+              onChange={(e) => setCities(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            ZIP Codes
+            <input
+              type="text"
+              data-testid="more-filter-postalCodes"
+              placeholder="49503, 48201..."
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+              value={postalCodes}
+              onChange={(e) => setPostalCodes(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Counties
+            <input
+              type="text"
+              data-testid="more-filter-counties"
+              placeholder="Kent, Wayne..."
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+              value={counties}
+              onChange={(e) => setCounties(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Neighborhoods
+            <input
+              type="text"
+              data-testid="more-filter-neighborhoods"
+              placeholder="East Hills, Midtown..."
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+              value={neighborhoods}
+              onChange={(e) => setNeighborhoods(e.target.value)}
+            />
+          </label>
+        </div>
+
+        {/* Column 2: Size & Age + Beds/Baths */}
         <div className="flex flex-col gap-4">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/60">
             Size &amp; Age
@@ -483,10 +648,33 @@ export default function SearchFiltersBar() {
               />
             </div>
           </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Max Beds / Baths
+            <div className="flex gap-2">
+              <input
+                type="number"
+                data-testid="more-filter-maxBeds"
+                placeholder="Max beds"
+                className="w-1/2 rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+                value={maxBeds}
+                onChange={(e) => setMaxBeds(e.target.value)}
+              />
+              <input
+                type="number"
+                data-testid="more-filter-maxBaths"
+                placeholder="Max baths"
+                className="w-1/2 rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+                value={maxBaths}
+                onChange={(e) => setMaxBaths(e.target.value)}
+              />
+            </div>
+          </label>
         </div>
+
+        {/* Column 3: Amenities & Other */}
         <div className="flex flex-col gap-4">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/60">
-            Amenities &amp; Comfort
+            Amenities &amp; Other
           </h4>
           <label className="flex flex-col gap-1 text-xs text-text-main/70">
             Keywords
@@ -498,11 +686,28 @@ export default function SearchFiltersBar() {
               onChange={(e) => setKeywords(e.target.value)}
             />
           </label>
-        </div>
-        <div className="flex flex-col gap-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/60">
-            Timeline &amp; Costs
-          </h4>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Features
+            <input
+              type="text"
+              data-testid="more-filter-features"
+              placeholder="Pool, Garage..."
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+              value={features}
+              onChange={(e) => setFeatures(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Subtype
+            <input
+              type="text"
+              data-testid="more-filter-subtype"
+              placeholder="Townhouse, Duplex..."
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+              value={subtype}
+              onChange={(e) => setSubtype(e.target.value)}
+            />
+          </label>
           <label className="flex flex-col gap-1 text-xs text-text-main/70">
             Days on Market
             <select
@@ -517,20 +722,57 @@ export default function SearchFiltersBar() {
               ))}
             </select>
           </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Agent IDs
+            <input
+              type="text"
+              data-testid="more-filter-agent"
+              placeholder="Agent IDs..."
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+              value={agent}
+              onChange={(e) => setAgent(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-main/70">
+            Broker IDs
+            <input
+              type="text"
+              data-testid="more-filter-brokers"
+              placeholder="Broker IDs..."
+              className="rounded border border-border bg-white px-2 py-1 dark:bg-slate-800"
+              value={brokers}
+              onChange={(e) => setBrokers(e.target.value)}
+            />
+          </label>
         </div>
       </div>
       <div className="mt-6 flex items-center justify-end">
         <button
+          data-testid="more-filters-apply"
           className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white"
           onClick={() => {
-            updateParams({
-              minSqft,
-              maxSqft,
-              minYearBuilt,
-              maxYearBuilt,
-              maxDaysOnMarket,
-              keywords,
-            });
+            updateParamsWithArrays(
+              {
+                minSqft,
+                maxSqft,
+                minYearBuilt,
+                maxYearBuilt,
+                maxDaysOnMarket,
+                keywords,
+                maxBeds,
+                maxBaths,
+              },
+              {
+                cities: parseMulti(cities),
+                postalCodes: parseMulti(postalCodes),
+                counties: parseMulti(counties),
+                neighborhoods: parseMulti(neighborhoods),
+                features: parseMulti(features),
+                subtype: parseMulti(subtype),
+                agent: parseMulti(agent),
+                brokers: parseMulti(brokers),
+              },
+            );
             setActiveFilter(null);
           }}
         >

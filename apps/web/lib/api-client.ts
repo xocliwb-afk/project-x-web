@@ -1,10 +1,26 @@
 import { Listing, ListingSearchParams, PlanTourRequest, PlannedTour } from '@project-x/shared-types';
 
+/**
+ * Extended filter params for web client.
+ * These extend the base ListingSearchParams with additional filters
+ * that the API supports but may not be in the shared-types yet.
+ */
 export type FetchListingsParams = ListingSearchParams & {
   swLat?: number;
   swLng?: number;
   neLat?: number;
   neLng?: number;
+  // Extended filters (API supports these, wired in this PR)
+  cities?: string[];
+  postalCodes?: string[];
+  counties?: string[];
+  neighborhoods?: string[];
+  features?: string[];
+  subtype?: string[];
+  agent?: string[];
+  brokers?: string[];
+  maxBeds?: number;
+  maxBaths?: number;
 };
 
 export type PaginatedListingsResponse = {
@@ -69,6 +85,36 @@ export async function fetchListings(
   if (params.maxDaysOnMarket != null)
     searchParams.set('maxDaysOnMarket', String(params.maxDaysOnMarket));
   if (params.keywords) searchParams.set('keywords', params.keywords);
+
+  // Array params: append as repeated query params
+  if (params.cities?.length) {
+    for (const v of params.cities) searchParams.append('cities', v);
+  }
+  if (params.postalCodes?.length) {
+    for (const v of params.postalCodes) searchParams.append('postalCodes', v);
+  }
+  if (params.counties?.length) {
+    for (const v of params.counties) searchParams.append('counties', v);
+  }
+  if (params.neighborhoods?.length) {
+    for (const v of params.neighborhoods) searchParams.append('neighborhoods', v);
+  }
+  if (params.features?.length) {
+    for (const v of params.features) searchParams.append('features', v);
+  }
+  if (params.subtype?.length) {
+    for (const v of params.subtype) searchParams.append('subtype', v);
+  }
+  if (params.agent?.length) {
+    for (const v of params.agent) searchParams.append('agent', v);
+  }
+  if (params.brokers?.length) {
+    for (const v of params.brokers) searchParams.append('brokers', v);
+  }
+
+  // Number params
+  if (params.maxBeds != null) searchParams.set('maxBeds', String(params.maxBeds));
+  if (params.maxBaths != null) searchParams.set('maxBaths', String(params.maxBaths));
 
   const qs = searchParams.toString();
   const url = `${API_BASE_URL}/api/listings${qs ? `?${qs}` : ''}`;
