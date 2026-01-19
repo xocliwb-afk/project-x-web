@@ -108,6 +108,16 @@ export type ListingSearchParams = {
   maxYearBuilt?: number;
   maxDaysOnMarket?: number;
   keywords?: string;
+  cities?: string[];
+  postalCodes?: string[];
+  counties?: string[];
+  neighborhoods?: string[];
+  features?: string[];
+  subtype?: string[];
+  agent?: string[];
+  brokers?: string[];
+  maxBeds?: number;
+  maxBaths?: number;
 };
 
 /**
