@@ -29,6 +29,28 @@ export class MockListingProvider implements ListingProvider {
         );
       });
     }
+    if (params.cities?.length) {
+      const allow = new Set(params.cities.map((c) => c.toLowerCase()));
+      mapped = mapped.filter((l) => allow.has((l.address.city ?? '').toLowerCase()));
+    }
+    if (params.postalCodes?.length) {
+      const allow = new Set(params.postalCodes);
+      mapped = mapped.filter((l) => allow.has(l.address.zip ?? ''));
+    }
+    if (params.counties?.length) {
+      const allow = new Set(params.counties.map((c) => c.toLowerCase()));
+      mapped = mapped.filter((l) => allow.has((l.address.state ?? '').toLowerCase()));
+    }
+    if (params.neighborhoods?.length) {
+      const allow = new Set(params.neighborhoods.map((n) => n.toLowerCase()));
+      mapped = mapped.filter((l) => allow.has((l.address.street ?? '').toLowerCase()));
+    }
+    if (params.maxBeds != null) {
+      mapped = mapped.filter((l) => (l.details.beds ?? Infinity) <= params.maxBeds!);
+    }
+    if (params.maxBaths != null) {
+      mapped = mapped.filter((l) => (l.details.baths ?? Infinity) <= params.maxBaths!);
+    }
 
     const sorted = stableSortListings(mapped, params.sort);
     const offset = (page - 1) * pageSize;
