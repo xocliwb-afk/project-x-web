@@ -12,6 +12,27 @@ import {
 
 const router = Router();
 
+const parseStringArray = (value: unknown): string[] | undefined => {
+  if (Array.isArray(value)) {
+    const cleaned = value.map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean);
+    return cleaned.length ? cleaned : undefined;
+  }
+  if (typeof value === 'string') {
+    const cleaned = value.split(/[,;]+/).map((v) => v.trim()).filter(Boolean);
+    return cleaned.length ? cleaned : undefined;
+  }
+  return undefined;
+};
+
+const parseNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return undefined;
+};
+
 /**
  * GET /api/listings
  *
@@ -41,17 +62,25 @@ router.get('/', async (req, res) => {
         : undefined,
       propertyType: typeof req.query.propertyType === 'string' ? req.query.propertyType : undefined,
       sort: typeof req.query.sort === 'string' ? (req.query.sort as ListingSearchParams['sort']) : undefined,
-      status: Array.isArray(req.query.status)
-        ? (req.query.status as string[])
-        : typeof req.query.status === 'string'
-        ? (req.query.status as string).split(',').filter(Boolean)
-        : undefined,
+      status: parseStringArray(req.query.status),
       minSqft: req.query.minSqft ? Number(req.query.minSqft) : undefined,
       maxSqft: req.query.maxSqft ? Number(req.query.maxSqft) : undefined,
       minYearBuilt: req.query.minYearBuilt ? Number(req.query.minYearBuilt) : undefined,
       maxYearBuilt: req.query.maxYearBuilt ? Number(req.query.maxYearBuilt) : undefined,
       maxDaysOnMarket: req.query.maxDaysOnMarket ? Number(req.query.maxDaysOnMarket) : undefined,
       keywords: typeof req.query.keywords === 'string' ? req.query.keywords : undefined,
+      cities: parseStringArray(req.query.cities ?? req.query.city),
+      postalCodes: parseStringArray(
+        req.query.postalCodes ?? req.query.postalcodes ?? req.query.zip ?? req.query.zips,
+      ),
+      counties: parseStringArray(req.query.counties ?? req.query.county),
+      neighborhoods: parseStringArray(req.query.neighborhoods ?? req.query.neighborhood),
+      features: parseStringArray(req.query.features),
+      subtype: parseStringArray(req.query.subtype),
+      agent: parseStringArray(req.query.agent),
+      brokers: parseStringArray(req.query.brokers),
+      maxBeds: parseNumber(req.query.maxBeds ?? req.query.maxbeds),
+      maxBaths: parseNumber(req.query.maxBaths ?? req.query.maxbaths),
     };
 
     const page = params.page && params.page > 0 ? Math.floor(params.page) : 1;
