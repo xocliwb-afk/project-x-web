@@ -37,7 +37,10 @@ test.describe('More Filters panel', () => {
     const applyButton = page.getByTestId('more-filters-apply');
     await applyButton.click();
 
-    // Ensure new searchToken applied, then capture only post-apply requests
+    // Ensure city param and new searchToken applied, then capture only post-apply requests
+    await expect
+      .poll(() => page.url(), { timeout: 5000 })
+      .toContain('cities=Testville');
     await expect
       .poll(() => page.url(), { timeout: 5000 })
       .not.toContain('searchToken=seed');
@@ -67,10 +70,6 @@ test.describe('More Filters panel', () => {
       });
       throw err;
     }
-
-    // URL should reflect the applied city and a new searchToken
-    await expect.poll(() => page.url(), { timeout: 5000 }).toContain('cities=Testville');
-    await expect.poll(() => page.url(), { timeout: 5000 }).not.toContain('searchToken=seed');
 
     const last10 = listingsUrls.slice(-10).join('\n') || 'no /api/listings requests captured';
     await test.info().attach('last_api_listings_urls', {

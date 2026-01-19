@@ -182,7 +182,10 @@ export default function SearchFiltersBar() {
       scalarUpdates: Record<string, string | null>,
       arrayUpdates: Record<string, string[]>,
     ) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams(searchParams.toString());
 
       // Handle scalar updates
       Object.entries(scalarUpdates).forEach(([key, value]) => {
@@ -196,9 +199,12 @@ export default function SearchFiltersBar() {
       // Handle array updates (delete then append)
       Object.entries(arrayUpdates).forEach(([key, values]) => {
         params.delete(key);
-        values.forEach((v) => {
-          if (v) params.append(key, v);
-        });
+        values
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .forEach((v) => {
+            params.append(key, v);
+          });
       });
       params.set("searchToken", Date.now().toString());
 
