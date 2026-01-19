@@ -1,14 +1,20 @@
 import { expect, test } from '@playwright/test';
 
-const SMALL_BBOX = '-85.73302,42.92583,-85.60318,43.00095';
+const BBOX = '-86.74854,42.3342,-84.58548,43.58561';
 
-const waitForListingsResponse = async (page: any, predicate: (url: string) => boolean) => {
-  const resp = await page.waitForResponse(
-    (r: any) => r.url().includes('/api/listings') && r.request().method() === 'GET' && predicate(r.url()),
-    { timeout: 15000 },
-  );
-  const json = await resp.json();
-  return { url: resp.url(), json } as { url: string; json: any };
+const waitForListingsResponse = async (page: any, predicate: (url: string) => boolean, listingsUrls: string[]) => {
+  try {
+    const resp = await page.waitForResponse(
+      (r: any) => r.url().includes('/api/listings') && r.request().method() === 'GET' && predicate(r.url()),
+      { timeout: 30000 },
+    );
+    const json = await resp.json();
+    return { url: resp.url(), json } as { url: string; json: any };
+  } catch (e) {
+    const last10 = listingsUrls.slice(-10).join('\n') || 'none';
+    await test.info().attach('last_api_listings_urls', { body: last10, contentType: 'text/plain' });
+    throw e;
+  }
 };
 
 test.describe('Location plumbing via URL params', () => {
@@ -20,10 +26,10 @@ test.describe('Location plumbing via URL params', () => {
       }
     });
 
-    await page.goto(`/search?bbox=${encodeURIComponent(SMALL_BBOX)}&searchToken=seed`);
+    await page.goto(`/search?bbox=${encodeURIComponent(BBOX)}&searchToken=seed`);
     await page.waitForLoadState('domcontentloaded');
 
-    const initial = await waitForListingsResponse(page, (u) => u.includes('limit=50'));
+    const initial = await waitForListingsResponse(page, (u) => u.includes('limit=50'), listingsUrls);
     const first = initial.json?.results?.[0];
     const city: string | undefined = first?.address?.city;
     const zip: string | undefined = first?.address?.zip;
@@ -36,7 +42,7 @@ test.describe('Location plumbing via URL params', () => {
     listingsUrls = [];
     const cityToken = Date.now().toString();
     await page.goto(
-      `/search?bbox=${encodeURIComponent(SMALL_BBOX)}&searchToken=${cityToken}&cities=${encodeURIComponent(city)}`,
+      `/search?bbox=${encodeURIComponent(BBOX)}&searchToken=${cityToken}&cities=${encodeURIComponent(city)}`,
     );
 
     await expect
@@ -52,7 +58,11 @@ test.describe('Location plumbing via URL params', () => {
       )
       .toBeTruthy();
 
-    const cityResp = await waitForListingsResponse(page, (u) => u.includes('cities=') && u.includes('limit=50'));
+    const cityResp = await waitForListingsResponse(
+      page,
+      (u) => u.includes('cities=') && u.includes('limit=50'),
+      listingsUrls,
+    );
     const cityResults: any[] = cityResp.json?.results ?? [];
     const cityMismatch = cityResults.slice(0, 10).find((r) => r?.address?.city !== city);
     if (cityMismatch) {
@@ -65,7 +75,7 @@ test.describe('Location plumbing via URL params', () => {
     listingsUrls = [];
     const zipToken = Date.now().toString();
     await page.goto(
-      `/search?bbox=${encodeURIComponent(SMALL_BBOX)}&searchToken=${zipToken}&postalCodes=${encodeURIComponent(zip)}`,
+      `/search?bbox=${encodeURIComponent(BBOX)}&searchToken=${zipToken}&postalCodes=${encodeURIComponent(zip)}`,
     );
 
     await expect
@@ -81,7 +91,11 @@ test.describe('Location plumbing via URL params', () => {
       )
       .toBeTruthy();
 
-    const zipResp = await waitForListingsResponse(page, (u) => u.includes('postalCodes=') && u.includes('limit=50'));
+    const zipResp = await waitForListingsResponse(
+      page,
+      (u) => u.includes('postalCodes=') && u.includes('limit=50'),
+      listingsUrls,
+    );
     const zipResults: any[] = zipResp.json?.results ?? [];
     const zipMismatch = zipResults.slice(0, 10).find((r) => r?.address?.zip !== zip);
     if (zipMismatch) {

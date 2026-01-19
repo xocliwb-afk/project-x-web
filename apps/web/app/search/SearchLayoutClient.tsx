@@ -238,10 +238,6 @@ export default function SearchLayoutClient({
         .filter(Boolean);
       return values.length > 0 ? values : undefined;
     };
-    const getAll = (key: string) => {
-      const values = searchParams.getAll(key).map((v) => v.trim()).filter(Boolean);
-      return values.length ? values : undefined;
-    };
 
     const statusParam = searchParams.getAll('status');
     const singleStatus = searchParams.get('status');
