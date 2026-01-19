@@ -24,6 +24,16 @@ export class SimplyRetsListingProvider implements ListingProvider {
   public async search(params: ListingSearchParams): Promise<NormalizedListing[]> {
     const url = new URL('/properties', this.baseUrl);
 
+    const appendAll = (key: string, values?: string[]) => {
+      if (!values || values.length === 0) return;
+      for (const v of values) {
+        const t = typeof v === 'string' ? v.trim() : '';
+        if (t) {
+          url.searchParams.append(key, t);
+        }
+      }
+    };
+
     if (params.limit) url.searchParams.set('limit', String(params.limit));
     if (params.q) url.searchParams.set('q', params.q);
     if (params.minPrice) url.searchParams.set('minprice', String(params.minPrice));
@@ -65,6 +75,22 @@ export class SimplyRetsListingProvider implements ListingProvider {
           url.searchParams.append('points', `${lat},${lng}`);
         });
       }
+    }
+
+    appendAll('cities', params.cities);
+    appendAll('postalCodes', params.postalCodes);
+    appendAll('counties', params.counties);
+    appendAll('neighborhoods', params.neighborhoods);
+    appendAll('features', params.features);
+    appendAll('subtype', params.subtype);
+    appendAll('agent', params.agent);
+    appendAll('brokers', params.brokers);
+
+    if (params.maxBeds != null) {
+      url.searchParams.set('maxbeds', String(params.maxBeds));
+    }
+    if (params.maxBaths != null) {
+      url.searchParams.set('maxbaths', String(params.maxBaths));
     }
 
     const page = params.page && params.page > 0 ? params.page : 1;
