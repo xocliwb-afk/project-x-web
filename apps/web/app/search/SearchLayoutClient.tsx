@@ -1108,6 +1108,7 @@ export default function SearchLayoutClient({
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
+                  fitBbox={parsedParams.bbox ?? null}
                 />
               </div>
             )}
@@ -1199,6 +1200,7 @@ export default function SearchLayoutClient({
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
+                  fitBbox={parsedParams.bbox ?? null}
                 />
               </div>
             </div>

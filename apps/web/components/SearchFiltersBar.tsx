@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { geocode } from "@/lib/geocode-client";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -135,6 +136,8 @@ export default function SearchFiltersBar() {
   const [brokers, setBrokers] = useState(searchParams.getAll("brokers").join(", ") || "");
   const [maxBeds, setMaxBeds] = useState(searchParams.get("maxBeds") || "");
   const [maxBaths, setMaxBaths] = useState(searchParams.get("maxBaths") || "");
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   const debouncedText = useDebounce(text, 500);
 
@@ -215,6 +218,40 @@ export default function SearchFiltersBar() {
     },
     [pathname, router, searchParams, startTransition],
   );
+
+  const handleGeocodeSubmit = useCallback(async () => {
+    const query = text.trim();
+    if (!query) return;
+    setGeoError(null);
+    setGeoLoading(true);
+    try {
+      const result = await geocode(query);
+      if (!result.ok) {
+        setGeoError(result.error || 'Geocoding failed');
+        return;
+      }
+      const params =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams(searchParams.toString());
+      params.set("bbox", result.result.bbox);
+      params.set("searchToken", Date.now().toString());
+      params.set("q", query);
+      params.delete("cities");
+      params.delete("postalCodes");
+      params.delete("counties");
+      params.delete("neighborhoods");
+
+      startTransition(() => {
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+      });
+    } catch (err: any) {
+      setGeoError('Geocoding failed');
+    } finally {
+      setGeoLoading(false);
+    }
+  }, [pathname, router, searchParams, startTransition, text]);
 
   useEffect(() => {
     const nextText = searchParams.get("q") || "";
@@ -802,8 +839,20 @@ export default function SearchFiltersBar() {
               placeholder="City, ZIP, Address"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleGeocodeSubmit();
+                }
+              }}
+              disabled={geoLoading}
             />
           </div>
+          {geoError && (
+            <div className="mt-1 text-xs text-red-500">
+              {geoError}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-1 items-center gap-2 overflow-x-auto pb-1 sm:pb-0">

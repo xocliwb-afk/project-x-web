@@ -26,6 +26,7 @@ type MapboxMapProps = {
     neLng: number;
     bbox?: string;
   }) => void;
+  fitBbox?: string | null;
 };
 
 const defaultCenter: [number, number] = [42.9634, -85.6681];
@@ -41,6 +42,7 @@ export default function MapboxMap({
   hoveredListingId,
   onSelectListing,
   onHoverListing,
+  fitBbox,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -164,6 +166,26 @@ export default function MapboxMap({
   useEffect(() => {
     listingsRef.current = listings;
   }, [listings]);
+
+  const lastFitBboxRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!fitBbox) return;
+    if (fitBbox === lastFitBboxRef.current) return;
+    const parts = fitBbox.split(',').map((p) => Number(p));
+    if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return;
+    const [minLng, minLat, maxLng, maxLat] = parts;
+    lastFitBboxRef.current = fitBbox;
+    map.fitBounds(
+      [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ],
+      { padding: 40, duration: 800 },
+    );
+  }, [fitBbox]);
 
   useEffect(() => {
     if (!token) return;
