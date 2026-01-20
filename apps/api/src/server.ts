@@ -5,6 +5,7 @@ import listingsRouter from "./routes/listings.route";
 import leadsRouter from "./routes/leads.route";
 import toursRouter from "./routes/tours.route";
 import aiRouter from "./routes/ai.route";
+import geoRouter from "./routes/geo.route";
 
 dotenv.config();
 
@@ -82,6 +83,7 @@ app.use("/api", leadsRouter);
 app.use("/api/tours", toursRouter);
 app.use("/api/v1/tours", toursRouter);
 app.use("/api/ai", aiRouter);
+app.use("/api/geo", geoRouter);
 
 app.get("/health", (req, res) => {
   res.status(200).send("API is healthy and running.");
