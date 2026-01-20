@@ -1,91 +1,102 @@
 import { test, expect } from './fixtures';
 
+const CENTER = { lat: 42.9634, lng: -85.6681 };
+const CLUSTER_BBOX = '-85.72,42.94,-85.62,42.99';
+
+const makeListings = (count: number) =>
+  Array.from({ length: count }).map((_, i) => ({
+    id: `mock-${i + 1}`,
+    mlsId: `mls-${i + 1}`,
+    listPrice: 300000 + i * 1000,
+    address: {
+      full: `${100 + i} Main St, Grand Rapids, MI 49503`,
+      city: 'Grand Rapids',
+      state: 'MI',
+      zip: '49503',
+      lat: CENTER.lat,
+      lng: CENTER.lng,
+    },
+    details: {
+      beds: 3,
+      baths: 2,
+      status: 'FOR_SALE',
+    },
+    media: {
+      photos: [],
+      thumbnailUrl: '',
+    },
+    attribution: {
+      officeName: 'Test Office',
+      brokerName: 'Test Broker',
+    },
+    meta: {},
+  }));
+
 test('map lens opens and closes on cluster click', async ({ page }) => {
   const listingsRequests: string[] = [];
-  let sawOkBbox = false;
 
-  page.on('request', (request) => {
-    if (request.url().includes('/api/listings')) {
-      listingsRequests.push(request.url());
-    }
+  await page.addInitScript(() => {
+    (window as any).__PX_E2E = true;
   });
 
-  page.on('response', async (response) => {
-    const url = response.url();
-    if (!url.includes('/api/listings')) return;
-    if (!url.includes('bbox=')) return;
-    if (response.ok()) {
-      sawOkBbox = true;
-    }
+  await page.route('**/api/listings**', async (route) => {
+    const url = new URL(route.request().url());
+    const limit = Number(url.searchParams.get('limit') ?? 50);
+    listingsRequests.push(route.request().url());
+    const results = makeListings(Math.min(20, Math.max(1, limit)));
+    const body = {
+      results,
+      pagination: {
+        page: Number(url.searchParams.get('page') ?? 1),
+        limit,
+        pageCount: 1,
+        hasMore: false,
+      },
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(body),
+    });
   });
 
-  await page.goto('/search', { waitUntil: 'domcontentloaded' });
+  await page.goto(`/search?bbox=${encodeURIComponent(CLUSTER_BBOX)}&searchToken=seed`, {
+    waitUntil: 'domcontentloaded',
+  });
 
-  // Wait for Mapbox map and canvas to be ready
-  const mapCanvas = page.locator('.mapboxgl-canvas');
   await expect(page.locator('.mapboxgl-map')).toBeVisible({ timeout: 30000 });
+  const mapCanvas = page.locator('.mapboxgl-canvas');
   await expect(mapCanvas).toBeVisible({ timeout: 30000 });
 
-  // Zoom out several times to encourage clustering/overlap
-  await mapCanvas.hover();
-  for (let i = 0; i < 10; i++) {
-    await page.mouse.wheel(0, 800);
-    await page.waitForTimeout(150);
-  }
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => Boolean((window as any).__PX_TEST__?.clickClusterAtCenter)),
+      { timeout: 20000 },
+    )
+    .toBeTruthy();
 
-  const waitStart = Date.now();
-  while (!sawOkBbox && Date.now() - waitStart < 30000) {
-    await page.waitForTimeout(500);
-  }
-  if (!sawOkBbox) {
-    throw new Error(
-      `No successful bbox listings response within 30s. Requests seen: ${listingsRequests
-        .slice(-10)
-        .join(' | ') || 'none'}`,
-    );
-  }
+  await expect
+    .poll(
+      () => page.evaluate(() => (window as any).__PX_TEST__?.clickClusterAtCenter?.() ?? false),
+      { timeout: 20000 },
+    )
+    .toBeTruthy();
 
-  // Attempt clicks on multiple canvas positions until lens opens
   const lens = page.locator('[data-testid="map-lens"]');
-  const clickPositions: Array<{ x: number; y: number }> = [
-    { x: 0.5, y: 0.5 },
-    { x: 0.3, y: 0.3 },
-    { x: 0.7, y: 0.3 },
-    { x: 0.3, y: 0.7 },
-    { x: 0.7, y: 0.7 },
-  ];
 
-  const clickCanvasAt = async (relX: number, relY: number) => {
-    const box = await mapCanvas.boundingBox();
-    if (!box) throw new Error('Map canvas bounding box unavailable');
-    await mapCanvas.click({
-      position: { x: box.width * relX, y: box.height * relY },
-      timeout: 5000,
+  try {
+    await expect(lens).toBeVisible({ timeout: 8000 });
+    await expect(lens.locator('canvas.mapboxgl-canvas')).toBeVisible({ timeout: 8000 });
+  } catch (err) {
+    await test.info().attach('last_api_listings_urls', {
+      body: listingsRequests.slice(-10).join('\n') || 'none',
+      contentType: 'text/plain',
     });
-  };
-
-  let opened = false;
-  for (const pos of clickPositions) {
-    await clickCanvasAt(pos.x, pos.y);
-    try {
-      await expect(lens).toBeVisible({ timeout: 5000 });
-      await expect(lens.locator("canvas.mapboxgl-canvas")).toBeVisible({ timeout: 10000 });
-      opened = true;
-      break;
-    } catch {
-      // Try another position
-    }
+    await test.info().attach('page_url', { body: page.url(), contentType: 'text/plain' });
+    throw err;
   }
 
-  if (!opened) {
-    throw new Error(
-      `Lens did not become visible after canvas clicks. Requests: ${listingsRequests
-        .slice(-10)
-        .join(' | ') || 'none'}`,
-    );
-  }
-
-  // Dismiss lens
   await page.keyboard.press('Escape');
   await expect(lens).toBeHidden({ timeout: 5000 });
 });

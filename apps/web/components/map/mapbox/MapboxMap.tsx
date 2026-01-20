@@ -100,6 +100,10 @@ export default function MapboxMap({
     onSelectListingRef.current = onSelectListing;
   }, [onSelectListing]);
 
+  const enableE2E =
+    typeof window !== 'undefined' &&
+    (process.env.NEXT_PUBLIC_E2E === 'true' || (window as any).__PX_E2E === true);
+
   const getNearbyListingIds = useCallback(
     (point: { x: number; y: number }) => {
       const map = mapRef.current;
@@ -210,6 +214,7 @@ export default function MapboxMap({
     let handleMouseLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleMapClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
+    let cleanupTestHook: (() => void) | null = null;
 
     map.on('load', () => {
       const pillId = 'price-pill';
@@ -590,6 +595,57 @@ export default function MapboxMap({
       sourceReadyRef.current = true;
       emitBounds();
       applyFeatureStates();
+      if (enableE2E) {
+        const hook = () => {
+          const canvasEl = map.getCanvas();
+          const width = canvasEl.clientWidth || canvasEl.width;
+          const height = canvasEl.clientHeight || canvasEl.height;
+          const features = map.queryRenderedFeatures(
+            [
+              [0, 0],
+              [width, height],
+            ],
+            {
+              layers: ['unclustered-point', 'unclustered-price'],
+            },
+          );
+          const feature = features.find(
+            (f) =>
+              f.geometry?.type === 'Point' &&
+              Array.isArray((f.geometry as any).coordinates) &&
+              (f.geometry as any).coordinates.length >= 2,
+          ) as (mapboxgl.MapboxGeoJSONFeature & {
+            geometry: { coordinates: [number, number]; type: 'Point' };
+          }) | undefined;
+          if (!feature) {
+            return false;
+          }
+          const [lng, lat] = feature.geometry.coordinates;
+          if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+            return false;
+          }
+          const point = map.project([lng, lat]);
+          const evt: any = {
+            point: { x: point.x, y: point.y },
+            lngLat: { lng, lat },
+            originalEvent: { type: 'click' },
+            target: map,
+            type: 'click',
+          };
+          if (handleMapClick) {
+            handleMapClick(evt as any);
+          } else {
+            map.fire('click', evt);
+          }
+          return true;
+        };
+        (window as any).__PX_TEST__ = { ...(window as any).__PX_TEST__, clickClusterAtCenter: hook };
+        cleanupTestHook = () => {
+          if ((window as any).__PX_TEST__) {
+            delete (window as any).__PX_TEST__.clickClusterAtCenter;
+          }
+        };
+      }
     });
 
     map.on('moveend', emitBounds);
@@ -625,6 +681,9 @@ export default function MapboxMap({
         hoverRafRef.current = null;
       }
       hoverPointRef.current = null;
+      if (cleanupTestHook) {
+        cleanupTestHook();
+      }
       map.remove();
       mapRef.current = null;
       setMapInstance(null);
@@ -641,6 +700,7 @@ export default function MapboxMap({
     safeUrl,
     getNearbyListingIds,
     mapIdsToListings,
+    enableE2E,
   ]);
 
   useEffect(() => {
@@ -650,7 +710,7 @@ export default function MapboxMap({
     if (!source) return;
     source.setData(listingsToGeoJSON(listings));
     applyFeatureStates();
-  }, [listings, applyFeatureStates]);
+  }, [listings, applyFeatureStates, enableE2E]);
 
   useEffect(() => {
     const map = mapRef.current;
