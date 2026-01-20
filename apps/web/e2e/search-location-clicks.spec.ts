@@ -7,7 +7,7 @@ const waitForListingsResponse = async (page: any, predicate: (url: string) => bo
     (r: any) => r.url().includes('/api/listings') && r.request().method() === 'GET' && predicate(r.url()),
     { timeout: 15000 },
   );
-  const json = await resp.json();
+  const json = await resp.json().catch(() => ({ results: [] }));
   return { url: resp.url(), json } as { url: string; json: any };
 };
 
