@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { geocode } from "@/lib/geocode-client";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -123,6 +124,8 @@ export default function SearchFiltersBar() {
     searchParams.get("maxDaysOnMarket") || ""
   );
   const [keywords, setKeywords] = useState(searchParams.get("keywords") || "");
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   // New filter states for More panel
   const [cities, setCities] = useState(searchParams.getAll("cities").join(", ") || "");
@@ -355,6 +358,36 @@ export default function SearchFiltersBar() {
     minPrice || maxPrice
       ? `$${minPrice || "0"} - ${maxPrice ? `$${maxPrice}` : "Any"}`
       : "Price";
+
+  const handleGeocodeSubmit = useCallback(async () => {
+    const query = text.trim();
+    if (!query || geoLoading) return;
+    setGeoError(null);
+    setGeoLoading(true);
+    try {
+      const result = await geocode(query);
+      if (!result.ok) {
+        setGeoError(result.error || "Unable to find location");
+        return;
+      }
+      const params =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams(searchParams.toString());
+      params.set("bbox", result.result.bbox);
+      params.set("searchToken", Date.now().toString());
+      params.set("q", query);
+      params.delete("cities");
+      params.delete("postalCodes");
+      params.delete("counties");
+      params.delete("neighborhoods");
+
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    } finally {
+      setGeoLoading(false);
+    }
+  }, [geoLoading, pathname, router, searchParams, text]);
 
   const bedsLabel = minBeds ? `${minBeds}+ Beds` : "Beds";
   const bathsLabel = minBaths ? `${minBaths}+ Baths` : "Baths";
@@ -802,8 +835,20 @@ export default function SearchFiltersBar() {
               placeholder="City, ZIP, Address"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleGeocodeSubmit();
+                }
+              }}
+              disabled={geoLoading}
             />
           </div>
+          {geoError && (
+            <p className="mt-1 text-xs text-red-500">
+              {geoError}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-1 items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
