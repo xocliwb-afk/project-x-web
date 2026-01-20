@@ -67,7 +67,10 @@ export function ListingCard({
     value?: string | null,
   ) => {
     if (!value) return;
-    const params = new URLSearchParams(searchParams.toString());
+    const params =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams(searchParams.toString());
     const key =
       type === 'city'
         ? 'cities'
@@ -77,12 +80,18 @@ export function ListingCard({
         ? 'counties'
         : 'neighborhoods';
 
+    params.delete('page');
+    params.delete('listingId');
+    params.delete('cities');
+    params.delete('postalCodes');
+    params.delete('counties');
+    params.delete('neighborhoods');
     params.delete(key);
     params.append(key, value);
     params.set('searchToken', Date.now().toString());
 
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
