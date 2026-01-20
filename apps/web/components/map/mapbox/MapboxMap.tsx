@@ -70,6 +70,9 @@ export default function MapboxMap({
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const { openImmediate, dismissLens } = useMapLens();
   const isMobile = useIsMobile();
+  const enableE2E =
+    typeof window !== 'undefined' &&
+    (process.env.NEXT_PUBLIC_E2E === 'true' || (window as any).__PX_E2E === true);
 
   const escapeHtml = useCallback((input: unknown) => {
     const str = String(input ?? '');
@@ -182,6 +185,7 @@ export default function MapboxMap({
     setMapInstance(map);
     const canvas = map.getCanvas();
     canvas.style.cursor = 'grab';
+    let cleanupTestHook: (() => void) | null = null;
 
     const handleMouseDown = () => {
       isDraggingRef.current = true;
@@ -590,6 +594,42 @@ export default function MapboxMap({
       sourceReadyRef.current = true;
       emitBounds();
       applyFeatureStates();
+      if (enableE2E) {
+        const hook = () => {
+          const canvasEl = map.getCanvas();
+          const width = canvasEl.clientWidth || canvasEl.width;
+          const height = canvasEl.clientHeight || canvasEl.height;
+          const centerX = width / 2;
+          const centerY = height / 2;
+          const offsets = [-40, 0, 40];
+          const points: Array<{ x: number; y: number }> = [];
+          offsets.forEach((dx) => {
+            offsets.forEach((dy) => {
+              const x = centerX + dx;
+              const y = centerY + dy;
+              if (x >= 0 && y >= 0 && x <= width && y <= height) {
+                points.push({ x, y });
+              }
+            });
+          });
+          for (const pt of points) {
+            const ids = getNearbyListingIds(pt);
+            if (ids.length >= OVERLAP_MIN_COUNT) {
+              const anchor = map.unproject([pt.x, pt.y]);
+              const listingsForLens = mapIdsToListings(ids);
+              openImmediate(listingsForLens, { lat: anchor.lat, lng: anchor.lng });
+              return true;
+            }
+          }
+          return false;
+        };
+        (window as any).__PX_TEST__ = { ...(window as any).__PX_TEST__, openLensAtCenter: hook };
+        cleanupTestHook = () => {
+          if ((window as any).__PX_TEST__) {
+            delete (window as any).__PX_TEST__.openLensAtCenter;
+          }
+        };
+      }
     });
 
     map.on('moveend', emitBounds);
@@ -625,6 +665,9 @@ export default function MapboxMap({
         hoverRafRef.current = null;
       }
       hoverPointRef.current = null;
+      if (cleanupTestHook) {
+        cleanupTestHook();
+      }
       map.remove();
       mapRef.current = null;
       setMapInstance(null);
@@ -641,6 +684,7 @@ export default function MapboxMap({
     safeUrl,
     getNearbyListingIds,
     mapIdsToListings,
+    enableE2E,
   ]);
 
   useEffect(() => {
