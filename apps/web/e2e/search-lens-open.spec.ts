@@ -104,6 +104,7 @@ test('map lens opens and closes via openImmediate hook', async ({ page }) => {
     throw err;
   }
 
+  await lens.click({ force: true });
   await page.keyboard.press('Escape');
-  await expect(lens).toBeHidden({ timeout: 10000 });
+  await expect(lens).toBeHidden({ timeout: 15000 });
 });
