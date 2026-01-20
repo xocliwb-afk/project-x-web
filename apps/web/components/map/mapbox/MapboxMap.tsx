@@ -26,6 +26,7 @@ type MapboxMapProps = {
     neLng: number;
     bbox?: string;
   }) => void;
+  fitBbox?: string | null;
 };
 
 const defaultCenter: [number, number] = [42.9634, -85.6681];
@@ -41,6 +42,7 @@ export default function MapboxMap({
   hoveredListingId,
   onSelectListing,
   onHoverListing,
+  fitBbox,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -165,6 +167,38 @@ export default function MapboxMap({
     listingsRef.current = listings;
   }, [listings]);
 
+  const lastFitBboxRef = useRef<string | null>(null);
+  const fitBboxRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    fitBboxRef.current = fitBbox ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitBbox]);
+
+  const applyFitBbox = useCallback((map: mapboxgl.Map | null, bboxStr: string | null) => {
+    if (!map) return;
+    if (!bboxStr) return;
+    if (bboxStr === lastFitBboxRef.current) return;
+    const parts = bboxStr.split(',').map((p) => Number(p));
+    if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return;
+    const [minLng, minLat, maxLng, maxLat] = parts;
+    lastFitBboxRef.current = bboxStr;
+    map.fitBounds(
+      [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ],
+      { padding: 40, duration: 800 },
+    );
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    applyFitBbox(map, fitBbox ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyFitBbox, fitBbox]);
+
   useEffect(() => {
     if (!token) return;
     if (!containerRef.current) return;
@@ -210,6 +244,10 @@ export default function MapboxMap({
     let handleMouseLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
     let handleMapClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
+
+    const maybeApplyFit = () => {
+      applyFitBbox(map, fitBboxRef.current);
+    };
 
     map.on('load', () => {
       const pillId = 'price-pill';
@@ -590,10 +628,15 @@ export default function MapboxMap({
       sourceReadyRef.current = true;
       emitBounds();
       applyFeatureStates();
+      maybeApplyFit();
     });
 
     map.on('moveend', emitBounds);
     map.on('zoomend', emitBounds);
+
+    if (map.isStyleLoaded()) {
+      maybeApplyFit();
+    }
 
     return () => {
       map.off('load', emitBounds);
@@ -641,6 +684,7 @@ export default function MapboxMap({
     safeUrl,
     getNearbyListingIds,
     mapIdsToListings,
+    applyFitBbox,
   ]);
 
   useEffect(() => {
