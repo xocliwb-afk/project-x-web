@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { geocode } from "@/lib/geocode-client";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -123,6 +124,7 @@ export default function SearchFiltersBar() {
     searchParams.get("maxDaysOnMarket") || ""
   );
   const [keywords, setKeywords] = useState(searchParams.get("keywords") || "");
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   // New filter states for More panel
   const [cities, setCities] = useState(searchParams.getAll("cities").join(", ") || "");
@@ -165,46 +167,6 @@ export default function SearchFiltersBar() {
         } else {
           params.delete(key);
         }
-      });
-      params.set("searchToken", Date.now().toString());
-
-      startTransition(() => {
-        const qs = params.toString();
-        router.replace(qs ? `${pathname}?${qs}` : pathname);
-      });
-    },
-    [pathname, router, searchParams, startTransition],
-  );
-
-  // Update params with array support (for repeated query params)
-  const updateParamsWithArrays = useCallback(
-    (
-      scalarUpdates: Record<string, string | null>,
-      arrayUpdates: Record<string, string[]>,
-    ) => {
-      const params =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search)
-          : new URLSearchParams(searchParams.toString());
-
-      // Handle scalar updates
-      Object.entries(scalarUpdates).forEach(([key, value]) => {
-        if (value && value !== "") {
-          params.set(key, value);
-        } else {
-          params.delete(key);
-        }
-      });
-
-      // Handle array updates (delete then append)
-      Object.entries(arrayUpdates).forEach(([key, values]) => {
-        params.delete(key);
-        values
-          .map((v) => v.trim())
-          .filter(Boolean)
-          .forEach((v) => {
-            params.append(key, v);
-          });
       });
       params.set("searchToken", Date.now().toString());
 
@@ -323,29 +285,158 @@ export default function SearchFiltersBar() {
     setBrokers("");
     setMaxBeds("");
     setMaxBaths("");
-    updateParamsWithArrays(
-      {
-        minSqft: null,
-        maxSqft: null,
-        minYearBuilt: null,
-        maxYearBuilt: null,
-        maxDaysOnMarket: null,
-        keywords: null,
-        maxBeds: null,
-        maxBaths: null,
-      },
-      {
-        cities: [],
-        postalCodes: [],
-        counties: [],
-        neighborhoods: [],
-        features: [],
-        subtype: [],
-        agent: [],
-        brokers: [],
-      },
-    );
+    const params =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams(searchParams.toString());
+    const scalarKeys = [
+      "minSqft",
+      "maxSqft",
+      "minYearBuilt",
+      "maxYearBuilt",
+      "maxDaysOnMarket",
+      "keywords",
+      "maxBeds",
+      "maxBaths",
+    ];
+    const arrayKeys = [
+      "cities",
+      "postalCodes",
+      "counties",
+      "neighborhoods",
+      "features",
+      "subtype",
+      "agent",
+      "brokers",
+    ];
+    scalarKeys.forEach((k) => params.delete(k));
+    arrayKeys.forEach((k) => params.delete(k));
+    params.set("searchToken", Date.now().toString());
+    params.delete("page");
+    params.delete("listingId");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
+
+  const formatCityQuery = (city: string) => {
+    const trimmed = city.trim();
+    const lower = trimmed.toLowerCase();
+    if (trimmed.includes(",") || lower.includes(" mi") || lower.includes(" michigan")) {
+      return trimmed;
+    }
+    return `${trimmed}, MI`;
+  };
+
+  const handleApplyMoreFilters = async () => {
+    setGeoError(null);
+    const scalarUpdates: Record<string, string | null> = {
+      minSqft,
+      maxSqft,
+      minYearBuilt,
+      maxYearBuilt,
+      maxDaysOnMarket,
+      keywords,
+      maxBeds,
+      maxBaths,
+    };
+    const citiesArr = parseMulti(cities);
+    const postalCodesArr = parseMulti(postalCodes);
+    const countiesArr = parseMulti(counties);
+    const neighborhoodsArr = parseMulti(neighborhoods);
+    const arrayUpdates: Record<string, string[]> = {
+      cities: citiesArr,
+      postalCodes: postalCodesArr,
+      counties: countiesArr,
+      neighborhoods: neighborhoodsArr,
+      features: parseMulti(features),
+      subtype: parseMulti(subtype),
+      agent: parseMulti(agent),
+      brokers: parseMulti(brokers),
+    };
+
+    const params =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams(searchParams.toString());
+
+    params.delete("page");
+    params.delete("listingId");
+
+    Object.entries(scalarUpdates).forEach(([key, value]) => {
+      if (value && value !== "") {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    Object.entries(arrayUpdates).forEach(([key, values]) => {
+      params.delete(key);
+      values
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .forEach((v) => params.append(key, v));
+    });
+
+    const totalLocationValues =
+      citiesArr.length + postalCodesArr.length + countiesArr.length + neighborhoodsArr.length;
+
+    if (totalLocationValues === 1) {
+      let query: string | null = null;
+      if (postalCodesArr.length === 1) {
+        query = postalCodesArr[0];
+      } else if (citiesArr.length === 1) {
+        query = formatCityQuery(citiesArr[0]);
+      } else if (countiesArr.length === 1) {
+        query = `${countiesArr[0].trim()} County, MI`;
+      } else if (neighborhoodsArr.length === 1) {
+        query = `${neighborhoodsArr[0].trim()}, MI`;
+      }
+
+      if (query) {
+        const result = await geocode(query);
+        if (result?.ok && result.result?.bbox) {
+          params.set("bbox", result.result.bbox);
+        } else if (result && "error" in result) {
+          setGeoError(result.error);
+        }
+      }
+    }
+
+    params.set("searchToken", Date.now().toString());
+
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    setActiveFilter(null);
+  };
+
+  const handleOmniboxEnter = useCallback(async () => {
+    const query = text.trim();
+    if (!query) return;
+    setGeoError(null);
+    const result = await geocode(query);
+    if (!result?.ok || !result.result?.bbox) {
+      if (result && "error" in result) {
+        setGeoError(result.error);
+      }
+      return;
+    }
+    const params =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams(searchParams.toString());
+    params.set("bbox", result.result.bbox);
+    params.set("searchToken", Date.now().toString());
+    params.set("q", query);
+    params.delete("cities");
+    params.delete("postalCodes");
+    params.delete("counties");
+    params.delete("neighborhoods");
+    params.delete("page");
+    params.delete("listingId");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams, text]);
 
   const currentStatus = searchParams.get("status");
   const statusLabel =
@@ -757,29 +848,7 @@ export default function SearchFiltersBar() {
           data-testid="more-filters-apply"
           className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white"
           onClick={() => {
-            updateParamsWithArrays(
-              {
-                minSqft,
-                maxSqft,
-                minYearBuilt,
-                maxYearBuilt,
-                maxDaysOnMarket,
-                keywords,
-                maxBeds,
-                maxBaths,
-              },
-              {
-                cities: parseMulti(cities),
-                postalCodes: parseMulti(postalCodes),
-                counties: parseMulti(counties),
-                neighborhoods: parseMulti(neighborhoods),
-                features: parseMulti(features),
-                subtype: parseMulti(subtype),
-                agent: parseMulti(agent),
-                brokers: parseMulti(brokers),
-              },
-            );
-            setActiveFilter(null);
+            void handleApplyMoreFilters();
           }}
         >
           Apply Filters
@@ -802,8 +871,19 @@ export default function SearchFiltersBar() {
               placeholder="City, ZIP, Address"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleOmniboxEnter();
+                }
+              }}
             />
           </div>
+          {geoError && (
+            <p className="mt-1 text-xs text-red-500">
+              {geoError}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-1 items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
