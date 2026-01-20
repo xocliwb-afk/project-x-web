@@ -62,24 +62,43 @@ router.post("/geocode", async (req, res) => {
   }
   cache.delete(normalized);
 
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-    query,
-  )}.json?limit=1&access_token=${encodeURIComponent(token)}`;
+  const url = new URL(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
+  );
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("types", "place,postcode,address,region");
+  url.searchParams.set("country", "us");
+  url.searchParams.set("access_token", token);
+
+  const timeoutMs = Number(process.env.GEO_TIMEOUT_MS) || 8000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   let feature: any;
   try {
-    const upstream = await fetch(url, { method: "GET" });
+    const upstream = await fetch(url.toString(), { method: "GET", signal: controller.signal });
     if (!upstream.ok) {
-      return res
-        .status(502)
-        .json({ ok: false, code: "UPSTREAM_ERROR", error: "Mapbox geocoding failed" });
+      const text = await upstream.text().catch(() => "");
+      const snippet = text.replace(/\s+/g, " ").trim().slice(0, 200);
+      return res.status(502).json({
+        ok: false,
+        code: `UPSTREAM_HTTP_${upstream.status}`,
+        error: `Mapbox ${upstream.status}: ${snippet}`,
+      });
     }
     const data = await upstream.json();
     feature = Array.isArray(data?.features) ? data.features[0] : null;
-  } catch {
+  } catch (err: any) {
+    if (err?.name === "AbortError") {
+      return res
+        .status(502)
+        .json({ ok: false, code: "UPSTREAM_TIMEOUT", error: "Mapbox request timed out" });
+    }
     return res
       .status(502)
-      .json({ ok: false, code: "UPSTREAM_ERROR", error: "Mapbox geocoding failed" });
+      .json({ ok: false, code: "UPSTREAM_FETCH_ERROR", error: "Mapbox fetch failed" });
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!feature) {
