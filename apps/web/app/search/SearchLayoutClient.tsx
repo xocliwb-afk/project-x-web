@@ -170,6 +170,13 @@ export default function SearchLayoutClient({
     listingsRef.current = listings;
   }, [listings]);
 
+  const getLatestSearchParams = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search);
+    }
+    return searchParams;
+  }, [searchParams]);
+
   useEffect(() => {
     pinListingsByIdRef.current = pinListingsById;
   }, [pinListingsById]);
@@ -434,6 +441,26 @@ export default function SearchLayoutClient({
     }
 
     const parsed: ExtendedFetchListingsParams = JSON.parse(paramsKey);
+    const latestParams = getLatestSearchParams();
+    const latestParsed: ExtendedFetchListingsParams = {
+      ...parsed,
+      cities: latestParams.getAll('cities').filter(Boolean),
+      postalCodes: latestParams.getAll('postalCodes').filter(Boolean),
+      counties: latestParams.getAll('counties').filter(Boolean),
+      neighborhoods: latestParams.getAll('neighborhoods').filter(Boolean),
+      features: latestParams.getAll('features').filter(Boolean),
+      subtype: latestParams.getAll('subtype').filter(Boolean),
+      agent: latestParams.getAll('agent').filter(Boolean),
+      brokers: latestParams.getAll('brokers').filter(Boolean),
+    };
+    if (!latestParsed.cities?.length) latestParsed.cities = undefined;
+    if (!latestParsed.postalCodes?.length) latestParsed.postalCodes = undefined;
+    if (!latestParsed.counties?.length) latestParsed.counties = undefined;
+    if (!latestParsed.neighborhoods?.length) latestParsed.neighborhoods = undefined;
+    if (!latestParsed.features?.length) latestParsed.features = undefined;
+    if (!latestParsed.subtype?.length) latestParsed.subtype = undefined;
+    if (!latestParsed.agent?.length) latestParsed.agent = undefined;
+    if (!latestParsed.brokers?.length) latestParsed.brokers = undefined;
     const pageKey = `${queryKey}|page=${parsed.page ?? 1}`;
     if (inFlightPagesRef.current.has(pageKey) || loadedPagesRef.current.has(pageKey)) {
       return;
@@ -448,7 +475,7 @@ export default function SearchLayoutClient({
       setError(null);
       try {
         const { results, pagination: newPagination } = await fetchListings(
-          parsed,
+          latestParsed,
           controller.signal,
         );
         if (controller.signal.aborted || fetchRequestId !== fetchRequestIdRef.current) return;
@@ -477,7 +504,7 @@ export default function SearchLayoutClient({
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [paramsKey, baseQueryKey, queryKey, currentRequestKey]);
+  }, [paramsKey, baseQueryKey, queryKey, currentRequestKey, getLatestSearchParams]);
 
   // Auto-fill up to TARGET_RESULTS when bbox is active
   useEffect(() => {
