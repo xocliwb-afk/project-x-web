@@ -24,6 +24,13 @@ export class SimplyRetsListingProvider implements ListingProvider {
   public async search(params: ListingSearchParams): Promise<NormalizedListing[]> {
     const url = new URL('/properties', this.baseUrl);
 
+    const STATUS_MAP: Record<string, string> = {
+      FOR_SALE: 'Active',
+      PENDING: 'Pending',
+      SOLD: 'Closed',
+    };
+    const mapStatus = (status: string) => STATUS_MAP[status] ?? status;
+
     const appendAll = (key: string, values?: string[]) => {
       if (!values || values.length === 0) return;
       for (const v of values) {
@@ -42,7 +49,10 @@ export class SimplyRetsListingProvider implements ListingProvider {
     if (params.baths) url.searchParams.set('minbaths', String(params.baths));
     if (params.propertyType) url.searchParams.set('type', params.propertyType);
     if (params.status && params.status.length > 0) {
-      url.searchParams.set('status', params.status.join(','));
+      for (const s of params.status) {
+        const mapped = mapStatus(s);
+        url.searchParams.append('status', mapped);
+      }
     }
     if (params.minSqft) url.searchParams.set('minarea', String(params.minSqft));
     if (params.maxSqft) url.searchParams.set('maxarea', String(params.maxSqft));

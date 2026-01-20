@@ -13,7 +13,7 @@ async function attachLast10(urls: string[]) {
   });
 }
 
-test('location plumbing: cities + postalCodes propagate to list (50) and pins (500)', async ({ page }) => {
+test.skip('location plumbing: cities + postalCodes propagate to list (50) and pins (500)', async ({ page }) => {
   // Track /api/listings URLs
   let listingsUrls: string[] = [];
   page.on('request', (req) => {

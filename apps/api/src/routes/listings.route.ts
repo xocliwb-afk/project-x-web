@@ -43,6 +43,8 @@ router.get('/', async (req, res) => {
     const provider = getListingProvider();
 
     // req.query is an untyped object; cast carefully into ListingSearchParams
+    const hasStatusKey = Object.prototype.hasOwnProperty.call(req.query, 'status');
+    const parsedStatus = parseStringArray(req.query.status);
     const params: ListingSearchParams = {
       q: typeof req.query.q === 'string' ? req.query.q : undefined,
       bbox: typeof req.query.bbox === 'string' ? req.query.bbox : undefined,
@@ -62,7 +64,7 @@ router.get('/', async (req, res) => {
         : undefined,
       propertyType: typeof req.query.propertyType === 'string' ? req.query.propertyType : undefined,
       sort: typeof req.query.sort === 'string' ? (req.query.sort as ListingSearchParams['sort']) : undefined,
-      status: parseStringArray(req.query.status),
+      status: hasStatusKey ? parsedStatus : parsedStatus ?? ['FOR_SALE'],
       minSqft: req.query.minSqft ? Number(req.query.minSqft) : undefined,
       maxSqft: req.query.maxSqft ? Number(req.query.maxSqft) : undefined,
       minYearBuilt: req.query.minYearBuilt ? Number(req.query.minYearBuilt) : undefined,
