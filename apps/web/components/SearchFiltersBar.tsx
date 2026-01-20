@@ -20,6 +20,38 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+type GeocodeResult =
+  | { ok: true; bbox: string }
+  | { ok: false; code: string; error: string };
+
+async function geocodeLocation(query: string): Promise<GeocodeResult> {
+  try {
+    const res = await fetch("/api/geo/geocode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await res.json().catch(() => null);
+      if (body && typeof body.ok === "boolean") {
+        if (body.ok && body.result?.bbox) {
+          return { ok: true, bbox: String(body.result.bbox) };
+        }
+        if (!body.ok && typeof body.error === "string" && typeof body.code === "string") {
+          return { ok: false, code: body.code, error: body.error };
+        }
+      }
+    }
+    if (!res.ok) {
+      return { ok: false, code: "HTTP_ERROR", error: "Geocode failed" };
+    }
+    return { ok: false, code: "INVALID_RESPONSE", error: "Geocode failed" };
+  } catch {
+    return { ok: false, code: "FETCH_ERROR", error: "Geocode failed" };
+  }
+}
+
 type ActiveFilter =
   | null
   | "status"
@@ -123,6 +155,7 @@ export default function SearchFiltersBar() {
     searchParams.get("maxDaysOnMarket") || ""
   );
   const [keywords, setKeywords] = useState(searchParams.get("keywords") || "");
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   // New filter states for More panel
   const [cities, setCities] = useState(searchParams.getAll("cities").join(", ") || "");
@@ -323,28 +356,98 @@ export default function SearchFiltersBar() {
     setBrokers("");
     setMaxBeds("");
     setMaxBaths("");
-    updateParamsWithArrays(
-      {
-        minSqft: null,
-        maxSqft: null,
-        minYearBuilt: null,
-        maxYearBuilt: null,
-        maxDaysOnMarket: null,
-        keywords: null,
-        maxBeds: null,
-        maxBaths: null,
-      },
-      {
-        cities: [],
-        postalCodes: [],
-        counties: [],
-        neighborhoods: [],
-        features: [],
-        subtype: [],
-        agent: [],
-        brokers: [],
-      },
-    );
+  };
+
+  const formatCityQuery = (city: string) => {
+    const trimmed = city.trim();
+    const lower = trimmed.toLowerCase();
+    if (trimmed.includes(",") || lower.includes(" mi") || lower.includes(" michigan")) {
+      return trimmed;
+    }
+    return `${trimmed}, MI`;
+  };
+
+  const handleApplyMoreFilters = async () => {
+    setGeoError(null);
+    const scalarUpdates: Record<string, string | null> = {
+      minSqft,
+      maxSqft,
+      minYearBuilt,
+      maxYearBuilt,
+      maxDaysOnMarket,
+      keywords,
+      maxBeds,
+      maxBaths,
+    };
+    const citiesArr = parseMulti(cities);
+    const postalCodesArr = parseMulti(postalCodes);
+    const countiesArr = parseMulti(counties);
+    const neighborhoodsArr = parseMulti(neighborhoods);
+    const arrayUpdates: Record<string, string[]> = {
+      cities: citiesArr,
+      postalCodes: postalCodesArr,
+      counties: countiesArr,
+      neighborhoods: neighborhoodsArr,
+      features: parseMulti(features),
+      subtype: parseMulti(subtype),
+      agent: parseMulti(agent),
+      brokers: parseMulti(brokers),
+    };
+
+    const params =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams(searchParams.toString());
+
+    params.delete("page");
+    params.delete("listingId");
+
+    Object.entries(scalarUpdates).forEach(([key, value]) => {
+      if (value && value !== "") {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    Object.entries(arrayUpdates).forEach(([key, values]) => {
+      params.delete(key);
+      values
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .forEach((v) => params.append(key, v));
+    });
+
+    const totalLocationValues =
+      citiesArr.length + postalCodesArr.length + countiesArr.length + neighborhoodsArr.length;
+
+    if (totalLocationValues === 1) {
+      let query: string | null = null;
+      if (postalCodesArr.length === 1) {
+        query = postalCodesArr[0];
+      } else if (citiesArr.length === 1) {
+        query = formatCityQuery(citiesArr[0]);
+      } else if (countiesArr.length === 1) {
+        query = `${countiesArr[0].trim()} County, MI`;
+      } else if (neighborhoodsArr.length === 1) {
+        query = `${neighborhoodsArr[0].trim()}, MI`;
+      }
+
+      if (query) {
+        const geo = await geocodeLocation(query);
+        if (geo.ok) {
+          params.set("bbox", geo.bbox);
+        } else if (geo.error) {
+          setGeoError(geo.error);
+        }
+      }
+    }
+
+    params.set("searchToken", Date.now().toString());
+
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    setActiveFilter(null);
   };
 
   const currentStatus = searchParams.get("status");
@@ -757,34 +860,17 @@ export default function SearchFiltersBar() {
           data-testid="more-filters-apply"
           className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white"
           onClick={() => {
-            updateParamsWithArrays(
-              {
-                minSqft,
-                maxSqft,
-                minYearBuilt,
-                maxYearBuilt,
-                maxDaysOnMarket,
-                keywords,
-                maxBeds,
-                maxBaths,
-              },
-              {
-                cities: parseMulti(cities),
-                postalCodes: parseMulti(postalCodes),
-                counties: parseMulti(counties),
-                neighborhoods: parseMulti(neighborhoods),
-                features: parseMulti(features),
-                subtype: parseMulti(subtype),
-                agent: parseMulti(agent),
-                brokers: parseMulti(brokers),
-              },
-            );
-            setActiveFilter(null);
+            void handleApplyMoreFilters();
           }}
         >
           Apply Filters
         </button>
       </div>
+      {geoError && (
+        <div className="mt-2 text-xs text-red-500">
+          {geoError}
+        </div>
+      )}
     </div>
   );
 
