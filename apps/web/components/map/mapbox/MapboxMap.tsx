@@ -26,6 +26,7 @@ type MapboxMapProps = {
     neLng: number;
     bbox?: string;
   }) => void;
+  fitBbox?: string | null;
 };
 
 const defaultCenter: [number, number] = [42.9634, -85.6681];
@@ -41,6 +42,7 @@ export default function MapboxMap({
   hoveredListingId,
   onSelectListing,
   onHoverListing,
+  fitBbox,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -67,6 +69,7 @@ export default function MapboxMap({
   const onBoundsChangeRef = useRef(onBoundsChange);
   const onHoverListingRef = useRef(onHoverListing);
   const onSelectListingRef = useRef(onSelectListing);
+  const lastFitBboxRef = useRef<string | null>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const { openImmediate, dismissLens } = useMapLens();
   const isMobile = useIsMobile();
@@ -99,6 +102,28 @@ export default function MapboxMap({
   useEffect(() => {
     onSelectListingRef.current = onSelectListing;
   }, [onSelectListing]);
+
+  const applyFitBbox = useCallback((map: mapboxgl.Map | null, bboxStr: string | null) => {
+    if (!map) return;
+    if (!bboxStr) return;
+    if (bboxStr === lastFitBboxRef.current) return;
+    const parts = bboxStr.split(',').map((p) => Number(p));
+    if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return;
+    const [minLng, minLat, maxLng, maxLat] = parts;
+    lastFitBboxRef.current = bboxStr;
+    map.fitBounds(
+      [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ],
+      { padding: 40, duration: 800 },
+    );
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    applyFitBbox(map, fitBbox ?? null);
+  }, [applyFitBbox, fitBbox]);
 
   const getNearbyListingIds = useCallback(
     (point: { x: number; y: number }) => {
@@ -590,6 +615,7 @@ export default function MapboxMap({
       sourceReadyRef.current = true;
       emitBounds();
       applyFeatureStates();
+      applyFitBbox(map, fitBbox ?? null);
     });
 
     map.on('moveend', emitBounds);
