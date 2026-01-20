@@ -356,28 +356,6 @@ export default function SearchFiltersBar() {
     setBrokers("");
     setMaxBeds("");
     setMaxBaths("");
-    updateParamsWithArrays(
-      {
-        minSqft: null,
-        maxSqft: null,
-        minYearBuilt: null,
-        maxYearBuilt: null,
-        maxDaysOnMarket: null,
-        keywords: null,
-        maxBeds: null,
-        maxBaths: null,
-      },
-      {
-        cities: [],
-        postalCodes: [],
-        counties: [],
-        neighborhoods: [],
-        features: [],
-        subtype: [],
-        agent: [],
-        brokers: [],
-      },
-    );
   };
 
   const formatCityQuery = (city: string) => {
