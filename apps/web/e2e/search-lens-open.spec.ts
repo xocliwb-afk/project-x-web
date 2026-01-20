@@ -39,6 +39,14 @@ test('map lens opens and closes via openImmediate hook', async ({ page }) => {
     (window as any).__PX_E2E = true;
   });
 
+  const attachDebug = async () => {
+    await test.info().attach('last_api_listings_urls', {
+      body: listingsRequests.slice(-10).join('\n') || 'none',
+      contentType: 'text/plain',
+    });
+    await test.info().attach('page_url', { body: page.url(), contentType: 'text/plain' });
+  };
+
   await page.route('**/api/listings**', async (route) => {
     const url = new URL(route.request().url());
     const limit = Number(url.searchParams.get('limit') ?? 50);
@@ -81,18 +89,18 @@ test('map lens opens and closes via openImmediate hook', async ({ page }) => {
       () => page.evaluate(() => (window as any).__PX_TEST__?.openLensAtCenter?.() ?? false),
       { timeout: 20000 },
     )
-    .toBeTruthy();
+    .toBeTruthy()
+    .catch(async (err) => {
+      await attachDebug();
+      throw err;
+    });
 
   const lens = page.locator('[data-testid="map-lens"]');
 
   try {
     await expect(lens).toBeVisible({ timeout: 10000 });
   } catch (err) {
-    await test.info().attach('last_api_listings_urls', {
-      body: listingsRequests.slice(-10).join('\n') || 'none',
-      contentType: 'text/plain',
-    });
-    await test.info().attach('page_url', { body: page.url(), contentType: 'text/plain' });
+    await attachDebug();
     throw err;
   }
 
