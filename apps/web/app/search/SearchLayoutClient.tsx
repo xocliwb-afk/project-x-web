@@ -232,6 +232,19 @@ export default function SearchLayoutClient({
     );
   }, []);
 
+  const parseBboxString = useCallback((bbox: string) => {
+    const parts = bbox.split(',').map((v) => Number(v));
+    if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;
+    const [minLng, minLat, maxLng, maxLat] = parts;
+    return {
+      swLat: minLat,
+      swLng: minLng,
+      neLat: maxLat,
+      neLng: maxLng,
+      bbox,
+    };
+  }, []);
+
   const parsedParams = useMemo<ExtendedFetchListingsParams & { searchToken?: string }>(() => {
     const getNumber = (key: string) => {
       const value = searchParams.get(key);
@@ -374,6 +387,17 @@ export default function SearchLayoutClient({
     lastParamsKeyRef.current = paramsKey;
     lastBaseQueryKeyRef.current = baseQueryKey;
   }, [paramsKey, baseQueryKey]);
+
+  useEffect(() => {
+    if (!useMapbox) return;
+    if (!parsedParams.bbox) return;
+    const parsed = parseBboxString(parsedParams.bbox);
+    if (!parsed) return;
+    if (mapBounds?.bbox === parsedParams.bbox) return;
+    didAutoApplyInitialBoundsRef.current = true;
+    setMapBounds(parsed);
+    setDraftBounds(null);
+  }, [useMapbox, parsedParams.bbox, mapBounds?.bbox, parseBboxString]);
 
   useEffect(() => {
     if (!currentRequestKey) return;
@@ -1108,6 +1132,7 @@ export default function SearchLayoutClient({
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
+                  fitBbox={parsedParams.bbox ?? null}
                 />
               </div>
             )}
@@ -1199,6 +1224,7 @@ export default function SearchLayoutClient({
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
+                  fitBbox={parsedParams.bbox ?? null}
                 />
               </div>
             </div>
