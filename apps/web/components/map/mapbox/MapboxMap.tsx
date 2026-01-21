@@ -26,6 +26,7 @@ type MapboxMapProps = {
     neLng: number;
     bbox?: string;
   }) => void;
+  fitBbox?: string | null;
 };
 
 const defaultCenter: [number, number] = [42.9634, -85.6681];
@@ -41,6 +42,7 @@ export default function MapboxMap({
   hoveredListingId,
   onSelectListing,
   onHoverListing,
+  fitBbox = null,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -52,6 +54,7 @@ export default function MapboxMap({
   const hoverRafRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const lastFitBboxRef = useRef<string | null>(null);
   const [previewListing, setPreviewListing] = useState<NormalizedListing | null>(null);
   const listingsRef = useRef(listings);
   const resolveInitialCenter = () => {
@@ -163,6 +166,29 @@ export default function MapboxMap({
       setFeatureState(lastHoveredIdRef.current, 'hovered', true);
     }
   }, [setFeatureState]);
+
+  const applyFitBbox = useCallback(
+    (map: mapboxgl.Map | null, bboxStr: string | null | undefined) => {
+      if (!map) return;
+      if (!bboxStr) {
+        lastFitBboxRef.current = null;
+        return;
+      }
+      if (lastFitBboxRef.current === bboxStr) return;
+      const parts = bboxStr.split(',').map((v) => Number(v));
+      if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return;
+      const [minLng, minLat, maxLng, maxLat] = parts;
+      lastFitBboxRef.current = bboxStr;
+      map.fitBounds(
+        [
+          [minLng, minLat],
+          [maxLng, maxLat],
+        ],
+        { padding: 40, duration: 800, essential: true, maxZoom: 14 },
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     listingsRef.current = listings;
@@ -594,6 +620,7 @@ export default function MapboxMap({
       sourceReadyRef.current = true;
       emitBounds();
       applyFeatureStates();
+      applyFitBbox(map, fitBbox ?? null);
       if (enableE2E) {
         const hook = () => {
           const canvasEl = map.getCanvas();
@@ -685,7 +712,15 @@ export default function MapboxMap({
     getNearbyListingIds,
     mapIdsToListings,
     enableE2E,
+    applyFitBbox,
+    fitBbox,
   ]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    applyFitBbox(map, fitBbox ?? null);
+  }, [fitBbox, applyFitBbox]);
 
   useEffect(() => {
     const map = mapRef.current;
