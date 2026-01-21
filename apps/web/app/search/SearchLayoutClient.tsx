@@ -864,7 +864,7 @@ export default function SearchLayoutClient({
   );
 
   const appliedBbox = useMapbox
-    ? mapBounds?.bbox ?? null
+    ? mapBounds?.bbox ?? parsedParams.bbox ?? null
     : mapBounds?.bbox ?? parsedParams.bbox ?? null;
 
   const handleBoundsChange = useCallback(
@@ -874,7 +874,8 @@ export default function SearchLayoutClient({
         if (
           !didAutoApplyInitialBoundsRef.current &&
           !appliedBbox &&
-          bounds.bbox
+          bounds.bbox &&
+          !parsedParams.bbox
         ) {
           didAutoApplyInitialBoundsRef.current = true;
           setMapBounds(bounds);
@@ -902,7 +903,7 @@ export default function SearchLayoutClient({
         return bounds;
       });
     },
-    [useMapbox, appliedBbox, setMapBounds, setDraftBounds, updateUrlWithBounds],
+    [useMapbox, appliedBbox, parsedParams.bbox, setMapBounds, setDraftBounds, updateUrlWithBounds],
   );
 
   const showSearchThisArea =
