@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import React, {
   useState,
   useEffect,
   useRef,
@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { geocodeLocation } from "@/lib/geocode-client";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -149,11 +150,46 @@ export default function SearchFiltersBar() {
   }, []);
 
   // Parse comma/semicolon-separated string into trimmed array, dropping empties
-  const parseMulti = (value: string): string[] => {
+  const parseMulti = useCallback((value: string): string[] => {
     return value
       .split(/[,;]+/)
       .map((v) => v.trim())
       .filter(Boolean);
+  }, []);
+
+  const handleOmniboxEnter = useCallback(
+    async (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const q = text.trim();
+      if (!q) return;
+      const geo = await geocodeLocation(q);
+      const params =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams(searchParams.toString());
+      params.set("q", q);
+      if (geo?.bbox) {
+        params.set("bbox", geo.bbox);
+      }
+      params.set("searchToken", Date.now().toString());
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams, text],
+  );
+
+  const applyArrayParams = (
+    params: URLSearchParams,
+    arrays: Record<string, string[]>,
+  ) => {
+    Object.entries(arrays).forEach(([key, values]) => {
+      params.delete(key);
+      values
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .forEach((v) => params.append(key, v));
+    });
   };
 
   const updateParams = useCallback(
@@ -346,6 +382,103 @@ export default function SearchFiltersBar() {
       },
     );
   };
+
+  const handleApplyMoreFilters = useCallback(async () => {
+    const prevParams =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams(searchParams.toString());
+    const nextParams = new URLSearchParams(prevParams.toString());
+
+    const applyScalar = (key: string, value: string) => {
+      if (value && value !== "") {
+        nextParams.set(key, value);
+      } else {
+        nextParams.delete(key);
+      }
+    };
+
+    applyScalar("minSqft", minSqft);
+    applyScalar("maxSqft", maxSqft);
+    applyScalar("minYearBuilt", minYearBuilt);
+    applyScalar("maxYearBuilt", maxYearBuilt);
+    applyScalar("maxDaysOnMarket", maxDaysOnMarket);
+    applyScalar("keywords", keywords);
+    applyScalar("maxBeds", maxBeds);
+    applyScalar("maxBaths", maxBaths);
+
+    applyArrayParams(nextParams, {
+      cities: parseMulti(cities),
+      postalCodes: parseMulti(postalCodes),
+      counties: parseMulti(counties),
+      neighborhoods: parseMulti(neighborhoods),
+      features: parseMulti(features),
+      subtype: parseMulti(subtype),
+      agent: parseMulti(agent),
+      brokers: parseMulti(brokers),
+    });
+
+    const joinVals = (p: URLSearchParams, key: string) =>
+      p
+        .getAll(key)
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .join("|");
+
+    const locationKeys = ["cities", "postalCodes", "counties", "neighborhoods"];
+    const locationChanged = locationKeys.some(
+      (key) => joinVals(prevParams, key) !== joinVals(nextParams, key),
+    );
+
+    if (locationChanged) {
+      const nextCities = nextParams.getAll("cities").filter(Boolean);
+      const nextZips = nextParams.getAll("postalCodes").filter(Boolean);
+      const nextNeighborhoods = nextParams.getAll("neighborhoods").filter(Boolean);
+      const nextCounties = nextParams.getAll("counties").filter(Boolean);
+      const query =
+        nextCities[0] ??
+        nextZips[0] ??
+        nextNeighborhoods[0] ??
+        nextCounties[0] ??
+        "";
+      if (query) {
+        const geo = await geocodeLocation(query);
+        if (geo?.bbox) {
+          nextParams.set("bbox", geo.bbox);
+        }
+      }
+    }
+
+    nextParams.set("searchToken", Date.now().toString());
+    startTransition(() => {
+      const qs = nextParams.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    });
+    setActiveFilter(null);
+  }, [
+    brokers,
+    agent,
+    counties,
+    cities,
+    features,
+    keywords,
+    maxBaths,
+    maxBeds,
+    maxDaysOnMarket,
+    maxSqft,
+    maxYearBuilt,
+    minSqft,
+    minYearBuilt,
+    neighborhoods,
+    parseMulti,
+    pathname,
+    postalCodes,
+    router,
+    searchParams,
+    setActiveFilter,
+    startTransition,
+    subtype,
+  ]);
 
   const currentStatus = searchParams.get("status");
   const statusLabel =
@@ -757,29 +890,7 @@ export default function SearchFiltersBar() {
           data-testid="more-filters-apply"
           className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white"
           onClick={() => {
-            updateParamsWithArrays(
-              {
-                minSqft,
-                maxSqft,
-                minYearBuilt,
-                maxYearBuilt,
-                maxDaysOnMarket,
-                keywords,
-                maxBeds,
-                maxBaths,
-              },
-              {
-                cities: parseMulti(cities),
-                postalCodes: parseMulti(postalCodes),
-                counties: parseMulti(counties),
-                neighborhoods: parseMulti(neighborhoods),
-                features: parseMulti(features),
-                subtype: parseMulti(subtype),
-                agent: parseMulti(agent),
-                brokers: parseMulti(brokers),
-              },
-            );
-            setActiveFilter(null);
+            void handleApplyMoreFilters();
           }}
         >
           Apply Filters
@@ -802,6 +913,7 @@ export default function SearchFiltersBar() {
               placeholder="City, ZIP, Address"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleOmniboxEnter}
             />
           </div>
         </div>
