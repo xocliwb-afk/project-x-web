@@ -9,9 +9,8 @@ export class NullCrmProvider implements CrmProvider {
   async createLead(lead: LeadPayload, config: CRMConfig): Promise<void> {
     console.log('[NullCrmProvider] Lead captured (no external CRM call):', {
       brokerId: config.brokerId,
-      name: lead.name,
-      email: lead.email,
       source: lead.source,
+      listingId: lead.listingId,
     });
 
     // No external side effects

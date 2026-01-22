@@ -18,9 +18,6 @@ export class MockLeadProvider implements LeadProvider {
     }
 
     console.log("[MockLeadProvider] Lead captured (in-memory)", {
-      name: lead.name,
-      email: lead.email,
-      phone: lead.phone,
       listingId: lead.listingId,
       source: lead.source,
       createdAt: lead.createdAt,
