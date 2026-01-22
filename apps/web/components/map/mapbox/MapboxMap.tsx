@@ -25,7 +25,7 @@ type MapboxMapProps = {
     neLat: number;
     neLng: number;
     bbox?: string;
-  }) => void;
+  }, isUserGesture: boolean) => void;
   fitBbox?: string | null;
   fitBboxIsZipIntent?: boolean;
 };
@@ -268,11 +268,14 @@ export default function MapboxMap({
     map.on('mouseup', handleMouseUp);
     map.on('dragend', handleMouseUp);
 
-    const emitBounds = () => {
+    const emitBounds = (e?: { originalEvent?: unknown }) => {
       if (!onBoundsChangeRef.current) return;
       const bounds = map.getBounds() as mapboxgl.LngLatBounds;
       const bbox = buildBboxFromBounds(bounds);
-      onBoundsChangeRef.current?.(bbox);
+      // Determine if this is a user gesture (drag/zoom with mouse/touch)
+      // e.originalEvent exists for user interactions, null/undefined for programmatic moves
+      const isUserGesture = !!(e && 'originalEvent' in e && e.originalEvent != null);
+      onBoundsChangeRef.current(bbox, isUserGesture);
     };
 
     const sourceId = 'listings';
@@ -701,13 +704,13 @@ export default function MapboxMap({
       }
     });
 
-    map.on('moveend', emitBounds);
-    map.on('zoomend', emitBounds);
+    map.on('moveend', emitBounds as any);
+    map.on('zoomend', emitBounds as any);
 
     return () => {
-      map.off('load', emitBounds);
-      map.off('moveend', emitBounds);
-      map.off('zoomend', emitBounds);
+      map.off('load', emitBounds as any);
+      map.off('moveend', emitBounds as any);
+      map.off('zoomend', emitBounds as any);
       if (handleMouseEnter) {
         map.off('mouseenter', 'unclustered-point', handleMouseEnter);
         map.off('mouseenter', 'unclustered-price', handleMouseEnter);

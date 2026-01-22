@@ -893,11 +893,17 @@ export default function SearchLayoutClient({
     Array.isArray(parsedParams.postalCodes) &&
     !!parsedParams.postalCodes[0] &&
     /^\d{5}$/.test(parsedParams.postalCodes[0]);
+  const hasPendingBounds =
+    !!draftBounds?.bbox && !!appliedBbox && draftBounds.bbox !== appliedBbox;
 
   const handleBoundsChange = useCallback(
-    (bounds: MapBounds) => {
+    (bounds: MapBounds, isUserGesture: boolean) => {
       if (useMapbox) {
-        setDraftBounds(bounds);
+        // Only update draftBounds for user gestures (pan/zoom), not programmatic moves
+        if (isUserGesture) {
+          setDraftBounds(bounds);
+        }
+        // Auto-apply initial bounds if no bbox in URL and no applied bbox yet
         if (
           !didAutoApplyInitialBoundsRef.current &&
           !appliedBbox &&
@@ -916,6 +922,7 @@ export default function SearchLayoutClient({
         }
         return;
       }
+      // Non-Mapbox mode: always update mapBounds
       setDraftBounds(null);
       setMapBounds((prev) => {
         if (
@@ -933,8 +940,7 @@ export default function SearchLayoutClient({
     [useMapbox, appliedBbox, parsedParams.bbox, setMapBounds, setDraftBounds, updateUrlWithBounds],
   );
 
-  const showSearchThisArea =
-    useMapbox && draftBounds?.bbox && appliedBbox && draftBounds.bbox !== appliedBbox;
+  const showSearchThisArea = useMapbox && hasPendingBounds;
   const isApplyDisabled = isLoading || isAutoFilling || isLoadingMore;
   const handleApplyDraftBounds = useCallback(() => {
     if (!useMapbox) return;
