@@ -11,6 +11,7 @@ import React, {
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { geocodeLocation } from "@/lib/geocode-client";
+import { smartSubmit } from "@/lib/search/smartSubmit";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -163,16 +164,11 @@ export default function SearchFiltersBar() {
       e.preventDefault();
       const q = text.trim();
       if (!q) return;
-      const geo = await geocodeLocation(q);
-      const params =
+      const baseParams =
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search)
           : new URLSearchParams(searchParams.toString());
-      params.set("q", q);
-      if (geo?.bbox) {
-        params.set("bbox", geo.bbox);
-      }
-      params.set("searchToken", Date.now().toString());
+      const { params } = await smartSubmit({ query: q, baseParams });
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
@@ -912,12 +908,18 @@ export default function SearchFiltersBar() {
             </span>
             <input
               type="text"
-              className="w-full border-none bg-transparent p-0 text-xs text-text-main placeholder:text-text-main/40 focus:outline-none"
+              className="w-full border-none bg-transparent p-0 pr-16 text-xs text-text-main placeholder:text-text-main/40 focus:outline-none"
               placeholder="City, ZIP, Address"
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleOmniboxEnter}
             />
+            <span
+              className="pointer-events-none text-[10px] font-semibold uppercase tracking-[0.2em] text-text-main/40"
+              aria-hidden="true"
+            >
+              Powered by Gemini
+            </span>
           </div>
         </div>
 

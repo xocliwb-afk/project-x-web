@@ -14,7 +14,7 @@ import Footer from '@/components/Footer';
 import ListingsList from '@/components/ListingsList';
 import { ListingDetailModal } from '@/components/ListingDetailModal';
 import { useTheme } from '@/context/ThemeContext';
-import AiAssistPanel from '@/components/search/AiAssistPanel';
+import { smartSubmit } from '@/lib/search/smartSubmit';
 
 const MapboxMap = dynamic(() => import('@/components/map/mapbox/MapboxMap'), {
   ssr: false,
@@ -170,6 +170,7 @@ export default function SearchLayoutClient({
   const pinListingsByIdRef = useRef(pinListingsById);
   const isAutoFillingRef = useRef(isAutoFilling);
   const isLoadingMoreRef = useRef(isLoadingMore);
+  const didRunSmartHandoffRef = useRef(false);
 
   const MapComponent = MapboxMap;
 
@@ -388,6 +389,22 @@ export default function SearchLayoutClient({
   }, [paramsKey, baseQueryKey]);
 
   useEffect(() => {
+    if (didRunSmartHandoffRef.current) return;
+    if (typeof window === 'undefined') return;
+    if (!parsedParams.q || parsedParams.searchToken) return;
+    didRunSmartHandoffRef.current = true;
+    const baseParams = new URLSearchParams(window.location.search);
+    smartSubmit({ query: parsedParams.q, baseParams })
+      .then(({ params }) => {
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      })
+      .catch(() => {
+        /* noop */
+      });
+  }, [parsedParams.q, parsedParams.searchToken, pathname, router]);
+
+  useEffect(() => {
     if (!useMapbox) return;
     if (!parsedParams.bbox) return;
     const parsed = parseBboxString(parsedParams.bbox);
@@ -497,8 +514,10 @@ export default function SearchLayoutClient({
       setIsLoading(true);
       setError(null);
       try {
+        const apiParamsObj = { ...latestParsed } as any;
+        delete apiParamsObj.q;
         const { results, pagination: newPagination } = await fetchListings(
-          latestParsed,
+          apiParamsObj as any,
           controller.signal,
         );
         if (controller.signal.aborted || fetchRequestId !== fetchRequestIdRef.current) return;
@@ -584,8 +603,9 @@ export default function SearchLayoutClient({
             limit: effectiveParams.limit ?? PAGE_SIZE,
           };
           try {
+            const { q: _omitQ, ...restParams } = params as any;
             const { results: moreResults, pagination: nextPagination } = await fetchListings(
-              params,
+              restParams as any,
               controller.signal,
             );
             if (controller.signal.aborted || autofillRequestId !== autofillRequestIdRef.current) {
@@ -717,11 +737,12 @@ export default function SearchLayoutClient({
           limit: PIN_HYDRATION_PAGE_LIMIT,
           page,
         };
+        const { q: _omitQ, ...restParams } = params as any;
 
         let results: Listing[] = [];
         let nextPagination: PaginatedListingsResponse['pagination'] | undefined;
         try {
-          const response = await fetchListings(params, controller.signal);
+          const response = await fetchListings(restParams as any, controller.signal);
           results = response.results;
           nextPagination = response.pagination;
         } catch (err) {
@@ -908,7 +929,8 @@ export default function SearchLayoutClient({
           !didAutoApplyInitialBoundsRef.current &&
           !appliedBbox &&
           bounds.bbox &&
-          !parsedParams.bbox
+          !parsedParams.bbox &&
+          !(parsedParams.q && !parsedParams.searchToken)
         ) {
           didAutoApplyInitialBoundsRef.current = true;
           setMapBounds(bounds);
@@ -937,7 +959,16 @@ export default function SearchLayoutClient({
         return bounds;
       });
     },
-    [useMapbox, appliedBbox, parsedParams.bbox, setMapBounds, setDraftBounds, updateUrlWithBounds],
+    [
+      useMapbox,
+      appliedBbox,
+      parsedParams.bbox,
+      parsedParams.q,
+      parsedParams.searchToken,
+      setMapBounds,
+      setDraftBounds,
+      updateUrlWithBounds,
+    ],
   );
 
   const showSearchThisArea = useMapbox && hasPendingBounds;
@@ -1001,7 +1032,8 @@ export default function SearchLayoutClient({
     setLoadMoreError(null);
 
     inFlightPagesRef.current.add(pageKey);
-    const nextParams = { ...effectiveParams, page: nextPage };
+    const { q: _omitQ, ...restParams } = effectiveParams as any;
+    const nextParams = { ...restParams, page: nextPage } as any;
     const currentBaseKey = baseQueryKey;
 
     try {
@@ -1281,7 +1313,6 @@ export default function SearchLayoutClient({
                 </div>
 
                 <div className="flex-1 p-4">
-                  <AiAssistPanel />
                   <ListingsList
                     listings={visibleListings}
                     isLoading={isLoading}
