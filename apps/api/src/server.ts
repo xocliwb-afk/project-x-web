@@ -77,6 +77,17 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader(
+    "Permissions-Policy",
+    "accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+  );
+  next();
+});
+
 app.use("/api/listings", listingsRouter);
 app.use("/api/listing", listingsRouter);
 app.use("/api", leadsRouter);
