@@ -219,7 +219,7 @@ a { color: inherit; text-decoration: none; }
 .hero-shell { position: relative; width: 100%; overflow: hidden; background: var(--brand-navy); color: var(--white); }
 .hero--full { min-height: 70vh; display: flex; align-items: center; position: relative; }
 .hero__media { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
-.hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 70% 55%; transition: opacity 1s ease; }
+.hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; transition: opacity 1s ease; }
 .hero-img--night { opacity: 0; }
 .hp-hero.is-night .hero-img--day { opacity: 0; }
 .hp-hero.is-night .hero-img--night { opacity: 1; }
@@ -285,9 +285,9 @@ a { color: inherit; text-decoration: none; }
   .byron-hero { background-position: center; }
   .byron-hero::before { background: linear-gradient(90deg, rgba(15,27,45,0.82) 0%, rgba(15,27,45,0.64) 50%, rgba(15,27,45,0) 70%); }
 }
-.build-hero .hero-img { object-position: 75% 55%; }
-.sell-hero .hero-img { object-position: 75% 55%; }
-.buy-hero .hero-img { object-position: 75% 55%; }
+.build-hero .hero-img { object-position: center; }
+.sell-hero .hero-img { object-position: center; }
+.buy-hero .hero-img { object-position: center; }
 
 .hp-hero { align-items: center; }
 .hp-hero__content { text-align: left; justify-items: flex-start; gap: 1rem; max-width: 680px; margin-left: clamp(1.25rem, 6vw, 5rem); margin-right: auto; }
