@@ -681,3 +681,15 @@ textarea { min-height: 120px; resize: vertical; }
     left: 1rem;
   }
 }
+
+/* centered section headers */
+.section__header--center {
+  text-align: center;
+}
+
+.section__lede--center {
+  max-width: 70ch;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
