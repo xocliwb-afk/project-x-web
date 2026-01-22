@@ -127,6 +127,18 @@ export default function SearchLayoutClient({
 
   const TARGET_RESULTS = 100;
   const PAGE_SIZE = 50;
+  const parseBboxString = useCallback((bbox: string) => {
+    const parts = bbox.split(',').map((v) => Number(v));
+    if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;
+    const [minLng, minLat, maxLng, maxLat] = parts;
+    return {
+      swLat: minLat,
+      swLng: minLng,
+      neLat: maxLat,
+      neLng: maxLng,
+      bbox,
+    };
+  }, []);
   const initialPinListingsMap = useMemo(
     () => buildPinListingsMap(initialListings),
     [initialListings],
@@ -374,6 +386,17 @@ export default function SearchLayoutClient({
     lastParamsKeyRef.current = paramsKey;
     lastBaseQueryKeyRef.current = baseQueryKey;
   }, [paramsKey, baseQueryKey]);
+
+  useEffect(() => {
+    if (!useMapbox) return;
+    if (!parsedParams.bbox) return;
+    const parsed = parseBboxString(parsedParams.bbox);
+    if (!parsed) return;
+    if (mapBounds?.bbox === parsedParams.bbox) return;
+    didAutoApplyInitialBoundsRef.current = true;
+    setMapBounds(parsed);
+    setDraftBounds(null);
+  }, [useMapbox, parsedParams.bbox, mapBounds?.bbox, parseBboxString]);
 
   useEffect(() => {
     if (!currentRequestKey) return;
@@ -864,17 +887,28 @@ export default function SearchLayoutClient({
   );
 
   const appliedBbox = useMapbox
-    ? mapBounds?.bbox ?? null
+    ? mapBounds?.bbox ?? parsedParams.bbox ?? null
     : mapBounds?.bbox ?? parsedParams.bbox ?? null;
+  const isZipIntent =
+    Array.isArray(parsedParams.postalCodes) &&
+    !!parsedParams.postalCodes[0] &&
+    /^\d{5}$/.test(parsedParams.postalCodes[0]);
+  const hasPendingBounds =
+    !!draftBounds?.bbox && !!appliedBbox && draftBounds.bbox !== appliedBbox;
 
   const handleBoundsChange = useCallback(
-    (bounds: MapBounds) => {
+    (bounds: MapBounds, isUserGesture: boolean) => {
       if (useMapbox) {
-        setDraftBounds(bounds);
+        // Only update draftBounds for user gestures (pan/zoom), not programmatic moves
+        if (isUserGesture) {
+          setDraftBounds(bounds);
+        }
+        // Auto-apply initial bounds if no bbox in URL and no applied bbox yet
         if (
           !didAutoApplyInitialBoundsRef.current &&
           !appliedBbox &&
-          bounds.bbox
+          bounds.bbox &&
+          !parsedParams.bbox
         ) {
           didAutoApplyInitialBoundsRef.current = true;
           setMapBounds(bounds);
@@ -888,6 +922,7 @@ export default function SearchLayoutClient({
         }
         return;
       }
+      // Non-Mapbox mode: always update mapBounds
       setDraftBounds(null);
       setMapBounds((prev) => {
         if (
@@ -902,11 +937,10 @@ export default function SearchLayoutClient({
         return bounds;
       });
     },
-    [useMapbox, appliedBbox, setMapBounds, setDraftBounds, updateUrlWithBounds],
+    [useMapbox, appliedBbox, parsedParams.bbox, setMapBounds, setDraftBounds, updateUrlWithBounds],
   );
 
-  const showSearchThisArea =
-    useMapbox && draftBounds?.bbox && appliedBbox && draftBounds.bbox !== appliedBbox;
+  const showSearchThisArea = useMapbox && hasPendingBounds;
   const isApplyDisabled = isLoading || isAutoFilling || isLoadingMore;
   const handleApplyDraftBounds = useCallback(() => {
     if (!useMapbox) return;
@@ -1108,6 +1142,8 @@ export default function SearchLayoutClient({
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
+                  fitBbox={parsedParams.bbox ?? null}
+                  fitBboxIsZipIntent={isZipIntent}
                 />
               </div>
             )}
@@ -1199,6 +1235,8 @@ export default function SearchLayoutClient({
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
+                  fitBbox={parsedParams.bbox ?? null}
+                  fitBboxIsZipIntent={isZipIntent}
                 />
               </div>
             </div>

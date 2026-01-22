@@ -25,7 +25,9 @@ type MapboxMapProps = {
     neLat: number;
     neLng: number;
     bbox?: string;
-  }) => void;
+  }, isUserGesture: boolean) => void;
+  fitBbox?: string | null;
+  fitBboxIsZipIntent?: boolean;
 };
 
 const defaultCenter: [number, number] = [42.9634, -85.6681];
@@ -41,6 +43,8 @@ export default function MapboxMap({
   hoveredListingId,
   onSelectListing,
   onHoverListing,
+  fitBbox = null,
+  fitBboxIsZipIntent = false,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -52,6 +56,8 @@ export default function MapboxMap({
   const hoverRafRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const lastFitBboxRef = useRef<string | null>(null);
+  const cinematicTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [previewListing, setPreviewListing] = useState<NormalizedListing | null>(null);
   const listingsRef = useRef(listings);
   const resolveInitialCenter = () => {
@@ -164,6 +170,68 @@ export default function MapboxMap({
     }
   }, [setFeatureState]);
 
+  const applyFitBbox = useCallback(
+    (
+      map: mapboxgl.Map | null,
+      bboxStr: string | null | undefined,
+      isZipIntent?: boolean,
+    ) => {
+      if (!map) return;
+      if (cinematicTimeoutRef.current) {
+        clearTimeout(cinematicTimeoutRef.current);
+        cinematicTimeoutRef.current = null;
+      }
+      if (!bboxStr) {
+        lastFitBboxRef.current = null;
+        return;
+      }
+      if (lastFitBboxRef.current === bboxStr) return;
+      const parts = bboxStr.split(',').map((v) => Number(v));
+      if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return;
+      const [minLng, minLat, maxLng, maxLat] = parts;
+      const center: [number, number] = [(minLng + maxLng) / 2, (minLat + maxLat) / 2];
+      lastFitBboxRef.current = bboxStr;
+      map.stop();
+
+      const runFit = () => {
+        map.fitBounds(
+          [
+            [minLng, minLat],
+            [maxLng, maxLat],
+          ],
+          { padding: 50, animate: true, essential: true, maxZoom: 14, duration: 650 },
+        );
+      };
+
+      if (isZipIntent) {
+        map.easeTo({
+          center,
+          zoom: Math.min(map.getZoom(), 9),
+          duration: 350,
+          essential: true,
+        });
+        cinematicTimeoutRef.current = setTimeout(() => {
+          cinematicTimeoutRef.current = null;
+          runFit();
+        }, 360);
+        return;
+      }
+
+      runFit();
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      if (cinematicTimeoutRef.current) {
+        clearTimeout(cinematicTimeoutRef.current);
+        cinematicTimeoutRef.current = null;
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     listingsRef.current = listings;
   }, [listings]);
@@ -200,11 +268,14 @@ export default function MapboxMap({
     map.on('mouseup', handleMouseUp);
     map.on('dragend', handleMouseUp);
 
-    const emitBounds = () => {
+    const emitBounds = (e?: { originalEvent?: unknown }) => {
       if (!onBoundsChangeRef.current) return;
       const bounds = map.getBounds() as mapboxgl.LngLatBounds;
       const bbox = buildBboxFromBounds(bounds);
-      onBoundsChangeRef.current?.(bbox);
+      // Determine if this is a user gesture (drag/zoom with mouse/touch)
+      // e.originalEvent exists for user interactions, null/undefined for programmatic moves
+      const isUserGesture = !!(e && 'originalEvent' in e && e.originalEvent != null);
+      onBoundsChangeRef.current(bbox, isUserGesture);
     };
 
     const sourceId = 'listings';
@@ -594,6 +665,7 @@ export default function MapboxMap({
       sourceReadyRef.current = true;
       emitBounds();
       applyFeatureStates();
+      applyFitBbox(map, fitBbox ?? null, fitBboxIsZipIntent);
       if (enableE2E) {
         const hook = () => {
           const canvasEl = map.getCanvas();
@@ -632,13 +704,13 @@ export default function MapboxMap({
       }
     });
 
-    map.on('moveend', emitBounds);
-    map.on('zoomend', emitBounds);
+    map.on('moveend', emitBounds as any);
+    map.on('zoomend', emitBounds as any);
 
     return () => {
-      map.off('load', emitBounds);
-      map.off('moveend', emitBounds);
-      map.off('zoomend', emitBounds);
+      map.off('load', emitBounds as any);
+      map.off('moveend', emitBounds as any);
+      map.off('zoomend', emitBounds as any);
       if (handleMouseEnter) {
         map.off('mouseenter', 'unclustered-point', handleMouseEnter);
         map.off('mouseenter', 'unclustered-price', handleMouseEnter);
@@ -685,6 +757,9 @@ export default function MapboxMap({
     getNearbyListingIds,
     mapIdsToListings,
     enableE2E,
+    applyFitBbox,
+    fitBbox,
+    fitBboxIsZipIntent,
   ]);
 
   useEffect(() => {
@@ -695,6 +770,12 @@ export default function MapboxMap({
     source.setData(listingsToGeoJSON(listings));
     applyFeatureStates();
   }, [listings, applyFeatureStates]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    applyFitBbox(map, fitBbox ?? null, fitBboxIsZipIntent);
+  }, [fitBbox, fitBboxIsZipIntent, applyFitBbox]);
 
   useEffect(() => {
     const map = mapRef.current;

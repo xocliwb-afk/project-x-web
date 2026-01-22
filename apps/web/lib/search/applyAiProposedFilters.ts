@@ -23,7 +23,10 @@ type ApplyParams = {
 };
 
 export function applyAiProposedFilters({ proposedFilters, router, pathname, searchParams }: ApplyParams) {
-  const params = new URLSearchParams(searchParams.toString());
+  const params =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams(searchParams.toString());
 
   const applyField = (key: string, value: any) => {
     if (value == null || value === '') {

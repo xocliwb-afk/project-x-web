@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
+import { geocodeLocation } from '@/lib/geocode-client';
 import {
   formatAddressFull,
   formatAttribution,
@@ -62,12 +63,15 @@ export function ListingCard({
     onClick?.(listing);
   };
 
-  const applyLocationFilter = (
+  const applyLocationFilter = async (
     type: 'city' | 'zip' | 'county' | 'neighborhood',
     value?: string | null,
   ) => {
     if (!value) return;
-    const params = new URLSearchParams(searchParams.toString());
+    const params =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams(searchParams.toString());
     const key =
       type === 'city'
         ? 'cities'
@@ -79,6 +83,10 @@ export function ListingCard({
 
     params.delete(key);
     params.append(key, value);
+    const geo = await geocodeLocation(value);
+    if (geo?.bbox) {
+      params.set('bbox', geo.bbox);
+    }
     params.set('searchToken', Date.now().toString());
 
     const qs = params.toString();
@@ -185,7 +193,7 @@ export function ListingCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  applyLocationFilter('city', listing.address?.city);
+                  void applyLocationFilter('city', listing.address?.city);
                 }}
               >
                 {listing.address.city}
@@ -199,7 +207,7 @@ export function ListingCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  applyLocationFilter('zip', listing.address?.zip);
+                  void applyLocationFilter('zip', listing.address?.zip);
                 }}
               >
                 {listing.address.zip}
@@ -213,7 +221,7 @@ export function ListingCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  applyLocationFilter('county', county);
+                  void applyLocationFilter('county', county);
                 }}
               >
                 {county}
@@ -227,7 +235,7 @@ export function ListingCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  applyLocationFilter('neighborhood', neighborhood);
+                  void applyLocationFilter('neighborhood', neighborhood);
                 }}
               >
                 {neighborhood}
