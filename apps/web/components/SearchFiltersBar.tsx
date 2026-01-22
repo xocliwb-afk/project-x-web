@@ -194,7 +194,10 @@ export default function SearchFiltersBar() {
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams(searchParams.toString());
       Object.entries(updates).forEach(([key, value]) => {
         if (value && value !== "") {
           params.set(key, value);
@@ -1012,7 +1015,10 @@ export function SortButton() {
     SORT_OPTIONS.find((opt) => opt.value === sort)?.label || "Sort";
 
   const updateSort = (value: string | null) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams(searchParams.toString());
     if (value) {
       params.set("sort", value);
     } else {

@@ -889,6 +889,10 @@ export default function SearchLayoutClient({
   const appliedBbox = useMapbox
     ? mapBounds?.bbox ?? parsedParams.bbox ?? null
     : mapBounds?.bbox ?? parsedParams.bbox ?? null;
+  const isZipIntent =
+    Array.isArray(parsedParams.postalCodes) &&
+    !!parsedParams.postalCodes[0] &&
+    /^\d{5}$/.test(parsedParams.postalCodes[0]);
 
   const handleBoundsChange = useCallback(
     (bounds: MapBounds) => {
@@ -1133,6 +1137,7 @@ export default function SearchLayoutClient({
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
                   fitBbox={parsedParams.bbox ?? null}
+                  fitBboxIsZipIntent={isZipIntent}
                 />
               </div>
             )}
@@ -1225,6 +1230,7 @@ export default function SearchLayoutClient({
                   onSelectListing={handleSelectListing}
                   onBoundsChange={handleBoundsChange}
                   fitBbox={parsedParams.bbox ?? null}
+                  fitBboxIsZipIntent={isZipIntent}
                 />
               </div>
             </div>
