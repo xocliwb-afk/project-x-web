@@ -260,12 +260,14 @@ export default function SearchLayoutClient({
 
     const statusParam = searchParams.getAll('status');
     const singleStatus = searchParams.get('status');
-    const statusArray =
+    const statusArrayRaw =
       statusParam.length > 0
         ? statusParam
         : singleStatus
         ? singleStatus.split(',').filter(Boolean)
         : undefined;
+    const statusArray =
+      statusArrayRaw && statusArrayRaw.length > 0 ? statusArrayRaw : ['FOR_SALE'];
 
     return {
       q: searchParams.get('q') || undefined,

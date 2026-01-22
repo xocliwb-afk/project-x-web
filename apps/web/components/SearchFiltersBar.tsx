@@ -483,7 +483,8 @@ export default function SearchFiltersBar() {
     subtype,
   ]);
 
-  const currentStatus = searchParams.get("status");
+  const statusValues = searchParams.getAll("status");
+  const currentStatus = statusValues[0] || searchParams.get("status") || "FOR_SALE";
   const statusLabel =
     STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || "Status";
 
