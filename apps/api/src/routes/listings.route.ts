@@ -9,6 +9,7 @@ import {
   MAX_LIMIT,
   DEFAULT_LIMIT,
 } from '../utils/listingSearch.util';
+import { ListingsCache } from '../services/listingsCache.service';
 
 const router = Router();
 
@@ -33,6 +34,107 @@ const parseNumber = (value: unknown): number | undefined => {
   return undefined;
 };
 
+const normalizeScalar = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  const str = String(value).trim();
+  return str === '' ? undefined : str;
+};
+
+const normalizeArray = (values?: (string | number)[]): string | undefined => {
+  if (!values) return undefined;
+  const cleaned = values
+    .map((v) => String(v).trim())
+    .filter(Boolean)
+    .sort();
+  return cleaned.length ? cleaned.join(',') : undefined;
+};
+
+const buildSearchCacheKey = ({
+  page,
+  limit,
+  sort,
+  bbox,
+  params,
+}: {
+  page: number;
+  limit: number;
+  sort?: ListingSearchParams['sort'];
+  bbox?: string;
+  params: ListingSearchParams;
+}) => {
+  const entries: [string, string][] = [];
+  const add = (key: string, value: string | undefined) => {
+    if (value === undefined) return;
+    entries.push([key, value]);
+  };
+
+  add('page', normalizeScalar(page));
+  add('limit', normalizeScalar(limit));
+  add('sort', normalizeScalar(sort));
+  add('bbox', normalizeScalar(bbox));
+  add('q', normalizeScalar(params.q));
+  add('keywords', normalizeScalar(params.keywords));
+  add('minPrice', normalizeScalar(params.minPrice));
+  add('maxPrice', normalizeScalar(params.maxPrice));
+  add('beds', normalizeScalar(params.beds));
+  add('maxBeds', normalizeScalar(params.maxBeds));
+  add('baths', normalizeScalar(params.baths));
+  add('maxBaths', normalizeScalar(params.maxBaths));
+  add('propertyType', normalizeScalar(params.propertyType));
+  add('status', normalizeArray(params.status));
+  add('minSqft', normalizeScalar(params.minSqft));
+  add('maxSqft', normalizeScalar(params.maxSqft));
+  add('minYearBuilt', normalizeScalar(params.minYearBuilt));
+  add('maxYearBuilt', normalizeScalar(params.maxYearBuilt));
+  add('maxDaysOnMarket', normalizeScalar(params.maxDaysOnMarket));
+  add('cities', normalizeArray(params.cities));
+  add('postalCodes', normalizeArray(params.postalCodes));
+  add('counties', normalizeArray(params.counties));
+  add('neighborhoods', normalizeArray(params.neighborhoods));
+  add('features', normalizeArray(params.features));
+  add('subtype', normalizeArray(params.subtype));
+  add('agent', normalizeArray(params.agent));
+  add('brokers', normalizeArray(params.brokers));
+
+  entries.sort(([aKey, aVal], [bKey, bVal]) => {
+    if (aKey === bKey) return aVal.localeCompare(bVal);
+    return aKey.localeCompare(bKey);
+  });
+
+  return entries.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+};
+
+const getCacheConfig = () => {
+  const enabledEnv = process.env.LISTINGS_CACHE_ENABLED;
+  const enabled =
+    typeof enabledEnv === 'string' && enabledEnv.length > 0
+      ? enabledEnv === 'true'
+      : process.env.NODE_ENV === 'production';
+  const ttlSeconds = Number(process.env.LISTINGS_CACHE_TTL_SECONDS) || 30;
+  const maxEntries = Number(process.env.LISTINGS_CACHE_MAX_ENTRIES) || 1000;
+  const ttlMs = ttlSeconds * 1000;
+  return { enabled, ttlMs, maxEntries };
+};
+
+let cacheStore:
+  | {
+      search: ListingsCache<any>;
+      byId: ListingsCache<any>;
+      maxEntries: number;
+    }
+  | null = null;
+
+const getCaches = (maxEntries: number) => {
+  if (!cacheStore || cacheStore.maxEntries !== maxEntries) {
+    cacheStore = {
+      search: new ListingsCache(maxEntries),
+      byId: new ListingsCache(maxEntries),
+      maxEntries,
+    };
+  }
+  return cacheStore;
+};
+
 /**
  * GET /api/listings
  *
@@ -41,6 +143,8 @@ const parseNumber = (value: unknown): number | undefined => {
 router.get('/', async (req, res) => {
   try {
     const provider = getListingProvider();
+    const cacheConfig = getCacheConfig();
+    const caches = getCaches(cacheConfig.maxEntries);
 
     // req.query is an untyped object; cast carefully into ListingSearchParams
     const hasStatusKey = Object.prototype.hasOwnProperty.call(req.query, 'status');
@@ -123,27 +227,44 @@ router.get('/', async (req, res) => {
 
     const providerLimit = Math.min(limit + 1, MAX_LIMIT + 1);
 
-    const resultsRaw: NormalizedListing[] = await provider.search({
-      ...params,
-      bbox: bboxString,
-      page,
-      limit: providerLimit,
-      clientLimit: limit,
-    });
+    const executeSearch = async () => {
+      const resultsRaw: NormalizedListing[] = await provider.search({
+        ...params,
+        bbox: bboxString,
+        page,
+        limit: providerLimit,
+        clientLimit: limit,
+      });
 
-    const sorted = stableSortListings(resultsRaw, params.sort);
-    const hasMore = sorted.length > limit;
-    const results = sorted.slice(0, limit);
+      const sorted = stableSortListings(resultsRaw, params.sort);
+      const hasMore = sorted.length > limit;
+      const results = sorted.slice(0, limit);
 
-    res.json({
-      results,
-      pagination: {
+      return {
+        results,
+        pagination: {
+          page,
+          limit,
+          pageCount: results.length,
+          hasMore,
+        },
+      };
+    };
+
+    if (cacheConfig.enabled) {
+      const cacheKey = buildSearchCacheKey({
         page,
         limit,
-        pageCount: results.length,
-        hasMore,
-      },
-    });
+        sort: params.sort,
+        bbox: bboxString,
+        params,
+      });
+      const cached = await caches.search.getOrCreate(cacheKey, executeSearch, cacheConfig.ttlMs);
+      return res.json(cached);
+    }
+
+    const payload = await executeSearch();
+    res.json(payload);
   } catch (err: any) {
     const error: ApiError = {
       error: true,
@@ -162,8 +283,18 @@ router.get('/', async (req, res) => {
  */
 const getListingById = async (req: any, res: any) => {
   try {
+    const cacheConfig = getCacheConfig();
+    const caches = getCaches(cacheConfig.maxEntries);
     const provider = getListingProvider();
     const { id } = req.params;
+
+    const cacheKey = `id:${id}`;
+    if (cacheConfig.enabled) {
+      const cached = caches.byId.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+    }
 
     const listing: NormalizedListing | null = await provider.getById(id);
 
@@ -177,7 +308,12 @@ const getListingById = async (req: any, res: any) => {
       return res.status(404).json(error);
     }
 
-    res.json({ listing });
+    const payload = { listing };
+    if (cacheConfig.enabled) {
+      caches.byId.set(cacheKey, payload, cacheConfig.ttlMs);
+    }
+
+    res.json(payload);
   } catch (err: any) {
     const error: ApiError = {
       error: true,
