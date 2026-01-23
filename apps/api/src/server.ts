@@ -170,16 +170,6 @@ app.get("/ready", (req, res) => {
   res.status(ready ? 200 : 503).json(response);
 });
 
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    ok: true,
-    status: "ok",
-    service: "api",
-    uptimeSec: process.uptime(),
-    timestamp: new Date().toISOString(),
-  });
-});
-
 app.listen(PORT, () => {
   console.log(`[API] Server running on http://localhost:${PORT}`);
   console.log(
