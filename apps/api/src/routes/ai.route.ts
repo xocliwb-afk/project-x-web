@@ -50,7 +50,7 @@ const getIp = (req: any) => {
 
 router.post("/parse-search", async (req, res) => {
   const cfg = getConfig();
-  const requestId = crypto.randomUUID();
+  const requestId = res.locals.requestId ?? crypto.randomUUID();
   res.setHeader("x-request-id", requestId);
   const started = Date.now();
   const ip = getIp(req);

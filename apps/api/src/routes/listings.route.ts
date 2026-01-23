@@ -141,10 +141,14 @@ const getCaches = (maxEntries: number) => {
  * Returns a paginated set of listings using the ListingProvider abstraction.
  */
 router.get('/', async (req, res) => {
+  const requestId = res.locals?.requestId ?? 'unknown';
+  const providerName = process.env.DATA_PROVIDER || 'unknown';
+  const started = Date.now();
   try {
     const provider = getListingProvider();
     const cacheConfig = getCacheConfig();
     const caches = getCaches(cacheConfig.maxEntries);
+    let cacheLabel: 'hit' | 'miss' | undefined;
 
     // req.query is an untyped object; cast carefully into ListingSearchParams
     const hasStatusKey = Object.prototype.hasOwnProperty.call(req.query, 'status');
@@ -251,6 +255,7 @@ router.get('/', async (req, res) => {
       };
     };
 
+    let payload;
     if (cacheConfig.enabled) {
       const cacheKey = buildSearchCacheKey({
         page,
@@ -259,12 +264,41 @@ router.get('/', async (req, res) => {
         bbox: bboxString,
         params,
       });
-      const cached = await caches.search.getOrCreate(cacheKey, executeSearch, cacheConfig.ttlMs);
-      return res.json(cached);
+      const cached = caches.search.get(cacheKey);
+      if (cached) {
+        cacheLabel = 'hit';
+        res.json(cached);
+        console.log(
+          JSON.stringify({
+            event: 'api.listings.search',
+            requestId,
+            provider: providerName,
+            durationMs: Date.now() - started,
+            statusCode: 200,
+            outcome: 'success',
+            cache: cacheLabel,
+          }),
+        );
+        return;
+      }
+      cacheLabel = 'miss';
+      payload = await caches.search.getOrCreate(cacheKey, executeSearch, cacheConfig.ttlMs);
+    } else {
+      payload = await executeSearch();
     }
 
-    const payload = await executeSearch();
     res.json(payload);
+    console.log(
+      JSON.stringify({
+        event: 'api.listings.search',
+        requestId,
+        provider: providerName,
+        durationMs: Date.now() - started,
+        statusCode: 200,
+        outcome: 'success',
+        cache: cacheLabel,
+      }),
+    );
   } catch (err: any) {
     const error: ApiError = {
       error: true,
@@ -273,6 +307,16 @@ router.get('/', async (req, res) => {
       status: 500,
     };
     res.status(500).json(error);
+    console.log(
+      JSON.stringify({
+        event: 'api.listings.search',
+        requestId,
+        provider: process.env.DATA_PROVIDER || 'unknown',
+        durationMs: Date.now() - started,
+        statusCode: res.statusCode || 500,
+        outcome: 'error',
+      }),
+    );
   }
 });
 
@@ -282,6 +326,9 @@ router.get('/', async (req, res) => {
  * Returns a single listing by ID or a 404 error if not found.
  */
 const getListingById = async (req: any, res: any) => {
+  const requestId = res.locals?.requestId ?? 'unknown';
+  const providerName = process.env.DATA_PROVIDER || 'unknown';
+  const started = Date.now();
   try {
     const cacheConfig = getCacheConfig();
     const caches = getCaches(cacheConfig.maxEntries);
@@ -292,7 +339,19 @@ const getListingById = async (req: any, res: any) => {
     if (cacheConfig.enabled) {
       const cached = caches.byId.get(cacheKey);
       if (cached && (cached as any).listing) {
-        return res.json(cached);
+        res.json(cached);
+        console.log(
+          JSON.stringify({
+            event: 'api.listings.getById',
+            requestId,
+            provider: providerName,
+            durationMs: Date.now() - started,
+            statusCode: 200,
+            outcome: 'success',
+            cache: 'hit',
+          }),
+        );
+        return;
       }
     }
 
@@ -314,6 +373,17 @@ const getListingById = async (req: any, res: any) => {
     }
 
     res.json(payload);
+    console.log(
+      JSON.stringify({
+        event: 'api.listings.getById',
+        requestId,
+        provider: providerName,
+        durationMs: Date.now() - started,
+        statusCode: 200,
+        outcome: 'success',
+        cache: cacheConfig.enabled ? 'miss' : undefined,
+      }),
+    );
   } catch (err: any) {
     const error: ApiError = {
       error: true,
@@ -322,6 +392,16 @@ const getListingById = async (req: any, res: any) => {
       status: 500,
     };
     res.status(500).json(error);
+    console.log(
+      JSON.stringify({
+        event: 'api.listings.getById',
+        requestId,
+        provider: process.env.DATA_PROVIDER || 'unknown',
+        durationMs: Date.now() - started,
+        statusCode: res.statusCode || 500,
+        outcome: 'error',
+      }),
+    );
   }
 };
 

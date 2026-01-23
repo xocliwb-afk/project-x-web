@@ -1,11 +1,14 @@
 import express from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
+import crypto from "crypto";
 import listingsRouter from "./routes/listings.route";
 import leadsRouter from "./routes/leads.route";
 import toursRouter from "./routes/tours.route";
 import aiRouter from "./routes/ai.route";
 import geoRouter from "./routes/geo.route";
+import { getListingProvider } from "./utils/provider.factory";
+import { CaptchaService } from "./services/captcha.service";
 
 dotenv.config();
 
@@ -78,6 +81,14 @@ app.options("*", cors());
 app.use(express.json());
 
 app.use((req, res, next) => {
+  const incomingId = typeof req.headers["x-request-id"] === "string" ? req.headers["x-request-id"] : undefined;
+  const requestId = incomingId || crypto.randomUUID();
+  res.locals.requestId = requestId;
+  res.setHeader("x-request-id", requestId);
+  next();
+});
+
+app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
@@ -97,7 +108,66 @@ app.use("/api/ai", aiRouter);
 app.use("/api/geo", geoRouter);
 
 app.get("/health", (req, res) => {
-  res.status(200).send("API is healthy and running.");
+  res.status(200).json({
+    ok: true,
+    status: "ok",
+    service: "api",
+    uptimeSec: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+type ReadyCacheEntry = { data: any; expiresAt: number };
+let readyCache: ReadyCacheEntry | null = null;
+
+app.get("/ready", (req, res) => {
+  const now = Date.now();
+  if (readyCache && readyCache.expiresAt > now) {
+    return res.status(readyCache.data.ok ? 200 : 503).json(readyCache.data);
+  }
+
+  const timestamp = new Date().toISOString();
+  const checks = {
+    env: { ok: true, missing: [] as string[] },
+    listingsProvider: { ok: true, provider: process.env.DATA_PROVIDER || "unknown" as string, reason: undefined as string | undefined },
+    captcha: { ok: true, mode: "enabled" as "enabled" | "disabled" | "invalid_in_production" },
+  };
+
+  if (!process.env.DATA_PROVIDER) {
+    checks.env.ok = false;
+    checks.env.missing.push("DATA_PROVIDER");
+  }
+
+  try {
+    getListingProvider();
+  } catch (err: any) {
+    checks.listingsProvider.ok = false;
+    checks.listingsProvider.reason = "config_error";
+  }
+
+  try {
+    const captcha = new CaptchaService();
+    if (process.env.CAPTCHA_DISABLED === "true") {
+      checks.captcha.mode = "disabled";
+    } else {
+      checks.captcha.mode = "enabled";
+    }
+  } catch (err: any) {
+    checks.captcha.ok = false;
+    checks.captcha.mode = "invalid_in_production";
+  }
+
+  const ready = checks.env.ok && checks.listingsProvider.ok && checks.captcha.ok;
+  const response = {
+    ok: ready,
+    status: ready ? "ready" : "not_ready",
+    checks,
+    timestamp,
+  };
+
+  readyCache = { data: response, expiresAt: now + 10 * 1000 };
+
+  res.status(ready ? 200 : 503).json(response);
 });
 
 app.listen(PORT, () => {
