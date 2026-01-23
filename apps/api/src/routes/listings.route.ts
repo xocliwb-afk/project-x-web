@@ -291,7 +291,7 @@ const getListingById = async (req: any, res: any) => {
     const cacheKey = `id:${id}`;
     if (cacheConfig.enabled) {
       const cached = caches.byId.get(cacheKey);
-      if (cached) {
+      if (cached && (cached as any).listing) {
         return res.json(cached);
       }
     }
