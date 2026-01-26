@@ -328,6 +328,7 @@ a { color: inherit; text-decoration: none; }
 .section { padding: var(--section-padding) 0; }
 .section__header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
 .section__header--stacked { flex-direction: column; align-items: flex-start; gap: .4rem; }
+.section__header--stacked.section__header--center { align-items: center; }
 .section__lede { color: var(--text-muted); max-width: 720px; }
 
 h1 { font-weight: 700; line-height: 1.15; font-size: clamp(2.4rem, 4vw, 3rem); margin: .2em 0 .4em; color: inherit; }
@@ -680,4 +681,16 @@ textarea { min-height: 120px; resize: vertical; }
   .contact-fab {
     left: 1rem;
   }
+}
+
+/* centered section headers */
+.section__header--center {
+  text-align: center;
+}
+
+.section__lede--center {
+  max-width: 70ch;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
 }
