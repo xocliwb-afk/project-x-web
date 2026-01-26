@@ -47,7 +47,7 @@ app.get("/api/listings", (req, res) => {
     maxPrice: toNumber(query.maxPrice),
     beds: toNumber(query.beds),
     baths: toNumber(query.baths),
-    status: toStatuses(query.status),
+    status: toStatuses(query.status) ?? ["FOR_SALE"],
     propertyType: toPropertyType(query.propertyType),
     minSqft: toNumber(query.minSqft),
     maxDaysOnMarket: toNumber(query.maxDaysOnMarket),
