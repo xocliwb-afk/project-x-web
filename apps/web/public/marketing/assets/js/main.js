@@ -278,9 +278,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Modal / drawer system ---
   const backdrop = document.getElementById('globalBackdrop');
+  const lockBodyScrollIfNeeded = () => {
+    if (document.body.classList.contains('no-scroll')) return;
+    const scrollY = window.scrollY || 0;
+    document.body.dataset.scrollY = String(scrollY);
+    document.body.style.top = `-${scrollY}px`;
+    document.body.classList.add('no-scroll');
+  };
+  const unlockBodyScrollIfNeeded = () => {
+    if (!document.body.classList.contains('no-scroll')) return;
+    const scrollY = Number.parseInt(document.body.dataset.scrollY || '0', 10) || 0;
+    document.body.classList.remove('no-scroll');
+    document.body.style.top = '';
+    delete document.body.dataset.scrollY;
+    window.scrollTo(0, scrollY);
+  };
   const closeAllOverlays = () => {
     document.querySelectorAll('.ui-modal, .ui-drawer, .ui-backdrop').forEach(el => el.classList.remove('is-visible'));
-    document.body.classList.remove('no-scroll');
+    unlockBodyScrollIfNeeded();
     lastLeadModalTrigger = null;
     safeStore.clearListing();
   };
@@ -294,14 +309,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!modal || !backdrop) return;
     backdrop.classList.add('is-visible');
     modal.classList.add('is-visible');
-    document.body.classList.add('no-scroll');
+    lockBodyScrollIfNeeded();
   };
   const openDrawer = (id) => {
     const drawer = document.getElementById(id);
     if (!drawer || !backdrop) return;
     backdrop.classList.add('is-visible');
     drawer.classList.add('is-visible');
-    document.body.classList.add('no-scroll');
+    lockBodyScrollIfNeeded();
   };
 
   backdrop?.addEventListener('click', closeAllOverlays);
