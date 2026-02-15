@@ -265,7 +265,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
     const modal = (
       <div className="fixed inset-0 z-[99999] pt-[env(safe-area-inset-top)]">
         <div className="absolute inset-0 bg-black/40" onClick={handleDismiss} />
-        <div className="relative z-10 flex h-full flex-col gap-3 p-4">
+        <div className="relative z-10 flex h-full min-h-0 flex-col gap-3 p-4">
           <div className="flex justify-end">
             <button
               type="button"
@@ -277,7 +277,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
             </button>
           </div>
           <div
-            className="flex-1 overflow-hidden rounded-2xl border border-border bg-white shadow-xl"
+            className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="h-64 border-b border-border">
@@ -302,7 +302,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
                 Showing 50 of {sortedAllListings.length}. Zoom in to reduce overlap.
               </div>
             )}
-            <div className="flex h-[calc(100%-16rem)] flex-col p-4 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch]">
               {focusedListing ? (
                 <button
                   type="button"
