@@ -923,7 +923,7 @@ export default function SearchFiltersBar() {
           </div>
         </div>
 
-        <div className="flex flex-1 items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex flex-1 flex-wrap items-center justify-center gap-2 overflow-x-hidden pb-1 sm:pb-0 lg:flex-nowrap lg:justify-start lg:overflow-x-auto">
           <button
             ref={(el) => {
               chipRefs.current.status = el;
