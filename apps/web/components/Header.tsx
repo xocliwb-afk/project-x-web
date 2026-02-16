@@ -368,7 +368,7 @@ export default function Header() {
                 className="pointer-events-none absolute inset-0 p-2 sm:p-3"
               >
                 <div
-                  className="pointer-events-auto h-full overflow-y-auto rounded-xl bg-white shadow-xl"
+                  className="pointer-events-auto h-full overflow-y-auto overflow-x-hidden rounded-xl bg-white shadow-xl"
                   role="dialog"
                   aria-modal="true"
                   aria-label="Filters"
