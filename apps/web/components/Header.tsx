@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/context/ThemeContext";
 import SearchFiltersBar, { SortButton } from "@/components/SearchFiltersBar";
 import { useLeadModalStore } from "@/stores/useLeadModalStore";
+import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 
 export default function Header() {
   const { mapSide, paneDominance, setMapSide, setPaneDominance } = useTheme();
@@ -15,6 +16,7 @@ export default function Header() {
   const isSearchPage = pathname?.startsWith("/search");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mapMenuOpen, setMapMenuOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [neighborhoodsOpen, setNeighborhoodsOpen] = useState(false);
   const [neighborhoodsMobileOpen, setNeighborhoodsMobileOpen] = useState(false);
   const openLeadModal = useLeadModalStore((s) => s.open);
@@ -88,7 +90,27 @@ export default function Header() {
   useEffect(() => {
     setNeighborhoodsOpen(false);
     setNeighborhoodsMobileOpen(false);
+    setFiltersOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setFiltersOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [filtersOpen]);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    lockScroll();
+    return () => unlockScroll();
+  }, [filtersOpen]);
 
   return (
     <header className="flex shrink-0 flex-col">
@@ -246,83 +268,130 @@ export default function Header() {
       </div>
 
       {isSearchPage && (
-        <div className="w-full border-b border-border bg-primary-accent py-2 text-slate-900">
-          <div className="mx-auto flex w-full max-w-[1920px] flex-wrap items-center gap-3 px-4 sm:px-6 lg:px-6">
-            <div className="flex-1 min-w-[320px]">
-              <SearchFiltersBar />
-            </div>
-            <div className="flex items-center gap-2 ml-auto">
-              <SortButton />
-              <button
-                type="button"
-                onClick={() =>
-                  openLeadModal({ intent: "get-details", entrySource: "header-search-cta" })
-                }
-                className="h-10 rounded-full bg-white px-4 text-sm font-semibold text-primary shadow-sm transition hover:brightness-95"
-              >
-                Plan a tour
-              </button>
-              <div className="relative">
+        <>
+          <div className="mt-16 w-full border-b border-border bg-primary-accent py-2 text-slate-900 lg:mt-0">
+            <div className="mx-auto hidden w-full max-w-[1920px] flex-wrap items-center gap-3 px-4 sm:px-6 lg:flex lg:px-6">
+              <div className="flex-1 min-w-[320px]">
+                <SearchFiltersBar />
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <SortButton />
                 <button
                   type="button"
-                  onClick={() => setMapMenuOpen((prev) => !prev)}
-                  className="flex h-10 w-10 flex-col items-center justify-center gap-1 rounded-full border border-white/60 bg-white/80 text-primary transition hover:bg-white"
-                  aria-label="Map layout controls"
+                  onClick={() =>
+                    openLeadModal({ intent: "get-details", entrySource: "header-search-cta" })
+                  }
+                  className="h-10 rounded-full bg-white px-4 text-sm font-semibold text-primary shadow-sm transition hover:brightness-95"
                 >
-                  <span className="block h-0.5 w-4 bg-primary" />
-                  <span className="block h-0.5 w-4 bg-primary" />
-                  <span className="block h-0.5 w-4 bg-primary" />
+                  Plan a tour
                 </button>
-                {mapMenuOpen && (
-                  <div className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-slate-200 bg-white p-3 text-slate-800 shadow-xl">
-                    <div className="mb-3">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Map location
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className={pillClasses(mapSide === "left")}
-                          onClick={() => setMapSide("left")}
-                        >
-                          Left
-                        </button>
-                        <button
-                          type="button"
-                          className={pillClasses(mapSide === "right")}
-                          onClick={() => setMapSide("right")}
-                        >
-                          Right
-                        </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setMapMenuOpen((prev) => !prev)}
+                    className="flex h-10 w-10 flex-col items-center justify-center gap-1 rounded-full border border-white/60 bg-white/80 text-primary transition hover:bg-white"
+                    aria-label="Map layout controls"
+                  >
+                    <span className="block h-0.5 w-4 bg-primary" />
+                    <span className="block h-0.5 w-4 bg-primary" />
+                    <span className="block h-0.5 w-4 bg-primary" />
+                  </button>
+                  {mapMenuOpen && (
+                    <div className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-slate-200 bg-white p-3 text-slate-800 shadow-xl">
+                      <div className="mb-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Map location
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className={pillClasses(mapSide === "left")}
+                            onClick={() => setMapSide("left")}
+                          >
+                            Left
+                          </button>
+                          <button
+                            type="button"
+                            className={pillClasses(mapSide === "right")}
+                            onClick={() => setMapSide("right")}
+                          >
+                            Right
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Panel size
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className={pillClasses(paneDominance === "left")}
+                            onClick={() => setPaneDominance("left")}
+                          >
+                            Left 60%
+                          </button>
+                          <button
+                            type="button"
+                            className={pillClasses(paneDominance === "right")}
+                            onClick={() => setPaneDominance("right")}
+                          >
+                            Right 60%
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Panel size
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className={pillClasses(paneDominance === "left")}
-                          onClick={() => setPaneDominance("left")}
-                        >
-                          Left 60%
-                        </button>
-                        <button
-                          type="button"
-                          className={pillClasses(paneDominance === "right")}
-                          onClick={() => setPaneDominance("right")}
-                        >
-                          Right 60%
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="mx-auto flex w-full max-w-[1920px] items-center gap-2 px-4 sm:px-6 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(true)}
+                className="h-10 rounded-full bg-white px-4 text-sm font-semibold text-primary shadow-sm transition hover:brightness-95"
+              >
+                Filters
+              </button>
+              <div className="hidden md:block">
+                <SortButton />
               </div>
             </div>
           </div>
-        </div>
+          {filtersOpen && (
+            <div className="fixed inset-0 z-[70] lg:hidden">
+              <div
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setFiltersOpen(false)}
+              />
+              <div
+                className="pointer-events-none absolute inset-0 p-2 sm:p-3"
+              >
+                <div
+                  className="pointer-events-auto h-full overflow-y-auto overflow-x-hidden rounded-xl bg-white shadow-xl"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Filters"
+                >
+                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-white p-4">
+                    <h2 className="text-lg font-semibold text-text-main">Filters</h2>
+                    <button
+                      type="button"
+                      onClick={() => setFiltersOpen(false)}
+                      className="h-10 w-10 rounded-full border border-border text-lg font-semibold text-text-main"
+                      aria-label="Close filters"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    <SearchFiltersBar layout="drawer" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </header>
   );

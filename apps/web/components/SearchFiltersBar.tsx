@@ -93,7 +93,11 @@ const SORT_OPTIONS = [
   { label: "Days on Market", value: "dom" },
 ];
 
-export default function SearchFiltersBar() {
+type SearchFiltersBarProps = {
+  layout?: "inline" | "drawer";
+};
+
+export default function SearchFiltersBar({ layout = "inline" }: SearchFiltersBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -683,7 +687,7 @@ export default function SearchFiltersBar() {
   const renderMoreDropdown = () => (
     <div
       data-testid="more-filters-panel"
-      className="w-[90vw] max-w-3xl rounded-2xl border border-border bg-white p-6 text-sm shadow-2xl dark:bg-slate-900"
+      className="w-[90vw] max-w-full lg:max-w-3xl rounded-2xl border border-border bg-white p-6 text-sm shadow-2xl dark:bg-slate-900"
     >
       <div className="mb-4 flex items-center justify-between text-xs text-text-main/70">
         <span className="font-semibold uppercase tracking-wider">Advanced Filters</span>
@@ -923,7 +927,7 @@ export default function SearchFiltersBar() {
           </div>
         </div>
 
-        <div className="flex flex-1 items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex w-full max-w-full flex-wrap items-center justify-center gap-2 overflow-x-hidden pb-1 sm:pb-0 lg:w-auto lg:max-w-none lg:flex-1 lg:flex-nowrap lg:justify-start lg:overflow-x-auto">
           <button
             ref={(el) => {
               chipRefs.current.status = el;
@@ -989,8 +993,12 @@ export default function SearchFiltersBar() {
 
       {activeFilter && (
         <div
-          className="absolute left-0 top-full z-50 mt-2"
-          style={dropdownStyle}
+          className={
+            layout === "drawer"
+              ? "absolute left-0 right-0 top-full z-50 mt-2 flex justify-center px-2"
+              : "absolute left-0 top-full z-50 mt-2"
+          }
+          style={layout === "drawer" ? undefined : dropdownStyle}
         >
           {activeFilter === "status" && renderStatusDropdown()}
           {activeFilter === "price" && renderPriceDropdown()}
