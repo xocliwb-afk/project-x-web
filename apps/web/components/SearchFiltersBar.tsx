@@ -1026,6 +1026,7 @@ export function SortButton() {
     } else {
       params.delete("sort");
     }
+    params.set("searchToken", Date.now().toString());
     startTransition(() => {
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname);
