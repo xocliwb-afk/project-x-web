@@ -56,6 +56,12 @@ const ABSOLUTE_MAX_PIN_PAGES = 12;
 const PIN_HYDRATION_PAGE_LIMIT = 500;
 const FIRST_PIN_REQUEST_DELAY = 750;
 const MIN_DELAY_BETWEEN_PIN_REQUESTS = 500;
+const MOBILE_SORT_OPTIONS: Array<{ label: string; value: 'newest' | 'price-asc' | 'price-desc' | 'dom' }> = [
+  { label: 'Newest', value: 'newest' },
+  { label: 'Price: Low to High', value: 'price-asc' },
+  { label: 'Price: High to Low', value: 'price-desc' },
+  { label: 'Days on Market', value: 'dom' },
+];
 
 type MoreFilters = {
   cities?: string[];
@@ -1138,6 +1144,19 @@ export default function SearchLayoutClient({
     setError(null);
     setRefetchNonce((n) => n + 1);
   }, []);
+  const handleMobileSortChange = useCallback(
+    (nextSort: 'newest' | 'price-asc' | 'price-desc' | 'dom') => {
+      const params =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams(searchParams.toString());
+      params.set('sort', nextSort);
+      params.set('searchToken', Date.now().toString());
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
   return (
     <>
@@ -1147,6 +1166,27 @@ export default function SearchLayoutClient({
           <div className="grid grid-cols-2 gap-2 rounded-lg bg-surface-muted p-1">
             <ToggleButton mode="list">List</ToggleButton>
             <ToggleButton mode="map">Map</ToggleButton>
+          </div>
+          <div className="mt-2 rounded-lg bg-surface-muted p-1">
+            <label className="sr-only" htmlFor="mobile-sort-select">
+              Sort listings
+            </label>
+            <select
+              id="mobile-sort-select"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-main"
+              value={(parsedParams.sort as 'newest' | 'price-asc' | 'price-desc' | 'dom' | undefined) ?? 'newest'}
+              onChange={(e) =>
+                handleMobileSortChange(
+                  e.target.value as 'newest' | 'price-asc' | 'price-desc' | 'dom',
+                )
+              }
+            >
+              {MOBILE_SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
