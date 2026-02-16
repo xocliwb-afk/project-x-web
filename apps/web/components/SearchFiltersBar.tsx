@@ -93,7 +93,11 @@ const SORT_OPTIONS = [
   { label: "Days on Market", value: "dom" },
 ];
 
-export default function SearchFiltersBar() {
+type SearchFiltersBarProps = {
+  layout?: "inline" | "drawer";
+};
+
+export default function SearchFiltersBar({ layout = "inline" }: SearchFiltersBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -989,8 +993,12 @@ export default function SearchFiltersBar() {
 
       {activeFilter && (
         <div
-          className="absolute left-0 top-full z-50 mt-2"
-          style={dropdownStyle}
+          className={
+            layout === "drawer"
+              ? "absolute left-0 right-0 top-full z-50 mt-2 flex justify-center px-2"
+              : "absolute left-0 top-full z-50 mt-2"
+          }
+          style={layout === "drawer" ? undefined : dropdownStyle}
         >
           {activeFilter === "status" && renderStatusDropdown()}
           {activeFilter === "price" && renderPriceDropdown()}

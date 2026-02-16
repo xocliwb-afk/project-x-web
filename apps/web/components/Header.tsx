@@ -385,7 +385,7 @@ export default function Header() {
                     </button>
                   </div>
                   <div className="p-4">
-                    <SearchFiltersBar />
+                    <SearchFiltersBar layout="drawer" />
                   </div>
                 </div>
               </div>
