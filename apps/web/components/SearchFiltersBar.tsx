@@ -483,6 +483,21 @@ export default function SearchFiltersBar({ layout = "inline" }: SearchFiltersBar
     subtype,
   ]);
 
+  const handleMorePanelKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== "Enter") return;
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      const tag = target.tagName;
+      if (tag === "TEXTAREA" || tag === "BUTTON" || target.isContentEditable) return;
+      if (tag === "INPUT" || tag === "SELECT") {
+        e.preventDefault();
+        void handleApplyMoreFilters();
+      }
+    },
+    [handleApplyMoreFilters],
+  );
+
   const currentStatus = searchParams.get("status");
   const statusLabel =
     STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || "Status";
@@ -687,6 +702,7 @@ export default function SearchFiltersBar({ layout = "inline" }: SearchFiltersBar
   const renderMoreDropdown = () => (
     <div
       data-testid="more-filters-panel"
+      onKeyDown={handleMorePanelKeyDown}
       className="w-[90vw] max-w-full lg:max-w-3xl rounded-2xl border border-border bg-white p-6 text-sm shadow-2xl dark:bg-slate-900"
     >
       <div className="mb-4 flex items-center justify-between text-xs text-text-main/70">
