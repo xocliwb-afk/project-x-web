@@ -444,13 +444,18 @@ export default function MapboxMap({
 
       handleClick = (e: mapboxgl.MapLayerMouseEvent) => {
         if (lensOpen()) return;
-        skipNextMapClickRef.current = true;
         const feature = e.features?.[0];
         const id = feature?.properties?.id as string | undefined;
         if (!id) return;
         const listing = listingsRef.current.find((l) => String(l.id) === id);
         if (!listing) return;
+        const nearbyIds = getNearbyListingIds(e.point);
+        if (nearbyIds.length >= OVERLAP_MIN_COUNT) {
+          // Let the map-level click handler open MapLens for crowded clicks.
+          return;
+        }
 
+        skipNextMapClickRef.current = true;
         trackEvent('listing_click', {
           listing_id: listing.id ?? listing.mlsId ?? id,
           source: 'pin',
