@@ -450,8 +450,10 @@ export function MapLens({
                 zIndex: 10000,
               }}
             >
-              <div
-                className={`w-64 rounded-2xl bg-white shadow-lg border border-border/60 p-2 transition-all duration-200 ease-out ${
+              <button
+                type="button"
+                onClick={() => focusedListing?.id && goToListing(focusedListing.id)}
+                className={`w-64 rounded-2xl bg-white shadow-lg border border-border/60 p-2 text-left cursor-pointer transition-all duration-200 ease-out ${
                   focusedListing
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-3"
@@ -491,20 +493,12 @@ export function MapLens({
                         return sqft ? ` • ${sqft} sqft` : "";
                       })()}
                     </div>
-                    <button
-                      type="button"
-                      className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
-                      onClick={() => {
-                        onSelectListing?.(focusedListing.id);
-                        onOpenListingDetailModal?.(focusedListing, "lens");
-                        handleDismiss();
-                      }}
-                    >
+                    <span className="mt-2 text-xs font-semibold text-blue-600 hover:underline">
                       View Details →
-                    </button>
+                    </span>
                   </div>
                 </div>
-              </div>
+              </button>
             </div>,
             document.body
           );
