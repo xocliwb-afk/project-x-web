@@ -261,9 +261,17 @@ export function MapLens({
   }
 
   const goToListing = (id: string) => {
-    onSelectListing?.(id);
-    const listing = sortedAllListings.find((candidate) => candidate.id === id);
-    onOpenListingDetailModal?.(listing ?? id, "lens");
+    const idStr = String(id);
+    onSelectListing?.(idStr);
+    const listing = sortedAllListings.find(
+      (candidate) => String(candidate.id) === idStr
+    );
+    if (listing) {
+      const listingForModal = { ...listing, id: idStr };
+      onOpenListingDetailModal?.(listingForModal, "lens");
+    } else {
+      onOpenListingDetailModal?.(idStr, "lens");
+    }
     handleDismiss();
   };
 
