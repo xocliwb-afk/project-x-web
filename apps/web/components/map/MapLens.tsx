@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import type { Listing } from "@project-x/shared-types";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
@@ -31,10 +31,16 @@ const MapboxLensMiniMap = dynamic(
 type MapLensProps = {
   onHoverListing?: (id: string | null) => void;
   onSelectListing?: (id: string | null) => void;
+  onOpenListingDetailModal?: (listingOrId: Listing | string, source?: "pin" | "lens") => void;
   isMobile?: boolean;
 };
 
-export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensProps) {
+export function MapLens({
+  onHoverListing,
+  onSelectListing,
+  onOpenListingDetailModal,
+  isMobile,
+}: MapLensProps) {
   const activeClusterData = useMapLensStore((s) => s.activeClusterData);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const isLocked = useMapLensStore((s) => s.isLocked);
@@ -46,7 +52,6 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const lensRef = useRef<HTMLDivElement | null>(null);
   const lensOpenRef = useRef(false);
-  const router = useRouter();
   const mobileDetected = useIsMobile();
   const { mapSide } = useTheme();
 
@@ -181,7 +186,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const pointerClass = visible ? "pointer-events-auto" : "pointer-events-none";
   const listOnRight = mapSide === "left";
   const [previewOnRight, setPreviewOnRight] = useState(listOnRight);
-  const [previewKey, setPreviewKey] = useState(0);
+  const [, setPreviewKey] = useState(0);
 
   const isMobileView = (isMobile ?? false) || mobileDetected;
 
@@ -256,8 +261,17 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   }
 
   const goToListing = (id: string) => {
-    onSelectListing?.(id);
-    router.push(`/listing/${id}`);
+    const idStr = String(id);
+    onSelectListing?.(idStr);
+    const listing = sortedAllListings.find(
+      (candidate) => String(candidate.id) === idStr
+    );
+    if (listing) {
+      const listingForModal = { ...listing, id: idStr };
+      onOpenListingDetailModal?.(listingForModal, "lens");
+    } else {
+      onOpenListingDetailModal?.(idStr, "lens");
+    }
     handleDismiss();
   };
 
@@ -435,7 +449,6 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
 
           return createPortal(
             <div
-              key={previewKey}
               style={{
                 position: "fixed",
                 top: `${top}px`,
@@ -444,8 +457,17 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
                 zIndex: 10000,
               }}
             >
-              <div
-                className={`w-64 rounded-2xl bg-white shadow-lg border border-border/60 p-2 transition-all duration-200 ease-out ${
+              <button
+                data-maplens-preview="true"
+                type="button"
+                onClick={() => {
+                  const lensId = String(
+                    focusedListing?.id ?? focusedListing?.mlsId ?? ""
+                  );
+                  if (!lensId) return;
+                  goToListing(lensId);
+                }}
+                className={`w-64 rounded-2xl bg-white shadow-lg border border-border/60 p-2 text-left cursor-pointer transition-all duration-200 ease-out ${
                   focusedListing
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-3"
@@ -485,19 +507,12 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
                         return sqft ? ` • ${sqft} sqft` : "";
                       })()}
                     </div>
-                    <button
-                      type="button"
-                      className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
-                      onClick={() => {
-                        onSelectListing?.(focusedListing.id);
-                        handleDismiss();
-                      }}
-                    >
+                    <span className="mt-2 text-xs font-semibold text-blue-600 hover:underline">
                       View Details →
-                    </button>
+                    </span>
                   </div>
                 </div>
-              </div>
+              </button>
             </div>,
             document.body
           );
