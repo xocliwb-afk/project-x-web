@@ -994,11 +994,30 @@ export default function SearchLayoutClient({
     setDraftBounds(null);
   }, [useMapbox, draftBounds, updateUrlWithBounds, setMapBounds, setDraftBounds]);
 
-  const handleCardClick = (listing: Listing) => {
-    setSelectedListingId(listing.id);
-    setSelectedListing(listing);
-    setIsDetailModalOpen(true);
-  };
+  const openListingDetailModal = useCallback(
+    (listingOrId: Listing | string, _source?: 'list' | 'pin' | 'lens') => {
+      const listing =
+        typeof listingOrId === 'string'
+          ? listings.find((candidate) => String(candidate.id) === listingOrId) ??
+            pinListingsById.get(listingOrId) ??
+            null
+          : listingOrId;
+
+      if (!listing?.id) return;
+
+      setSelectedListingId(listing.id);
+      setSelectedListing(listing);
+      setIsDetailModalOpen(true);
+    },
+    [listings, pinListingsById],
+  );
+
+  const handleCardClick = useCallback(
+    (listing: Listing) => {
+      openListingDetailModal(listing, 'list');
+    },
+    [openListingDetailModal],
+  );
 
   const handleSelectListing = (id: string | null) => {
     setSelectedListingId(id);
@@ -1119,7 +1138,7 @@ export default function SearchLayoutClient({
     };
 
     fetchAndOpen();
-  }, [searchParams]);
+  }, [searchParams, handleCardClick]);
 
   const ToggleButton = ({
     mode,
@@ -1213,6 +1232,7 @@ export default function SearchLayoutClient({
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
+                  onOpenListingDetailModal={openListingDetailModal}
                   onBoundsChange={handleBoundsChange}
                   fitBbox={parsedParams.bbox ?? null}
                   fitBboxIsZipIntent={isZipIntent}
@@ -1306,6 +1326,7 @@ export default function SearchLayoutClient({
                   selectedListingId={selectedListingId}
                   hoveredListingId={hoveredListingId}
                   onSelectListing={handleSelectListing}
+                  onOpenListingDetailModal={openListingDetailModal}
                   onBoundsChange={handleBoundsChange}
                   fitBbox={parsedParams.bbox ?? null}
                   fitBboxIsZipIntent={isZipIntent}

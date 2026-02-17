@@ -6,14 +6,21 @@ import mapboxgl from 'mapbox-gl';
 import { useMapLensStore } from '@/stores/useMapLensStore';
 import { MapLens } from '../MapLens';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import type { Listing } from '@project-x/shared-types';
 
 type MapboxLensPortalProps = {
   map: mapboxgl.Map | null;
   onHoverListing?: (id: string | null) => void;
   onSelectListing?: (id: string | null) => void;
+  onOpenListingDetailModal?: (listingOrId: Listing | string, source?: 'pin' | 'lens') => void;
 };
 
-export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: MapboxLensPortalProps) {
+export function MapboxLensPortal({
+  map,
+  onHoverListing,
+  onSelectListing,
+  onOpenListingDetailModal,
+}: MapboxLensPortalProps) {
   const { activeClusterData, dismissLens, isLocked } = useMapLensStore((s) => ({
     activeClusterData: s.activeClusterData,
     dismissLens: s.dismissLens,
@@ -109,7 +116,11 @@ export function MapboxLensPortal({ map, onHoverListing, onSelectListing }: Mapbo
 
   return createPortal(
     <div className="pointer-events-auto">
-      <MapLens onHoverListing={onHoverListing} onSelectListing={onSelectListing} />
+      <MapLens
+        onHoverListing={onHoverListing}
+        onSelectListing={onSelectListing}
+        onOpenListingDetailModal={onOpenListingDetailModal}
+      />
     </div>,
     container,
   );

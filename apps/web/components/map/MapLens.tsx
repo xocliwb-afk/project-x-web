@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import type { Listing } from "@project-x/shared-types";
 import { useMapLensStore } from "@/stores/useMapLensStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
@@ -31,10 +31,16 @@ const MapboxLensMiniMap = dynamic(
 type MapLensProps = {
   onHoverListing?: (id: string | null) => void;
   onSelectListing?: (id: string | null) => void;
+  onOpenListingDetailModal?: (listingOrId: Listing | string, source?: "pin" | "lens") => void;
   isMobile?: boolean;
 };
 
-export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensProps) {
+export function MapLens({
+  onHoverListing,
+  onSelectListing,
+  onOpenListingDetailModal,
+  isMobile,
+}: MapLensProps) {
   const activeClusterData = useMapLensStore((s) => s.activeClusterData);
   const dismissLens = useMapLensStore((s) => s.dismissLens);
   const isLocked = useMapLensStore((s) => s.isLocked);
@@ -46,7 +52,6 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
   const setFocusedListingId = useMapLensStore((s) => s.setFocusedListingId);
   const lensRef = useRef<HTMLDivElement | null>(null);
   const lensOpenRef = useRef(false);
-  const router = useRouter();
   const mobileDetected = useIsMobile();
   const { mapSide } = useTheme();
 
@@ -257,7 +262,8 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
 
   const goToListing = (id: string) => {
     onSelectListing?.(id);
-    router.push(`/listing/${id}`);
+    const listing = sortedAllListings.find((candidate) => candidate.id === id);
+    onOpenListingDetailModal?.(listing ?? id, "lens");
     handleDismiss();
   };
 
@@ -490,6 +496,7 @@ export function MapLens({ onHoverListing, onSelectListing, isMobile }: MapLensPr
                       className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
                       onClick={() => {
                         onSelectListing?.(focusedListing.id);
+                        onOpenListingDetailModal?.(focusedListing, "lens");
                         handleDismiss();
                       }}
                     >
