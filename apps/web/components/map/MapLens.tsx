@@ -451,6 +451,7 @@ export function MapLens({
               }}
             >
               <button
+                data-maplens-preview="true"
                 type="button"
                 onClick={() => focusedListing?.id && goToListing(focusedListing.id)}
                 className={`w-64 rounded-2xl bg-white shadow-lg border border-border/60 p-2 text-left cursor-pointer transition-all duration-200 ease-out ${

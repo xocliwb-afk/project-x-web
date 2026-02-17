@@ -85,9 +85,12 @@ export function MapboxLensPortal({
       const target = event.target as Element | null;
       const inMap = Boolean(target && mapInstance?.getContainer()?.contains(target));
       const inLens = Boolean(target && container.contains(target));
+      const inLensPreview = Boolean(
+        target && target.closest?.('[data-maplens-preview="true"]')
+      );
       if (isLockedRef.current) return;
       if (inMap) return;
-      if (inLens) return;
+      if (inLens || inLensPreview) return;
       dismissLens();
     };
 
