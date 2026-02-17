@@ -41,16 +41,16 @@ export default function Footer() {
             </p>
             <div className="flex items-center gap-3">
               <a
-                href="https://616realty.com"
-                target="_blank"
-                rel="noreferrer"
+                href="/"
                 className="inline-flex"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- Static local footer logo; keep <img> to avoid any layout/behavior drift in lint-only cleanup */}
                 <img
-                  src="/assets/img/logo (for non-white backgrounds).webp"
+                  src="/assets/img/bw-home-group-logo.webp"
                   alt="616 Realty"
-                  className="h-12 w-auto opacity-80 transition hover:opacity-100"
+                  width="48"
+                  height="48"
+                  className="h-12 w-12 opacity-80 transition hover:opacity-100"
                 />
               </a>
               <div className="text-sm text-white/85">
