@@ -109,7 +109,17 @@ export function MapboxLensPortal({
     };
   }, [map, activeClusterData, ensureContainer, updatePosition, dismissLens, isMobile]);
 
-  if (isMobile) return null;
+  if (isMobile) {
+    if (!activeClusterData) return null;
+    return (
+      <MapLens
+        isMobile
+        onHoverListing={onHoverListing}
+        onSelectListing={onSelectListing}
+        onOpenListingDetailModal={onOpenListingDetailModal}
+      />
+    );
+  }
   if (!activeClusterData) return null;
   const container = portalContainer;
   if (!container) return null;
