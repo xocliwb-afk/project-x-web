@@ -1151,8 +1151,8 @@ export default function SearchLayoutClient({
       onClick={() => setViewMode(mode)}
       className={`w-full rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
         viewMode === mode
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-surface hover:bg-surface-accent'
+          ? 'bg-primary text-white'
+          : 'bg-surface text-text-main border border-border hover:bg-surface/80'
       }`}
     >
       {children}
