@@ -186,7 +186,7 @@ export function MapLens({
   const pointerClass = visible ? "pointer-events-auto" : "pointer-events-none";
   const listOnRight = mapSide === "left";
   const [previewOnRight, setPreviewOnRight] = useState(listOnRight);
-  const [previewKey, setPreviewKey] = useState(0);
+  const [, setPreviewKey] = useState(0);
 
   const isMobileView = (isMobile ?? false) || mobileDetected;
 
@@ -449,7 +449,6 @@ export function MapLens({
 
           return createPortal(
             <div
-              key={previewKey}
               style={{
                 position: "fixed",
                 top: `${top}px`,
@@ -461,7 +460,13 @@ export function MapLens({
               <button
                 data-maplens-preview="true"
                 type="button"
-                onClick={() => focusedListing?.id && goToListing(focusedListing.id)}
+                onClick={() => {
+                  const lensId = String(
+                    focusedListing?.id ?? focusedListing?.mlsId ?? ""
+                  );
+                  if (!lensId) return;
+                  goToListing(lensId);
+                }}
                 className={`w-64 rounded-2xl bg-white shadow-lg border border-border/60 p-2 text-left cursor-pointer transition-all duration-200 ease-out ${
                   focusedListing
                     ? "opacity-100 translate-y-0"
