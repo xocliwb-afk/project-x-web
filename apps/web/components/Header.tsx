@@ -270,11 +270,11 @@ export default function Header() {
       {isSearchPage && (
         <>
           <div className="mt-16 w-full border-b border-border bg-primary-accent py-2 text-slate-900 lg:mt-0">
-            <div className="mx-auto hidden w-full max-w-[1920px] flex-wrap items-center gap-3 px-4 sm:px-6 lg:flex lg:px-6">
-              <div className="flex-1 min-w-[320px]">
+            <div className="mx-auto hidden w-full max-w-[1920px] items-center gap-3 px-4 sm:px-6 lg:flex lg:flex-nowrap lg:px-6">
+              <div className="flex-1 min-w-0">
                 <SearchFiltersBar />
               </div>
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="ml-auto flex shrink-0 items-center gap-2">
                 <SortButton />
                 <button
                   type="button"
