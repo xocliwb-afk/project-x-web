@@ -230,34 +230,21 @@ export default function MapboxMap({
 
     mapboxgl.accessToken = token;
 
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center: [initialCenterRef.current[1], initialCenterRef.current[0]],
-      zoom: initialZoomRef.current,
-    });
-
-    mapRef.current = map;
-    setMapInstance(map);
-    const canvas = map.getCanvas();
-    canvas.style.cursor = 'grab';
+    let rafId: number | null = null;
+    let createdMap: mapboxgl.Map | null = null;
     let cleanupTestHook: (() => void) | null = null;
-
-    const handleMouseDown = () => {
-      isDraggingRef.current = true;
-      canvas.style.cursor = 'grabbing';
-    };
-    const handleMouseUp = () => {
-      isDraggingRef.current = false;
-      canvas.style.cursor = 'grab';
-    };
-
-    map.on('mousedown', handleMouseDown);
-    map.on('mouseup', handleMouseUp);
-    map.on('dragend', handleMouseUp);
+    let handleMouseDown!: () => void;
+    let handleMouseUp!: () => void;
+    let handleMouseEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+    let handleMouseMove: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+    let handleMouseLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+    let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
+    let handleMapClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
 
     const emitBounds = (e?: { originalEvent?: unknown }) => {
       if (!onBoundsChangeRef.current) return;
+      const map = createdMap;
+      if (!map) return;
       const bounds = map.getBounds() as mapboxgl.LngLatBounds;
       const bbox = buildBboxFromBounds(bounds);
       // Determine if this is a user gesture (drag/zoom with mouse/touch)
@@ -268,13 +255,35 @@ export default function MapboxMap({
 
     const sourceId = 'listings';
 
-    let handleMouseEnter: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
-    let handleMouseMove: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
-    let handleMouseLeave: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
-    let handleClick: ((e: mapboxgl.MapLayerMouseEvent) => void) | null = null;
-    let handleMapClick: ((e: mapboxgl.MapMouseEvent) => void) | null = null;
+    const initMap = () => {
+      if (!containerRef.current) return;
 
-    map.on('load', () => {
+      const map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [initialCenterRef.current[1], initialCenterRef.current[0]],
+        zoom: initialZoomRef.current,
+      });
+      createdMap = map;
+      mapRef.current = map;
+      setMapInstance(map);
+      const canvas = map.getCanvas();
+      canvas.style.cursor = 'grab';
+
+      handleMouseDown = () => {
+        isDraggingRef.current = true;
+        canvas.style.cursor = 'grabbing';
+      };
+      handleMouseUp = () => {
+        isDraggingRef.current = false;
+        canvas.style.cursor = 'grab';
+      };
+
+      map.on('mousedown', handleMouseDown);
+      map.on('mouseup', handleMouseUp);
+      map.on('dragend', handleMouseUp);
+
+      map.on('load', () => {
       const pillId = 'price-pill';
       if (map.hasImage(pillId) === false) {
         const width = 80;
@@ -637,10 +646,19 @@ export default function MapboxMap({
       }
     });
 
-    map.on('moveend', emitBounds as any);
-    map.on('zoomend', emitBounds as any);
+      map.on('moveend', emitBounds as any);
+      map.on('zoomend', emitBounds as any);
+    };
+
+    rafId = requestAnimationFrame(initMap);
 
     return () => {
+      if (rafId != null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      const map = createdMap;
+      if (!map) return;
       map.off('load', emitBounds as any);
       map.off('moveend', emitBounds as any);
       map.off('zoomend', emitBounds as any);
