@@ -118,7 +118,7 @@ export default function Header() {
         <div className={styles.topNavInner}>
           <Link href="/" className={styles.topNavBrand} onClick={() => setMobileOpen(false)}>
             <Image
-              src="/assets/img/bw-home-group-logo.webp"
+              src="/assets/img/logo (for non-white backgrounds).webp"
               alt="Brandon Wilcox Home Group"
               width={44}
               height={44}
