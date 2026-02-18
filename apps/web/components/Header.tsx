@@ -112,6 +112,17 @@ export default function Header() {
     return () => unlockScroll();
   }, [filtersOpen]);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [mobileOpen]);
+
   return (
     <header className="flex shrink-0 flex-col">
       <nav className={styles.topNav}>
