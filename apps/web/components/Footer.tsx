@@ -1,7 +1,14 @@
+"use client";
+
 import Link from "next/link";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const teamEmail = ["Brandon", "bwhomegroup.com"] as const;
+  const brokerEmail = ["office", "616realty.com"] as const;
+  const openEmail = (parts: readonly [string, string]) => {
+    window.location.href = `mailto:${parts[0]}@${parts[1]}`;
+  };
 
   return (
     <footer className="mt-8 w-full bg-primary text-white">
@@ -23,8 +30,16 @@ export default function Footer() {
                 </a>
               </p>
               <p>
-                <a href="mailto:Brandon@bwhomegroup.com" className="hover:underline">
-                  Brandon@bwhomegroup.com
+                <a
+                  href="#"
+                  className="hover:underline"
+                  aria-label="Email Brandon Wilcox"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openEmail(teamEmail);
+                  }}
+                >
+                  Email Brandon
                 </a>
               </p>
               <p>
@@ -60,8 +75,16 @@ export default function Footer() {
                 <p>1171 Plainfield Ave NE</p>
                 <p>Grand Rapids, MI 49503</p>
                 <p>
-                  <a href="mailto:office@616realty.com" className="hover:underline">
-                    office@616realty.com
+                  <a
+                    href="#"
+                    className="hover:underline"
+                    aria-label="Email 616 Realty office"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      openEmail(brokerEmail);
+                    }}
+                  >
+                    Email 616 Realty Office
                   </a>
                 </p>
               </div>
