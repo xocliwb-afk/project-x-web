@@ -50,6 +50,8 @@ export default function Footer() {
                 <img
                   src="/assets/img/logo (for non-white backgrounds).webp"
                   alt="616 Realty"
+                  width={501}
+                  height={282}
                   className="h-12 w-auto opacity-80 transition hover:opacity-100"
                 />
               </a>
@@ -85,6 +87,8 @@ export default function Footer() {
             <img
               src="/assets/img/realtor.webp"
               alt="Realtor / Equal Housing"
+              width={919}
+              height={451}
               className="h-8 w-auto opacity-80"
             />
           </div>
