@@ -641,6 +641,14 @@ textarea { min-height: 120px; resize: vertical; }
 .brand-logo { display: block; width: 100%; max-width: none; height: auto; margin: -2.2rem auto -1.7rem; transform: scale(1.3) translateY(-32px); transform-origin: center; }
 .brand-tagline { margin: 0 auto; line-height: 1; position: relative; top: -90px; }
 .broker-logo { display: block; width: 100%; max-width: 200px; height: auto; margin: 0 auto 0.5rem auto; }
+/* Footer brand logo override: prevent transform blur/oversize */
+.site-footer .brand-logo {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  margin: 0.25rem auto 0.75rem;
+  transform: none !important;
+}
 .agent-card { display: flex; flex-direction: column; gap: 0.5rem; align-items: center; text-align: center; color: #ffffff; margin-top: 0.5rem; }
 .agent-name { font-weight: 800; font-size: 1.4rem; color: #ffffff; margin: 0; line-height: 1.2; }
 .agent-line-item { font-size: 0.95rem; color: rgba(255, 255, 255, 0.9); margin: 0; padding: 0; line-height: 1.3; white-space: nowrap; }
