@@ -45,6 +45,8 @@ export function ListingCard({
   const priceText = formatPrice(listing);
   const beds = listing.details?.beds ?? 0;
   const baths = listing.details?.baths ?? 0;
+  const bedsLabel = listing.details?.beds != null ? String(listing.details.beds) : 'N/A';
+  const bathsLabel = listing.details?.baths != null ? String(listing.details.baths) : 'N/A';
   const sqft = formatSqft(listing.details?.sqft ?? null);
   const daysOnMarket = formatDaysOnMarketShort(listing.meta?.daysOnMarket ?? null);
   const mlsAttribution = formatAttribution(listing);
@@ -111,7 +113,7 @@ export function ListingCard({
       className={`group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition-all duration-300 cursor-pointer dark:bg-slate-800 ${
         isSelected ? 'ring-2 ring-blue-500' : 'hover:shadow-md hover:-translate-y-1'
       }`}
-      aria-label={`View details for ${fullAddress}`}
+      aria-label={`${fullAddress} — ${priceText}, ${bedsLabel} bed, ${bathsLabel} bath. View details.`}
     >
       <div className="relative w-full overflow-hidden bg-slate-200 dark:bg-slate-700 aspect-[4/3] md:aspect-[16/9]">
         <Image
@@ -177,7 +179,7 @@ export function ListingCard({
                 href={`/listing/${listing.id}`}
                 prefetch={false}
                 onClick={(e) => e.stopPropagation()} // Prevent card click from firing
-              className="whitespace-nowrap text-xs text-blue-500 hover:underline"
+              className="inline-flex items-center whitespace-nowrap py-1 text-xs text-blue-600 hover:underline"
               aria-label={`View full page for ${fullAddress}`}
             >
               Full Page
