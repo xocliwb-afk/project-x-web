@@ -27,6 +27,8 @@ type MapboxMapProps = {
   }, isUserGesture: boolean) => void;
   fitBbox?: string | null;
   fitBboxIsZipIntent?: boolean;
+  onMapReady?: () => void;
+  onMapError?: (error: unknown) => void;
 };
 
 const defaultCenter: [number, number] = [42.9634, -85.6681];
@@ -45,6 +47,8 @@ export default function MapboxMap({
   onHoverListing,
   fitBbox = null,
   fitBboxIsZipIntent = false,
+  onMapReady,
+  onMapError,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -75,6 +79,8 @@ export default function MapboxMap({
   const onHoverListingRef = useRef(onHoverListing);
   const onSelectListingRef = useRef(onSelectListing);
   const onOpenListingDetailModalRef = useRef(onOpenListingDetailModal);
+  const onMapReadyRef = useRef(onMapReady);
+  const onMapErrorRef = useRef(onMapError);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const { openImmediate, dismissLens } = useMapLens();
   const enableE2E =
@@ -96,6 +102,14 @@ export default function MapboxMap({
   useEffect(() => {
     onOpenListingDetailModalRef.current = onOpenListingDetailModal;
   }, [onOpenListingDetailModal]);
+
+  useEffect(() => {
+    onMapReadyRef.current = onMapReady;
+  }, [onMapReady]);
+
+  useEffect(() => {
+    onMapErrorRef.current = onMapError;
+  }, [onMapError]);
 
   const getNearbyListingIds = useCallback(
     (point: { x: number; y: number }) => {
@@ -258,15 +272,26 @@ export default function MapboxMap({
     const initMap = () => {
       if (!containerRef.current) return;
 
-      const map = new mapboxgl.Map({
-        container: containerRef.current,
-        style: 'mapbox://styles/mapbox/streets-v11',
-        center: [initialCenterRef.current[1], initialCenterRef.current[0]],
-        zoom: initialZoomRef.current,
-      });
+      let map: mapboxgl.Map;
+      try {
+        map = new mapboxgl.Map({
+          container: containerRef.current,
+          style: 'mapbox://styles/mapbox/streets-v11',
+          center: [initialCenterRef.current[1], initialCenterRef.current[0]],
+          zoom: initialZoomRef.current,
+        });
+      } catch (err) {
+        onMapErrorRef.current?.(err);
+        return;
+      }
       createdMap = map;
       mapRef.current = map;
       setMapInstance(map);
+      map.on('error', (err) => {
+        if (!sourceReadyRef.current) {
+          onMapErrorRef.current?.(err);
+        }
+      });
       const canvas = map.getCanvas();
       canvas.style.cursor = 'grab';
 
@@ -605,6 +630,7 @@ export default function MapboxMap({
       });
 
       sourceReadyRef.current = true;
+      onMapReadyRef.current?.();
       emitBounds();
       applyFeatureStates();
       applyFitBbox(map, fitBbox ?? null, fitBboxIsZipIntent);

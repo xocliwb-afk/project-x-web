@@ -33,6 +33,7 @@ type MapBounds = {
   bbox?: string;
 };
 type MapboxMapComponent = typeof import('@/components/map/mapbox/MapboxMap')['default'];
+type MapReadyState = 'loading' | 'ready' | 'error';
 
 type PinHydrationStatus = 'idle' | 'running' | 'done' | 'capped' | 'aborted' | 'error';
 
@@ -168,6 +169,8 @@ export default function SearchLayoutClient({
   // do not pull the heavy mapbox chunk before user intent.
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [MapComponent, setMapComponent] = useState<MapboxMapComponent | null>(null);
+  const [mapReadyState, setMapReadyState] = useState<MapReadyState>('loading');
+  const [mapRetryNonce, setMapRetryNonce] = useState(0);
   const inFlightPagesRef = useRef<Set<string>>(new Set());
   const loadedPagesRef = useRef<Set<string>>(new Set());
   const autofillKeyRef = useRef<string | null>(null);
@@ -180,6 +183,20 @@ export default function SearchLayoutClient({
 
   // Prevent mobile cold-load from fetching the heavy mapbox chunk (b3c11155).
   const shouldMountMap = isDesktopViewport || viewMode === 'map';
+
+  const handleMapReady = useCallback(() => {
+    setMapReadyState('ready');
+  }, []);
+
+  const handleMapError = useCallback((err: unknown) => {
+    console.error('[MapInit] map initialization failed', err);
+    setMapReadyState('error');
+  }, []);
+
+  const handleRetryMapInit = useCallback(() => {
+    setMapReadyState('loading');
+    setMapRetryNonce((n) => n + 1);
+  }, []);
 
   const pinListings = useMemo(
     () => Array.from(pinListingsById.values()),
@@ -223,20 +240,35 @@ export default function SearchLayoutClient({
   }, []);
 
   useEffect(() => {
-    if (!shouldMountMap || MapComponent) return;
+    if (!shouldMountMap) return;
+    if (MapComponent) {
+      setMapReadyState('loading');
+      return;
+    }
     let cancelled = false;
+    setMapReadyState('loading');
     import('@/components/map/mapbox/MapboxMap')
       .then((mod) => {
         if (cancelled) return;
         setMapComponent(() => mod.default);
       })
       .catch((err) => {
-        console.error('[SearchLayoutClient] failed to load map module', err);
+        console.error('[MapInit] failed to load map module', err);
+        setMapReadyState('error');
       });
     return () => {
       cancelled = true;
     };
-  }, [MapComponent, shouldMountMap]);
+  }, [MapComponent, shouldMountMap, mapRetryNonce]);
+
+  useEffect(() => {
+    if (!shouldMountMap || mapReadyState !== 'loading') return;
+    const timer = setTimeout(() => {
+      console.error('[MapInit] map initialization timed out');
+      setMapReadyState('error');
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [shouldMountMap, mapReadyState, mapRetryNonce]);
 
   const pinCount = useMemo(
     () =>
@@ -1257,8 +1289,9 @@ export default function SearchLayoutClient({
                     </button>
                   </div>
                 )}
-                {MapComponent ? (
+                {MapComponent && mapReadyState !== 'error' ? (
                   <MapComponent
+                    key={`mobile-map-${mapRetryNonce}`}
                     listings={pinListings}
                     selectedListingId={selectedListingId}
                     hoveredListingId={hoveredListingId}
@@ -1267,7 +1300,20 @@ export default function SearchLayoutClient({
                     onBoundsChange={handleBoundsChange}
                     fitBbox={parsedParams.bbox ?? null}
                     fitBboxIsZipIntent={isZipIntent}
+                    onMapReady={handleMapReady}
+                    onMapError={handleMapError}
                   />
+                ) : mapReadyState === 'error' ? (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface text-sm text-text-main/70">
+                    <span>Map failed to load. Retry.</span>
+                    <button
+                      type="button"
+                      onClick={handleRetryMapInit}
+                      className="rounded border border-border bg-white px-3 py-1.5 text-xs font-semibold text-text-main hover:bg-surface-muted"
+                    >
+                      Retry
+                    </button>
+                  </div>
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-main/60">
                     Loading map...
@@ -1358,8 +1404,9 @@ export default function SearchLayoutClient({
                   </div>
                 )}
                 {isDesktopViewport ? (
-                  MapComponent ? (
+                  MapComponent && mapReadyState !== 'error' ? (
                     <MapComponent
+                      key={`desktop-map-${mapRetryNonce}`}
                       listings={pinListings}
                       selectedListingId={selectedListingId}
                       hoveredListingId={hoveredListingId}
@@ -1368,7 +1415,20 @@ export default function SearchLayoutClient({
                       onBoundsChange={handleBoundsChange}
                       fitBbox={parsedParams.bbox ?? null}
                       fitBboxIsZipIntent={isZipIntent}
+                      onMapReady={handleMapReady}
+                      onMapError={handleMapError}
                     />
+                  ) : mapReadyState === 'error' ? (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface text-sm text-text-main/70">
+                      <span>Map failed to load. Retry.</span>
+                      <button
+                        type="button"
+                        onClick={handleRetryMapInit}
+                        className="rounded border border-border bg-white px-3 py-1.5 text-xs font-semibold text-text-main hover:bg-surface-muted"
+                      >
+                        Retry
+                      </button>
+                    </div>
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-main/60">
                       Loading map...
