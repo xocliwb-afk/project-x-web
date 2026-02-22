@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, type ComponentType } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { Listing } from '@project-x/shared-types';
 import type {
@@ -15,14 +15,6 @@ import ListingsList from '@/components/ListingsList';
 import { useTheme } from '@/context/ThemeContext';
 import { smartSubmit } from '@/lib/search/smartSubmit';
 
-const MapboxMap = dynamic(() => import('@/components/map/mapbox/MapboxMap'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-main/60">
-      Loading map...
-    </div>
-  ),
-});
 const ListingDetailModal = dynamic(
   () => import('@/components/ListingDetailModal').then((mod) => mod.ListingDetailModal),
   { ssr: false },
@@ -174,6 +166,7 @@ export default function SearchLayoutClient({
   // Keep the desktop map unmounted until viewport is known so mobile cold loads
   // do not pull the heavy mapbox chunk before user intent.
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
+  const [MapComponent, setMapComponent] = useState<ComponentType<any> | null>(null);
   const inFlightPagesRef = useRef<Set<string>>(new Set());
   const loadedPagesRef = useRef<Set<string>>(new Set());
   const autofillKeyRef = useRef<string | null>(null);
@@ -184,7 +177,8 @@ export default function SearchLayoutClient({
   const isLoadingMoreRef = useRef(isLoadingMore);
   const didRunSmartHandoffRef = useRef(false);
 
-  const MapComponent = MapboxMap;
+  // Prevent mobile cold-load from fetching the heavy mapbox chunk (b3c11155).
+  const shouldMountMap = isDesktopViewport || viewMode === 'map';
 
   const pinListings = useMemo(
     () => Array.from(pinListingsById.values()),
@@ -226,6 +220,22 @@ export default function SearchLayoutClient({
       mediaQuery.removeListener?.(syncViewport);
     };
   }, []);
+
+  useEffect(() => {
+    if (!shouldMountMap || MapComponent) return;
+    let cancelled = false;
+    import('@/components/map/mapbox/MapboxMap')
+      .then((mod) => {
+        if (cancelled) return;
+        setMapComponent(() => mod.default as ComponentType<any>);
+      })
+      .catch((err) => {
+        console.error('[SearchLayoutClient] failed to load map module', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [MapComponent, shouldMountMap]);
 
   const pinCount = useMemo(
     () =>
@@ -1246,16 +1256,22 @@ export default function SearchLayoutClient({
                     </button>
                   </div>
                 )}
-                <MapComponent
-                  listings={pinListings}
-                  selectedListingId={selectedListingId}
-                  hoveredListingId={hoveredListingId}
-                  onSelectListing={handleSelectListing}
-                  onOpenListingDetailModal={openListingDetailModal}
-                  onBoundsChange={handleBoundsChange}
-                  fitBbox={parsedParams.bbox ?? null}
-                  fitBboxIsZipIntent={isZipIntent}
-                />
+                {MapComponent ? (
+                  <MapComponent
+                    listings={pinListings}
+                    selectedListingId={selectedListingId}
+                    hoveredListingId={hoveredListingId}
+                    onSelectListing={handleSelectListing}
+                    onOpenListingDetailModal={openListingDetailModal}
+                    onBoundsChange={handleBoundsChange}
+                    fitBbox={parsedParams.bbox ?? null}
+                    fitBboxIsZipIntent={isZipIntent}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-main/60">
+                    Loading map...
+                  </div>
+                )}
               </div>
             )}
             {viewMode === 'list' && (
@@ -1341,16 +1357,22 @@ export default function SearchLayoutClient({
                   </div>
                 )}
                 {isDesktopViewport ? (
-                  <MapComponent
-                    listings={pinListings}
-                    selectedListingId={selectedListingId}
-                    hoveredListingId={hoveredListingId}
-                    onSelectListing={handleSelectListing}
-                    onOpenListingDetailModal={openListingDetailModal}
-                    onBoundsChange={handleBoundsChange}
-                    fitBbox={parsedParams.bbox ?? null}
-                    fitBboxIsZipIntent={isZipIntent}
-                  />
+                  MapComponent ? (
+                    <MapComponent
+                      listings={pinListings}
+                      selectedListingId={selectedListingId}
+                      hoveredListingId={hoveredListingId}
+                      onSelectListing={handleSelectListing}
+                      onOpenListingDetailModal={openListingDetailModal}
+                      onBoundsChange={handleBoundsChange}
+                      fitBbox={parsedParams.bbox ?? null}
+                      fitBboxIsZipIntent={isZipIntent}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-main/60">
+                      Loading map...
+                    </div>
+                  )
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-main/60">
                     Loading map...
