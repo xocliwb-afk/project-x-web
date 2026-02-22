@@ -14,7 +14,14 @@ const config: Config = {
         "primary-foreground": theme.colors.primaryForeground,
         "primary-accent": theme.colors.primaryAccent,
         background: theme.colors.background,
-        surface: theme.colors.surface,
+        surface: {
+          DEFAULT: theme.colors.surface,
+          muted: theme.colors.surfaceMuted,
+          accent: theme.colors.surfaceAccent,
+        },
+        text: {
+          secondary: theme.colors.textSecondary,
+        },
         "text-main": theme.colors.textMain,
         "text-muted": theme.colors.textMuted,
         border: theme.colors.border,
