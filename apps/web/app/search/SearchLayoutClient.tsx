@@ -1396,7 +1396,7 @@ export default function SearchLayoutClient({
                         : `Showing ${visibleListings.length.toLocaleString()} / ${TARGET_RESULTS} results`}
                       {isAutoFilling ? ' (loading...)' : ''}
                     </p>
-                    <p className="min-h-[16px] text-xs text-text-main/60">
+                    <p className="min-h-[16px] text-xs text-text-main/70">
                       Pins: {pinCount.toLocaleString()} {pinHydrationSuffix}
                     </p>
                     {pinHydrationStatus === 'capped' && (

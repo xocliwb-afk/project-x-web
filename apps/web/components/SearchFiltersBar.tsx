@@ -923,7 +923,7 @@ export default function SearchFiltersBar({ layout = "inline" }: SearchFiltersBar
       <div className="mx-auto flex max-w-[1920px] flex-wrap items-center gap-3">
         <div className="w-full sm:w-1/3 md:w-1/3 lg:w-1/3 sm:ml-2">
           <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <span className="hidden text-[10px] font-bold uppercase tracking-[0.3em] text-text-main/60 sm:inline">
+            <span className="hidden text-[10px] font-bold uppercase tracking-[0.3em] text-text-main/70 sm:inline">
               Search
             </span>
             <input
@@ -935,7 +935,7 @@ export default function SearchFiltersBar({ layout = "inline" }: SearchFiltersBar
               onKeyDown={handleOmniboxEnter}
             />
             <span
-              className="pointer-events-none text-[10px] font-semibold uppercase tracking-[0.2em] text-text-main/40"
+              className="pointer-events-none text-[10px] font-semibold uppercase tracking-[0.2em] text-text-main/70"
               aria-hidden="true"
             >
               Powered by Gemini
