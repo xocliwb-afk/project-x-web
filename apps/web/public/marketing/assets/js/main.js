@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const navLinks = document.querySelectorAll('.top-nav__links a');
     if (!navLinks.length) return;
     const neighborhoods = new Set([
-      'neighborhoods.html',
       'grand-rapids.html',
       'east-grand-rapids.html',
       'ada.html',
@@ -18,13 +17,26 @@ document.addEventListener('DOMContentLoaded', () => {
       'caledonia.html',
       'grandville.html'
     ]);
+    const normalizeRoute = (value = '') => {
+      let next = String(value || '').toLowerCase().trim();
+      if (!next || next === '#!' || next === '#') return '';
+      next = next.replace(/^\/+/, '').replace(/\/+$/, '');
+      if (next.endsWith('.html')) {
+        next = next.slice(0, -5);
+      }
+      return next || 'index';
+    };
+    const normalizedNeighborhoods = new Set(Array.from(neighborhoods).map((slug) => normalizeRoute(slug)));
     const segments = window.location.pathname.split('/').filter(Boolean);
-    let file = segments.pop() || 'index.html';
-    file = file.toLowerCase() || 'index.html';
-    const target = neighborhoods.has(file) ? 'neighborhoods.html' : file;
+    const currentRoute = normalizeRoute(segments.pop() || 'index');
+    const target = normalizedNeighborhoods.has(currentRoute) ? 'neighborhoods' : currentRoute;
 
     navLinks.forEach(link => {
-      const href = (link.getAttribute('href') || '').toLowerCase();
+      const href = normalizeRoute(link.getAttribute('href') || '');
+      if (!href) {
+        link.classList.remove('is-active');
+        return;
+      }
       link.classList.toggle('is-active', href === target);
     });
   };

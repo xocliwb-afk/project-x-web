@@ -62,6 +62,7 @@ const nextConfig = {
         { source: '/build', destination: '/marketing/builder.html' },
         { source: '/builder', destination: '/marketing/builder.html' },
         { source: '/about', destination: '/marketing/about.html' },
+        { source: '/contact', destination: '/marketing/contact.html' },
         { source: '/neighborhoods', destination: '/marketing/neighborhoods.html' },
         { source: '/privacy-policy', destination: '/marketing/privacy-policy.html' },
         { source: '/terms-of-use', destination: '/marketing/terms-of-use.html' },
