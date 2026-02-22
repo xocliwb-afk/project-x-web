@@ -39,7 +39,7 @@ export default function Header() {
     { label: "Home", href: "/" },
     { label: "Search", href: "/search" },
     { label: "Buy Smarter", href: "/buy" },
-    { label: "Sell for More", href: "/sell" },
+    { label: "Sell with Clarity", href: "/sell" },
     { label: "Build", href: "/build" },
     { label: "About", href: "/about" },
   ];
