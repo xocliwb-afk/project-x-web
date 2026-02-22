@@ -11,6 +11,23 @@ const DEFAULT_BROKER_ID =
   process.env.NEXT_PUBLIC_BROKER_ID || "demo-broker";
 const DEFAULT_AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || undefined;
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+const RECAPTCHA_WAIT_TIMEOUT_MS = 2000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForRecaptchaExecute = async (
+  timeoutMs = RECAPTCHA_WAIT_TIMEOUT_MS
+): Promise<{ execute: (siteKey: string, options: { action: string }) => Promise<string> } | null> => {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= timeoutMs) {
+    const grecaptcha = typeof window !== "undefined" ? (window as any).grecaptcha : undefined;
+    if (grecaptcha && typeof grecaptcha.execute === "function") {
+      return grecaptcha;
+    }
+    await sleep(100);
+  }
+  return null;
+};
 
 interface LeadFormProps {
   intent: Intent;
@@ -95,10 +112,21 @@ export default function LeadForm({
     setErrorMessage(null);
     submitStartedAtRef.current = Date.now();
 
-    const grecaptcha = typeof window !== "undefined" ? (window as any).grecaptcha : undefined;
-    if (!RECAPTCHA_SITE_KEY || !grecaptcha || typeof grecaptcha.execute !== "function") {
+    if (!RECAPTCHA_SITE_KEY) {
       setStatus("error");
       setErrorMessage("Captcha not ready. Please try again.");
+      trackEvent("lead_submit_error", {
+        intent,
+        entry_source: entrySource,
+        listing_id: listingId,
+        error_type: "captcha_unavailable",
+      });
+      return;
+    }
+    const grecaptcha = await waitForRecaptchaExecute();
+    if (!grecaptcha) {
+      setStatus("error");
+      setErrorMessage("Security check is still loading — please try again.");
       trackEvent("lead_submit_error", {
         intent,
         entry_source: entrySource,
@@ -128,7 +156,7 @@ export default function LeadForm({
       captchaToken = await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: "submit_lead" });
     } catch (err) {
       setStatus("error");
-      setErrorMessage("Captcha not ready. Please try again.");
+      setErrorMessage("Security check is still loading — please try again.");
       trackEvent("lead_submit_error", {
         intent,
         entry_source: entrySource,
