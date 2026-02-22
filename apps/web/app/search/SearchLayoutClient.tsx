@@ -1241,7 +1241,7 @@ export default function SearchLayoutClient({
             )}
             {viewMode === 'list' && (
               <div className="h-full overflow-y-auto px-4 pt-4 pb-6">
-                <div className="mb-3 text-sm text-text-main/70">
+                <div className="mb-3 min-h-[16px] text-sm text-text-main/70">
                   {isLoading || isWaitingForBounds
                     ? 'Loading...'
                     : `Showing ${visibleListings.length.toLocaleString()} / ${TARGET_RESULTS} results`}{" "}
@@ -1348,7 +1348,7 @@ export default function SearchLayoutClient({
                         : `Showing ${visibleListings.length.toLocaleString()} / ${TARGET_RESULTS} results`}
                       {isAutoFilling ? ' (loading...)' : ''}
                     </p>
-                    <p className="text-xs text-text-main/60">
+                    <p className="min-h-[16px] text-xs text-text-main/60">
                       Pins: {pinCount.toLocaleString()} {pinHydrationSuffix}
                     </p>
                     {pinHydrationStatus === 'capped' && (

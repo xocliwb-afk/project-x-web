@@ -65,9 +65,9 @@ export default function Footer() {
                 <img
                   src="/assets/img/logo (for non-white backgrounds).webp"
                   alt="616 Realty"
-                  width={501}
-                  height={282}
-                  className="h-12 w-auto opacity-80 transition hover:opacity-100"
+                  width={85}
+                  height={48}
+                  className="h-12 w-auto shrink-0 opacity-80 transition hover:opacity-100"
                 />
               </a>
               <div className="text-sm text-white/85">
