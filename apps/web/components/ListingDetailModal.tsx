@@ -51,7 +51,7 @@ export function ListingDetailModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="listing-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 pt-[max(1rem,env(safe-area-inset-top))]"
       onClick={handleBackdropClick}
     >
       <div

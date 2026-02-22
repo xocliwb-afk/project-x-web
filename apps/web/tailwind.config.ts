@@ -11,6 +11,7 @@ const config: Config = {
     extend: {
       colors: {
         primary: theme.colors.primary,
+        "primary-foreground": theme.colors.primaryForeground,
         "primary-accent": theme.colors.primaryAccent,
         background: theme.colors.background,
         surface: theme.colors.surface,
