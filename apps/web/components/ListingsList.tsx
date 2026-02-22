@@ -61,7 +61,7 @@ export default function ListingsList({
   }
 
   if (!listings.length && !isWaiting) {
-    return <p className="text-sm text-slate-500">No listings found.</p>;
+    return <p className="text-sm text-text-main/70">No listings found.</p>;
   }
 
   const disableLoadMore = isLoading || isWaiting || isLoadingMore;

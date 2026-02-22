@@ -25,14 +25,14 @@ export default function Footer() {
             </div>
             <div className="text-sm text-white/90">
               <p>
-                <a href="tel:+16163085359" className="hover:underline">
+                <a href="tel:+16163085359" className="inline-flex items-center py-1 hover:underline">
                   616-308-5359
                 </a>
               </p>
               <p>
                 <a
                   href="#"
-                  className="hover:underline"
+                  className="inline-flex items-center py-1 hover:underline"
                   aria-label="Email Brandon Wilcox"
                   onClick={(e) => {
                     e.preventDefault();
@@ -43,7 +43,7 @@ export default function Footer() {
                 </a>
               </p>
               <p>
-                <Link href="/" className="hover:underline">
+                <Link href="/" className="inline-flex items-center py-1 hover:underline">
                   bwhomegroup.com
                 </Link>
               </p>
