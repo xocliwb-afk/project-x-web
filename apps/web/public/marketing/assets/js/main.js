@@ -323,6 +323,103 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllOverlays(); });
 
   const slugify = (str = '') => str.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const REQUIRED_MODAL_FIELDS = [
+    { name: 'first_name', requiredMessage: 'First name is required.' },
+    { name: 'last_name', requiredMessage: 'Last name is required.' },
+    { name: 'email', requiredMessage: 'Email is required.' },
+    { name: 'interest', requiredMessage: "Please choose what you're interested in." },
+  ];
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const getModalErrorId = (fieldName) => `err_${fieldName}`;
+  const getModalFieldElement = (formEl, fieldName) => {
+    if (!(formEl instanceof HTMLFormElement)) return null;
+    const field = formEl.elements.namedItem(fieldName);
+    if (!(field instanceof HTMLElement)) return null;
+    return field;
+  };
+  const ensureModalFieldErrorEl = (formEl, fieldName) => {
+    if (!(formEl instanceof HTMLFormElement)) return null;
+    const expectedId = getModalErrorId(fieldName);
+    let errorEl = formEl.querySelector(`#${expectedId}`);
+    if (!(errorEl instanceof HTMLElement)) {
+      const fieldEl = getModalFieldElement(formEl, fieldName);
+      if (!(fieldEl instanceof HTMLElement)) return null;
+      const wrapper = fieldEl.closest('.hp-modal-field');
+      if (!(wrapper instanceof HTMLElement)) return null;
+      errorEl = document.createElement('div');
+      errorEl.className = 'field-error';
+      errorEl.id = expectedId;
+      errorEl.setAttribute('role', 'alert');
+      errorEl.setAttribute('aria-live', 'polite');
+      wrapper.appendChild(errorEl);
+    }
+    return errorEl;
+  };
+  const clearModalFieldError = (formEl, fieldName) => {
+    const fieldEl = getModalFieldElement(formEl, fieldName);
+    const errorEl = ensureModalFieldErrorEl(formEl, fieldName);
+    if (fieldEl instanceof HTMLElement) {
+      fieldEl.classList.remove('is-invalid');
+      fieldEl.removeAttribute('aria-invalid');
+      const describedBy = fieldEl.getAttribute('aria-describedby') || '';
+      const tokens = describedBy
+        .split(/\s+/)
+        .map((token) => token.trim())
+        .filter(Boolean)
+        .filter((token) => token !== getModalErrorId(fieldName));
+      if (tokens.length > 0) {
+        fieldEl.setAttribute('aria-describedby', tokens.join(' '));
+      } else {
+        fieldEl.removeAttribute('aria-describedby');
+      }
+    }
+    if (errorEl instanceof HTMLElement) {
+      errorEl.textContent = '';
+    }
+  };
+  const setModalFieldError = (formEl, fieldName, message) => {
+    const fieldEl = getModalFieldElement(formEl, fieldName);
+    const errorEl = ensureModalFieldErrorEl(formEl, fieldName);
+    if (fieldEl instanceof HTMLElement) {
+      fieldEl.classList.add('is-invalid');
+      fieldEl.setAttribute('aria-invalid', 'true');
+      fieldEl.setAttribute('aria-describedby', getModalErrorId(fieldName));
+    }
+    if (errorEl instanceof HTMLElement) {
+      errorEl.textContent = message;
+    }
+  };
+  const validateModalField = (formEl, fieldName, requiredMessage) => {
+    const fieldEl = getModalFieldElement(formEl, fieldName);
+    if (!(fieldEl instanceof HTMLElement)) return null;
+    const value = (fieldEl.value || '').toString().trim();
+    if (!value) return requiredMessage;
+    if (fieldName === 'email' && !emailPattern.test(value)) {
+      return 'Enter a valid email address.';
+    }
+    return null;
+  };
+  const validateModalForm = (formEl) => {
+    let firstInvalidEl = null;
+    REQUIRED_MODAL_FIELDS.forEach(({ name, requiredMessage }) => {
+      const nextError = validateModalField(formEl, name, requiredMessage);
+      if (nextError) {
+        setModalFieldError(formEl, name, nextError);
+        if (!firstInvalidEl) {
+          firstInvalidEl = getModalFieldElement(formEl, name);
+        }
+      } else {
+        clearModalFieldError(formEl, name);
+      }
+    });
+    return {
+      isValid: !firstInvalidEl,
+      firstInvalidEl,
+    };
+  };
+  const clearModalValidation = (formEl) => {
+    REQUIRED_MODAL_FIELDS.forEach(({ name }) => clearModalFieldError(formEl, name));
+  };
 
   const handleOpenModalTrigger = (trigger) => {
     lastLeadModalTrigger = trigger;
@@ -357,6 +454,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     openModal(targetModalId);
+    if (targetModalId === 'contactModal' && modalForm instanceof HTMLFormElement) {
+      clearModalValidation(modalForm);
+      if (modalStatus) modalStatus.textContent = '';
+    }
   };
 
   document.addEventListener('click', (e) => {
@@ -395,17 +496,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const modalForm = document.getElementById('modalForm');
   const modalStatus = document.getElementById('modal-status');
-  if (modalForm && !document.getElementById('page_context')) {
-    const ctxInput = document.createElement('input');
-    ctxInput.type = 'hidden';
-    ctxInput.name = 'page_context';
-    ctxInput.id = 'page_context';
-    ctxInput.value = '';
-    modalForm.prepend(ctxInput);
-  }
-  if (modalForm) {
+  if (modalForm instanceof HTMLFormElement) {
+    modalForm.noValidate = true;
+    REQUIRED_MODAL_FIELDS.forEach(({ name, requiredMessage }) => {
+      ensureModalFieldErrorEl(modalForm, name);
+      const fieldEl = getModalFieldElement(modalForm, name);
+      if (!(fieldEl instanceof HTMLElement)) return;
+      const revalidateField = () => {
+        const nextError = validateModalField(modalForm, name, requiredMessage);
+        if (nextError) {
+          setModalFieldError(modalForm, name, nextError);
+        } else {
+          clearModalFieldError(modalForm, name);
+        }
+      };
+      const valueEvent = fieldEl instanceof HTMLSelectElement ? 'change' : 'input';
+      fieldEl.addEventListener(valueEvent, () => {
+        if (fieldEl.classList.contains('is-invalid')) {
+          revalidateField();
+        }
+      });
+      fieldEl.addEventListener('blur', () => {
+        const currentValue = (fieldEl.value || '').toString().trim();
+        if (fieldEl.classList.contains('is-invalid') || !currentValue) {
+          revalidateField();
+        }
+      });
+    });
+
+    if (!document.getElementById('page_context')) {
+      const ctxInput = document.createElement('input');
+      ctxInput.type = 'hidden';
+      ctxInput.name = 'page_context';
+      ctxInput.id = 'page_context';
+      ctxInput.value = '';
+      modalForm.prepend(ctxInput);
+    }
+
     modalForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const validation = validateModalForm(modalForm);
+      if (!validation.isValid) {
+        if (modalStatus) modalStatus.textContent = 'Please correct the highlighted fields.';
+        validation.firstInvalidEl?.focus();
+        return;
+      }
+
       const formData = new FormData(modalForm);
       const firstName = (formData.get('first_name') || '').toString().trim();
       const lastName = (formData.get('last_name') || '').toString().trim();
@@ -422,11 +558,6 @@ document.addEventListener('DOMContentLoaded', () => {
           .replace(/^\/+/, '')
           .replace(/\.html$/, '') ||
         'home';
-
-      if (!firstName || !lastName || !email || !interest) {
-        if (modalStatus) modalStatus.textContent = 'Please fill all required fields.';
-        return;
-      }
 
       if (!recaptchaSiteKey || !recaptchaReady || !window.grecaptcha?.execute) {
         if (modalStatus) modalStatus.textContent = 'Captcha not ready. Please try again.';
@@ -518,6 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
           closeAllOverlays();
           if (modalStatus) modalStatus.textContent = '';
           modalForm.reset();
+          clearModalValidation(modalForm);
         }, 900);
       } catch (err) {
         console.error('Lead submit failed', err);
