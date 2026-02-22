@@ -73,6 +73,7 @@ export default function ListingsList({
           <div
             key={listing.id}
             data-listing-id={listing.id}
+            data-testid="listing-card-item"
             ref={(el) => {
               if (el) {
                 itemRefs.current[listing.id] = el;

@@ -928,18 +928,13 @@ export default function SearchFiltersBar({ layout = "inline" }: SearchFiltersBar
             </span>
             <input
               type="text"
-              className="w-full border-none bg-transparent p-0 pr-16 text-xs text-text-main placeholder:text-text-main/40 focus:outline-none"
+              data-testid="search-pill-input"
+              className="w-full border-none bg-transparent p-0 text-sm text-text-main placeholder:text-text-secondary placeholder:opacity-100 focus:outline-none"
               placeholder="City, ZIP, Address"
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleOmniboxEnter}
             />
-            <span
-              className="pointer-events-none text-[10px] font-semibold uppercase tracking-[0.2em] text-text-main/70"
-              aria-hidden="true"
-            >
-              Powered by Gemini
-            </span>
           </div>
         </div>
 
