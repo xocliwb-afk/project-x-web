@@ -119,7 +119,7 @@ export function ListingCard({
           alt={`Image of ${fullAddress}`}
           fill
           style={{ objectFit: 'cover' }}
-          sizes="(min-width: 1280px) 480px, (min-width: 1024px) 420px, (min-width: 768px) 60vw, 100vw"
+          sizes="(min-width: 1280px) 320px, (min-width: 1024px) 320px, (min-width: 768px) 50vw, 100vw"
           priority={priority}
           className="bg-slate-200"
         />
