@@ -163,6 +163,7 @@ export default function SearchLayoutClient({
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const modalOpenerRef = useRef<HTMLElement | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   // Keep the desktop map unmounted until viewport is known so mobile cold loads
   // do not pull the heavy mapbox chunk before user intent.
@@ -1035,6 +1036,14 @@ export default function SearchLayoutClient({
 
       if (!listing?.id) return;
 
+      if (typeof document !== 'undefined') {
+        const activeElement = document.activeElement;
+        modalOpenerRef.current =
+          activeElement instanceof HTMLElement && activeElement !== document.body
+            ? activeElement
+            : null;
+      }
+
       setSelectedListingId(listing.id);
       setSelectedListing(listing);
       setIsDetailModalOpen(true);
@@ -1137,12 +1146,21 @@ export default function SearchLayoutClient({
     pagination,
   ]);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setIsDetailModalOpen(false);
+    const opener = modalOpenerRef.current;
+    modalOpenerRef.current = null;
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        if (opener instanceof HTMLElement && opener.isConnected) {
+          opener.focus();
+        }
+      });
+    }
     setTimeout(() => {
       setSelectedListing(null);
     }, 200);
-  };
+  }, []);
 
   const handledListingIdRef = useRef<string | null>(null);
 
@@ -1158,7 +1176,8 @@ export default function SearchLayoutClient({
         const data = await res.json().catch(() => null);
         const listing = data?.listing || data;
         if (listing && listing.id) {
-          handleCardClick(listing);
+          modalOpenerRef.current = null;
+          openListingDetailModal(listing);
           handledListingIdRef.current = listingId;
         }
       } catch (err) {
@@ -1168,7 +1187,7 @@ export default function SearchLayoutClient({
     };
 
     fetchAndOpen();
-  }, [searchParams, handleCardClick]);
+  }, [searchParams, openListingDetailModal]);
 
   const ToggleButton = ({
     mode,

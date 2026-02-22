@@ -55,9 +55,17 @@ export function ListingDetailModal({
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden"
+        className="relative bg-white dark:bg-slate-900 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden"
         onClick={handleContentClick}
       >
+        <button
+          type="button"
+          aria-label="Close listing details"
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 rounded-full border border-border bg-white/95 px-3 py-1.5 text-sm font-semibold text-text-main shadow-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 dark:hover:bg-slate-900"
+        >
+          Close
+        </button>
         <div className="w-full md:w-1/2">
           <ListingImageGallery
             photos={listing.media?.photos ?? []}
