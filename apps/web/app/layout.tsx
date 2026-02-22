@@ -8,7 +8,10 @@ import Script from "next/script";
 import DevAnalyticsPanel from "@/components/DevAnalyticsPanel";
 
 export const metadata: Metadata = {
-  title: "Project X - Real Estate Search",
+  title: {
+    default: "Brandon Wilcox Home Group",
+    template: "%s | Brandon Wilcox Home Group",
+  },
   description: "White-label real estate search platform",
 };
 
