@@ -10,7 +10,7 @@ export const mockListings: any[] = [
       county: "Kent",
     },
     media: {
-      photos: ["https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=800&q=80"],
+      photos: ["/placeholder-house.jpg"],
       virtualTourUrl: undefined,
     },
     details: {
@@ -70,7 +70,7 @@ export const mockListings: any[] = [
       county: "Kent",
     },
     media: {
-      photos: ["https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80"],
+      photos: ["/placeholder-house.jpg"],
     },
     details: {
       price: 325000,
@@ -104,7 +104,7 @@ export const mockListings: any[] = [
       county: "Kent",
     },
     media: {
-      photos: ["https://images.unsplash.com/photo-1600596542815-e32cb0656e21?auto=format&fit=crop&w=800&q=80"],
+      photos: ["/placeholder-house.jpg"],
     },
     details: {
       price: 550000,
@@ -138,7 +138,7 @@ export const mockListings: any[] = [
       county: "Kent",
     },
     media: {
-      photos: ["https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"],
+      photos: ["/placeholder-house.jpg"],
     },
     details: {
       price: 299000,
