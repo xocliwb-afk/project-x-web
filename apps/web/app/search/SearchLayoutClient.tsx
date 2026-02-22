@@ -171,6 +171,9 @@ export default function SearchLayoutClient({
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  // Keep the desktop map unmounted until viewport is known so mobile cold loads
+  // do not pull the heavy mapbox chunk before user intent.
+  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const inFlightPagesRef = useRef<Set<string>>(new Set());
   const loadedPagesRef = useRef<Set<string>>(new Set());
   const autofillKeyRef = useRef<string | null>(null);
@@ -210,6 +213,19 @@ export default function SearchLayoutClient({
   useEffect(() => {
     isLoadingMoreRef.current = isLoadingMore;
   }, [isLoadingMore]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const syncViewport = () => setIsDesktopViewport(mediaQuery.matches);
+    syncViewport();
+    mediaQuery.addEventListener?.('change', syncViewport);
+    mediaQuery.addListener?.(syncViewport);
+    return () => {
+      mediaQuery.removeEventListener?.('change', syncViewport);
+      mediaQuery.removeListener?.(syncViewport);
+    };
+  }, []);
 
   const pinCount = useMemo(
     () =>
@@ -1324,16 +1340,22 @@ export default function SearchLayoutClient({
                     </button>
                   </div>
                 )}
-                <MapComponent
-                  listings={pinListings}
-                  selectedListingId={selectedListingId}
-                  hoveredListingId={hoveredListingId}
-                  onSelectListing={handleSelectListing}
-                  onOpenListingDetailModal={openListingDetailModal}
-                  onBoundsChange={handleBoundsChange}
-                  fitBbox={parsedParams.bbox ?? null}
-                  fitBboxIsZipIntent={isZipIntent}
-                />
+                {isDesktopViewport ? (
+                  <MapComponent
+                    listings={pinListings}
+                    selectedListingId={selectedListingId}
+                    hoveredListingId={hoveredListingId}
+                    onSelectListing={handleSelectListing}
+                    onOpenListingDetailModal={openListingDetailModal}
+                    onBoundsChange={handleBoundsChange}
+                    fitBbox={parsedParams.bbox ?? null}
+                    fitBboxIsZipIntent={isZipIntent}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-main/60">
+                    Loading map...
+                  </div>
+                )}
               </div>
             </div>
 
