@@ -175,6 +175,7 @@ export function ListingCard({
             <div className="flex flex-col items-end gap-2">
               <Link
                 href={`/listing/${listing.id}`}
+                prefetch={false}
                 onClick={(e) => e.stopPropagation()} // Prevent card click from firing
               className="whitespace-nowrap text-xs text-blue-500 hover:underline"
               aria-label={`View full page for ${fullAddress}`}

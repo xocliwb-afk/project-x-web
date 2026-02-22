@@ -12,7 +12,6 @@ import { fetchListings } from '@/lib/api-client';
 import { trackEvent } from '@/lib/analytics';
 import Footer from '@/components/Footer';
 import ListingsList from '@/components/ListingsList';
-import { ListingDetailModal } from '@/components/ListingDetailModal';
 import { useTheme } from '@/context/ThemeContext';
 import { smartSubmit } from '@/lib/search/smartSubmit';
 
@@ -24,6 +23,10 @@ const MapboxMap = dynamic(() => import('@/components/map/mapbox/MapboxMap'), {
     </div>
   ),
 });
+const ListingDetailModal = dynamic(
+  () => import('@/components/ListingDetailModal').then((mod) => mod.ListingDetailModal),
+  { ssr: false },
+);
 
 type SearchLayoutClientProps = {
   initialListings: Listing[];
@@ -1410,11 +1413,13 @@ export default function SearchLayoutClient({
         </div>
       </main>
 
-      <ListingDetailModal
-        listing={selectedListing}
-        isOpen={isDetailModalOpen}
-        onClose={handleCloseModal}
-      />
+      {selectedListing ? (
+        <ListingDetailModal
+          listing={selectedListing}
+          isOpen={isDetailModalOpen}
+          onClose={handleCloseModal}
+        />
+      ) : null}
     </>
   );
 }
