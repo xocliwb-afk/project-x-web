@@ -397,6 +397,9 @@ export default function SearchLayoutClient({
     if (parsedWithoutToken.bbox)
       return { ...parsedWithoutToken, limit: parsedWithoutToken.limit ?? PAGE_SIZE };
     if (hasFilters) return parsedWithoutToken;
+    if (useMapbox && !shouldMountMap) {
+      return { ...parsedWithoutToken, page: 1 };
+    }
 
     // Fallback: if bounds wait timed out, allow bbox-less fetch once
     if (boundsWaitTimedOut) {
@@ -404,12 +407,15 @@ export default function SearchLayoutClient({
     }
 
     return null;
-  }, [mapBounds, parsedParams, hasFilters, boundsWaitTimedOut]);
+  }, [mapBounds, parsedParams, hasFilters, boundsWaitTimedOut, useMapbox, shouldMountMap]);
 
   const paramsKey = useMemo(() => (effectiveParams ? JSON.stringify(effectiveParams) : null), [
     effectiveParams,
   ]);
-  const fetchGateKey = useMemo(() => parsedParams.searchToken ?? null, [parsedParams.searchToken]);
+  const fetchGateKey = useMemo(
+    () => parsedParams.searchToken ?? (parsedParams.q ? null : paramsKey) ?? null,
+    [parsedParams.searchToken, parsedParams.q, paramsKey],
+  );
   const isWaitingForBounds =
     !useMapbox && effectiveParams === null && !boundsWaitTimedOut;
   const baseQueryKey = useMemo(() => {
