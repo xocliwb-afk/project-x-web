@@ -2,6 +2,7 @@
   "brandName": "Brandon Wilcox Home Group",
   "colors": {
     "primary": "#14243B",
+    "primaryForeground": "#FFFFFF",
     "primaryAccent": "#C7855B",
     "background": "#FFFFFF",
     "surface": "#F5F1E8",
