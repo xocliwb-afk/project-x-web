@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState, useCallback, type ComponentType } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { Listing } from '@project-x/shared-types';
 import type {
@@ -32,6 +32,7 @@ type MapBounds = {
   neLng: number;
   bbox?: string;
 };
+type MapboxMapComponent = typeof import('@/components/map/mapbox/MapboxMap')['default'];
 
 type PinHydrationStatus = 'idle' | 'running' | 'done' | 'capped' | 'aborted' | 'error';
 
@@ -166,7 +167,7 @@ export default function SearchLayoutClient({
   // Keep the desktop map unmounted until viewport is known so mobile cold loads
   // do not pull the heavy mapbox chunk before user intent.
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
-  const [MapComponent, setMapComponent] = useState<ComponentType<any> | null>(null);
+  const [MapComponent, setMapComponent] = useState<MapboxMapComponent | null>(null);
   const inFlightPagesRef = useRef<Set<string>>(new Set());
   const loadedPagesRef = useRef<Set<string>>(new Set());
   const autofillKeyRef = useRef<string | null>(null);
@@ -227,7 +228,7 @@ export default function SearchLayoutClient({
     import('@/components/map/mapbox/MapboxMap')
       .then((mod) => {
         if (cancelled) return;
-        setMapComponent(() => mod.default as ComponentType<any>);
+        setMapComponent(() => mod.default);
       })
       .catch((err) => {
         console.error('[SearchLayoutClient] failed to load map module', err);
