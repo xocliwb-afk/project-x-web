@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import dynamic from 'next/dynamic';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -27,6 +28,23 @@ type ListingDetailPageProps = {
     id: string;
   };
 };
+
+export async function generateMetadata({ params }: ListingDetailPageProps): Promise<Metadata> {
+  try {
+    const listingResponse = await fetchListingForPage(params.id);
+    const listing = listingResponse?.listing;
+    const street =
+      typeof listing?.address?.street === 'string' ? listing.address.street.trim() : '';
+    if (street) return { title: street };
+
+    const city = typeof listing?.address?.city === 'string' ? listing.address.city.trim() : '';
+    if (city) return { title: `${city} Listing` };
+
+    return { title: 'Listing Details' };
+  } catch {
+    return { title: 'Listing Details' };
+  }
+}
 
 function getRequestOrigin() {
   const h = headers();
